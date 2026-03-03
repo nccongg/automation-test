@@ -8,7 +8,7 @@ A full-stack web-based automation testing platform powered by Selenium WebDriver
 |-------|-----------|
 | Frontend | ReactJS + Vite + shadcn/ui + Tailwind CSS |
 | Backend | Node.js + Express.js |
-| Database | PostgreSQL (via DBeaver) |
+| Database | PostgreSQL 16 |
 | Automation | Selenium WebDriver |
 | AI | Google Gemini AI |
 
@@ -16,10 +16,24 @@ A full-stack web-based automation testing platform powered by Selenium WebDriver
 
 ```
 automation-test/
-├── client/          # React frontend
-├── server/          # Node.js backend
-├── docker-compose.yml
-├── .env.example
+├── client/                    # React frontend
+├── server/
+│   ├── src/
+│   │   ├── app.js             # Entry point — Express setup
+│   │   ├── routes.js          # API router
+│   │   ├── config/
+│   │   │   ├── env.js         # Environment variables
+│   │   │   ├── database.js    # PostgreSQL pool
+│   │   │   └── gemini.js      # Gemini AI config
+│   │   ├── modules/
+│   │   │   ├── testCase/      # Test case CRUD
+│   │   │   ├── testRun/       # Test run execution
+│   │   │   └── result/        # Results & reports
+│   │   ├── middleware/        # Custom middleware
+│   │   └── utils/             # Helper functions
+│   ├── migrations/
+│   │   └── 001_init.sql       # Database schema
+│   └── .env                   # Environment variables (local only)
 └── README.md
 ```
 
@@ -27,7 +41,7 @@ automation-test/
 
 ### Prerequisites
 - Node.js >= 18
-- Docker & Docker Compose
+- PostgreSQL 16
 - Chrome browser (for Selenium)
 
 ### 1. Clone and install dependencies
@@ -40,25 +54,80 @@ cd client && npm install
 cd ../server && npm install
 ```
 
+**Backend dependencies** (tự động cài qua `npm install`):
+
+| Package | Mục đích |
+|---------|---------|
+| `express` | HTTP server |
+| `pg` | Kết nối PostgreSQL |
+| `dotenv` | Đọc file `.env` |
+| `cors` | Cho phép frontend gọi API |
+| `helmet` | Bảo mật HTTP headers |
+| `morgan` | Log request |
+| `uuid` | Generate unique IDs |
+
 ### 2. Configure environment variables
 
+**Mac/Linux:**
 ```bash
 cp .env.example .env
-# Edit .env with your actual values
 ```
 
-### 3. Start PostgreSQL
+**Windows:**
+```cmd
+copy .env.example .env
+```
+
+---
+
+### 3. Cài và khởi động PostgreSQL
+
+#### 🍎 macOS (Homebrew)
 
 ```bash
-docker-compose up -d
+# Cài PostgreSQL 16
+brew install postgresql@16
+
+# Thêm vào PATH
+echo 'export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+
+# Khởi động PostgreSQL
+brew services start postgresql@16
 ```
 
-### 4. Run database migrations
+#### 🪟 Windows
+
+1. Tải installer tại: https://www.postgresql.org/download/windows/
+2. Chạy installer, cài version 16, đặt password cho user `postgres`
+3. Sau khi cài xong, mở **SQL Shell (psql)** hoặc **pgAdmin** từ Start Menu
+
+---
+
+### 4. Tạo database và chạy migration
+
+#### 🍎 macOS
 
 ```bash
-cd server
-psql -U postgres -d automation_test -f migrations/001_init.sql
+# Tạo database
+psql postgres -c "CREATE DATABASE automation_test;"
+
+# Chạy migration (từ thư mục gốc project)
+psql -d automation_test -f server/migrations/001_init.sql
 ```
+
+#### 🪟 Windows
+
+Mở **SQL Shell (psql)** hoặc **Command Prompt** (đảm bảo `psql` đã được thêm vào PATH):
+
+```cmd
+psql -U postgres -c "CREATE DATABASE automation_test;"
+psql -U postgres -d automation_test -f server/migrations/001_init.sql
+```
+
+> **Lưu ý Windows:** Nếu `psql` chưa nhận trong CMD, thêm vào PATH:
+> `C:\Program Files\PostgreSQL\16\bin`
+
+---
 
 ### 5. Start the backend
 
