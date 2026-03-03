@@ -6,9 +6,9 @@ import TestRunnerPage from '@/pages/TestRunnerPage'
 import TestResultsPage from '@/pages/TestResultsPage'
 import SettingsPage from '@/pages/SettingsPage'
 
-import LoginPage from '@/pages/LoginPage'
-import SignupPage from '@/pages/SignupPage'
-import ForgotPasswordPage from '@/pages/ForgotPasswordPage'
+import LoginPage from '@/pages/auth/LoginPage'
+import SignupPage from '@/pages/auth/SignupPage'
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
 
 export default function App() {
   return (
