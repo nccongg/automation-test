@@ -47,6 +47,19 @@
 
 :root {
     --radius: 0.625rem;
+
+    /* ── Brand design tokens ──────────────────────────────────────── */
+    --brand-primary:        #1692ff;  /* CTA buttons */
+    --brand-primary-hover:  #0f83e8;
+    --brand-primary-shadow: 0 6px 14px rgba(22, 146, 255, 0.28);
+    --brand-primary-shadow-sm: 0 4px 12px rgba(22, 146, 255, 0.3);
+
+    --brand-dark:           #2f3338;  /* dark buttons (Google sign-in…) */
+    --brand-dark-hover:     #262a2f;
+
+    --brand-page-bg:        #5a4949; /* auth page background */
+    /* ──────────────────────────────────────────────────────────────── */
+
     --background: oklch(1 0 0);
     --foreground: oklch(0.129 0.042 264.695);
     --card: oklch(1 0 0);
@@ -79,6 +92,7 @@
     --sidebar-border: oklch(0.929 0.013 255.508);
     --sidebar-ring: oklch(0.704 0.04 256.788);
 }
+
 
 .dark {
     --background: oklch(0.129 0.042 264.695);

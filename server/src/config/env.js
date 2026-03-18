@@ -21,6 +21,10 @@ const env = {
   SELENIUM_BROWSER: process.env.SELENIUM_BROWSER || 'chrome',
   SELENIUM_HEADLESS: process.env.SELENIUM_HEADLESS === 'true',
   SCREENSHOTS_DIR: process.env.SCREENSHOTS_DIR || './screenshots',
+
+  // Auth
+  JWT_SECRET: process.env.JWT_SECRET || 'secret',
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
 };
 
 module.exports = env;

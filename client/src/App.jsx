@@ -8,15 +8,17 @@ import TestRunnerPage from "@/pages/TestRunnerPage";
 import TestResultsPage from "@/pages/TestResultsPage";
 import SettingsPage from "@/pages/SettingsPage";
 
-import LoginPage from "@/pages/auth/login/LoginPage";
+import {
+  LoginPage,
+  SignupPage,
+  SignupSuccessPage,
+  ForgotPasswordPage,
+  ForgotPasswordVerifyPage,
+  ResetPasswordPage,
+  ResetPasswordSuccessPage,
+} from "@/pages/auth";
 
-import SignupPage from "@/pages/auth/Signup/SignupPage";
-import SignupSuccessPage from "@/pages/auth/Signup/SignupSuccessPage";
-
-import ForgotPasswordPage from "@/pages/auth/forgotPassword/ForgotPasswordPage";
-import ForgotPasswordVerifyPage from "@/pages/auth/forgotPassword/ForgotPasswordVerifyPage";
-import ResetPasswordPage from "@/pages/auth/forgotPassword/ResetPasswordPage";
-import ResetPasswordSuccessPage from "@/pages/auth/forgotPassword/ResetPasswordSuccessPage";
+import ProtectedRoute from "@/components/shared/ProtectedRoute";
 
 export default function App() {
   return (
@@ -39,13 +41,15 @@ export default function App() {
           element={<ResetPasswordSuccessPage />}
         />
 
-        {/* Main app */}
-        <Route path="/" element={<Layout />}>
-          <Route index element={<DashboardPage />} />
-          <Route path="test-cases" element={<TestCasesPage />} />
-          <Route path="test-runner" element={<TestRunnerPage />} />
-          <Route path="results" element={<TestResultsPage />} />
-          <Route path="settings" element={<SettingsPage />} />
+        {/* Protected Main app routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<DashboardPage />} />
+            <Route path="test-cases" element={<TestCasesPage />} />
+            <Route path="test-runner" element={<TestRunnerPage />} />
+            <Route path="results" element={<TestResultsPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
         </Route>
 
         {/* Fallback */}

@@ -1,9 +1,8 @@
 import { useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import AuthLayout from "@/components/shared/AuthLayout";
 import { Button } from "@/components/ui/button";
-
-import authBanner from "@/assets/auth-banner.svg";
 
 const CODE_LENGTH = 5;
 
@@ -27,11 +26,9 @@ export default function ForgotPasswordVerifyPage() {
     if (e.key === "Backspace" && !code[index] && index > 0) {
       inputsRef.current[index - 1]?.focus();
     }
-
     if (e.key === "ArrowLeft" && index > 0) {
       inputsRef.current[index - 1]?.focus();
     }
-
     if (e.key === "ArrowRight" && index < CODE_LENGTH - 1) {
       inputsRef.current[index + 1]?.focus();
     }
@@ -65,47 +62,57 @@ export default function ForgotPasswordVerifyPage() {
 
   return (
     <AuthLayout
-      pageLabel="Forgot Password #3"
-      title="Forgot Password"
-      imageSrc={authBanner}
-      imageAlt="Authentication banner"
+      title="Check your email"
+      subtitle="We sent a 5-digit code to your inbox. Enter it below to continue."
     >
-      <div className="space-y-6">
-        <p className="-mt-2 text-center text-[12px] leading-5 text-slate-400">
-          We sent a reset link to contact@dscode....com enter 5 digit code that
-          mentioned in the email
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div
+          className="flex items-center justify-center gap-3"
+          onPaste={handlePaste}
+        >
+          {code.map((digit, index) => (
+            <input
+              key={index}
+              ref={(el) => {
+                inputsRef.current[index] = el;
+              }}
+              type="text"
+              inputMode="numeric"
+              maxLength={1}
+              value={digit}
+              onChange={(e) => handleChange(index, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(index, e)}
+              className="h-14 w-14 rounded-xl border border-slate-200 bg-slate-50 text-center text-lg font-bold text-slate-800 outline-none transition focus:border-[#1692ff] focus:bg-white focus:ring-2 focus:ring-[#1692ff]/20"
+            />
+          ))}
+        </div>
+
+        <Button
+          type="submit"
+          className="h-11 w-full rounded-lg bg-[#1692ff] text-sm font-semibold text-white shadow-[0_4px_12px_rgba(22,146,255,0.3)] hover:bg-[#0f83e8] active:scale-[0.98] transition-all"
+        >
+          Verify code
+        </Button>
+
+        <p className="text-center text-sm text-slate-500">
+          Didn&apos;t receive it?{" "}
+          <button
+            type="button"
+            className="font-semibold text-[#1692ff] hover:underline"
+          >
+            Resend code
+          </button>
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div
-            className="flex items-center justify-center gap-4"
-            onPaste={handlePaste}
+        <p className="text-center text-sm text-slate-500">
+          <Link
+            to="/forgot-password"
+            className="font-semibold text-slate-600 hover:underline"
           >
-            {code.map((digit, index) => (
-              <input
-                key={index}
-                ref={(el) => {
-                  inputsRef.current[index] = el;
-                }}
-                type="text"
-                inputMode="numeric"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleChange(index, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(index, e)}
-                className="h-12 w-12 rounded-[10px] border border-slate-300 bg-white text-center text-base font-semibold text-slate-700 outline-none transition focus:border-[#8dbdff] focus:ring-2 focus:ring-[#d9ebff]"
-              />
-            ))}
-          </div>
-
-          <Button
-            type="submit"
-            className="h-11 w-full rounded-md bg-[#1692ff] text-sm font-semibold text-white shadow-[0_6px_14px_rgba(22,146,255,0.28)] hover:bg-[#0f83e8]"
-          >
-            Verify Code
-          </Button>
-        </form>
-      </div>
+            ← Back
+          </Link>
+        </p>
+      </form>
     </AuthLayout>
   );
 }

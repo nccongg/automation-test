@@ -25,6 +25,8 @@ router.get('/health', async (req, res) => {
 });
 
 // ─── Module Routes ────────────────────────────────────────────────────────────
+router.use('/auth', require('./modules/auth/auth.router'));
+
 // Uncomment as you implement each module:
 // router.use('/test-cases', require('./modules/testCase/testCase.router'));
 // router.use('/test-runs',  require('./modules/testRun/testRun.router'));
