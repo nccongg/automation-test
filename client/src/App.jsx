@@ -1,50 +1,49 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+/**
+ * Main Application Component
+ * 
+ * Root component with routing configuration
+ */
 
-import Layout from "@/components/shared/Layout";
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { ROUTES } from '@/config/routes';
+import Layout from '@/shared/components/layout/Layout';
+import ProtectedRoute from '@/shared/components/layout/ProtectedRoute';
 
-import DashboardPage from "@/pages/DashboardPage";
-import TestCasesPage from "@/pages/TestCasesPage";
-import TestRunnerPage from "@/pages/TestRunnerPage";
-import TestResultsPage from "@/pages/TestResultsPage";
-import SettingsPage from "@/pages/SettingsPage";
+// Auth pages
+import LoginPage from '@/pages/auth/LoginPage';
+import SignupPage from '@/pages/auth/SignupPage';
+import SignupSuccessPage from '@/pages/auth/SignupSuccessPage';
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
+import ForgotPasswordVerifyPage from '@/pages/auth/ForgotPasswordVerifyPage';
+import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
+import ResetPasswordSuccessPage from '@/pages/auth/ResetPasswordSuccessPage';
 
-import {
-  LoginPage,
-  SignupPage,
-  SignupSuccessPage,
-  ForgotPasswordPage,
-  ForgotPasswordVerifyPage,
-  ResetPasswordPage,
-  ResetPasswordSuccessPage,
-} from "@/pages/auth";
-
-import ProtectedRoute from "@/components/shared/ProtectedRoute";
+// Main app pages
+import DashboardPage from '@/pages/main/DashboardPage';
+import ProjectsPage from '@/pages/main/ProjectsPage';
+import TestCasesPage from '@/pages/main/TestCasesPage';
+import TestRunnerPage from '@/pages/TestRunnerPage';
+import TestResultsPage from '@/pages/main/TestResultsPage';
+import SettingsPage from '@/pages/main/SettingsPage';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Auth pages */}
-        <Route path="/login" element={<LoginPage />} />
+        {/* Auth routes */}
+        <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+        <Route path={ROUTES.SIGNUP} element={<SignupPage />} />
+        <Route path={ROUTES.SIGNUP_SUCCESS} element={<SignupSuccessPage />} />
+        <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
+        <Route path={ROUTES.FORGOT_PASSWORD_VERIFY} element={<ForgotPasswordVerifyPage />} />
+        <Route path={ROUTES.RESET_PASSWORD} element={<ResetPasswordPage />} />
+        <Route path={ROUTES.RESET_PASSWORD_SUCCESS} element={<ResetPasswordSuccessPage />} />
 
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/signup/success" element={<SignupSuccessPage />} />
-
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route
-          path="/forgot-password/verify"
-          element={<ForgotPasswordVerifyPage />}
-        />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route
-          path="/reset-password/success"
-          element={<ResetPasswordSuccessPage />}
-        />
-
-        {/* Protected Main app routes */}
+        {/* Protected Main routes */}
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Layout />}>
             <Route index element={<DashboardPage />} />
+            <Route path="projects" element={<ProjectsPage />} />
             <Route path="test-cases" element={<TestCasesPage />} />
             <Route path="test-runner" element={<TestRunnerPage />} />
             <Route path="results" element={<TestResultsPage />} />
@@ -53,7 +52,7 @@ export default function App() {
         </Route>
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to={ROUTES.LOGIN} replace />} />
       </Routes>
     </BrowserRouter>
   );

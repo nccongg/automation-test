@@ -1,0 +1,66 @@
+/**
+ * Dashboard Page
+ * 
+ * Main dashboard view showing KPIs and recent projects
+ * Uses feature components from /features/dashboard
+ */
+
+import { Plus } from 'lucide-react';
+import { useDashboard } from '@/features/dashboard/hooks/useDashboard';
+import KpiCard from '@/features/dashboard/components/KpiCard';
+import ProjectCard from '@/features/dashboard/components/ProjectCard';
+import LoadingSpinner from '@/shared/components/common/LoadingSpinner';
+import ErrorBanner from '@/shared/components/common/ErrorBanner';
+import PageHeader from '@/shared/components/common/PageHeader';
+
+export default function DashboardPage() {
+  const { data, loading, error } = useDashboard();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <LoadingSpinner size="lg" label="Loading dashboard..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return <ErrorBanner message={error} fullWidth onRetry={() => window.location.reload()} />;
+  }
+
+  const kpis = data?.kpis || [];
+  const recentProjects = data?.recentProjects || [];
+
+  return (
+    <div className="space-y-8">
+      <PageHeader
+        title="Dashboard"
+        description="Overview of your testing projects and recent activity"
+        action={
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white shadow-[var(--brand-primary-shadow)] hover:bg-[var(--brand-primary-hover)]"
+          >
+            <Plus className="size-4" />
+            New Project
+          </button>
+        }
+      />
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {kpis.map((kpi) => (
+          <KpiCard key={kpi.id || kpi.label} {...kpi} />
+        ))}
+      </div>
+
+      <section className="space-y-5">
+        <h2 className="text-lg font-semibold tracking-tight">Recent Projects</h2>
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {recentProjects.map((p) => (
+            <ProjectCard key={p.id || p.title} {...p} />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}

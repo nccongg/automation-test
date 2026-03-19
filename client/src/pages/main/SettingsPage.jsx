@@ -1,39 +1,89 @@
-import { useState } from "react";
+/**
+ * Settings Page
+ * 
+ * User settings and preferences
+ * Uses feature components from /features/settings
+ */
 
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState } from 'react';
+import { useSettings } from '@/features/settings/hooks/useSettings';
+import LoadingSpinner from '@/shared/components/common/LoadingSpinner';
+import ErrorBanner from '@/shared/components/common/ErrorBanner';
+import PageHeader from '@/shared/components/common/PageHeader';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 
 export default function SettingsPage() {
-  const [email, setEmail] = useState("example@gmail.com");
-  const [timezone, setTimezone] = useState("UTC");
-  const [weeklySummary, setWeeklySummary] = useState(true);
+  const { settings, loading, error, updateSettings } = useSettings();
+  const [formData, setFormData] = useState({
+    email: '',
+    timezone: 'UTC',
+    weeklySummary: true,
+  });
+
+  // Update form data when settings load
+  useState(() => {
+    if (settings) {
+      setFormData({
+        email: settings.email || '',
+        timezone: settings.timezone || 'UTC',
+        weeklySummary: settings.notifications?.weeklySummary ?? true,
+      });
+    }
+  });
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <LoadingSpinner size="lg" label="Loading settings..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return <ErrorBanner message={error} fullWidth onRetry={() => window.location.reload()} />;
+  }
+
+  const handleSave = async () => {
+    const result = await updateSettings({
+      email: formData.email,
+      timezone: formData.timezone,
+      notifications: {
+        weeklySummary: formData.weeklySummary,
+      },
+    });
+
+    if (result.success) {
+      console.log('Settings saved');
+    } else {
+      console.error('Failed to save settings');
+    }
+  };
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Configure your workspace preferences
-          </p>
-        </div>
-
-        <Button
-          className="bg-[var(--brand-primary)] !text-white shadow-[var(--brand-primary-shadow)] hover:bg-[var(--brand-primary-hover)]"
-        >
-          Save changes
-        </Button>
-      </div>
+      <PageHeader
+        title="Settings"
+        description="Configure your workspace preferences"
+        action={
+          <Button
+            onClick={handleSave}
+            className="bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)]"
+          >
+            Save changes
+          </Button>
+        }
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="space-y-6 px-6">
@@ -49,16 +99,16 @@ export default function SettingsPage() {
               <Label htmlFor="notification-email">Email</Label>
               <Input
                 id="notification-email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 type="email"
               />
             </div>
 
             <div className="flex items-center gap-3 rounded-xl border border-border p-4">
               <Checkbox
-                checked={weeklySummary}
-                onCheckedChange={(v) => setWeeklySummary(Boolean(v))}
+                checked={formData.weeklySummary}
+                onCheckedChange={(v) => setFormData(prev => ({ ...prev, weeklySummary: Boolean(v) }))}
                 id="weekly-summary"
               />
               <div className="space-y-0.5">
@@ -84,7 +134,7 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Timezone</Label>
-              <Select value={timezone} onValueChange={setTimezone}>
+              <Select value={formData.timezone} onValueChange={(value) => setFormData(prev => ({ ...prev, timezone: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select timezone" />
                 </SelectTrigger>
@@ -98,7 +148,7 @@ export default function SettingsPage() {
 
             <div className="space-y-2">
               <Label>Default project visibility</Label>
-              <Select value={"private"} onValueChange={() => {}}>
+              <Select value="private" onValueChange={() => {}}>
                 <SelectTrigger>
                   <SelectValue placeholder="Private" />
                 </SelectTrigger>
