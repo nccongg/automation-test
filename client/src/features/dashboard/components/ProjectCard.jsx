@@ -3,10 +3,15 @@
  * 
  * Displays project summary with status, test cases, and pass rate
  * Used on dashboard to show recent projects
+ * Clickable to navigate to project detail page
  */
+
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '@/config/routes';
 
 /**
  * @param {Object} props
+ * @param {string|number} props.id - Project ID for navigation
  * @param {string} props.title - Project title
  * @param {string} props.description - Project description
  * @param {string} props.status - Status text
@@ -18,6 +23,7 @@
  * @param {number} props.projectBarWidth - Progress bar width percentage
  */
 export default function ProjectCard({
+  id,
   title,
   description,
   status,
@@ -28,6 +34,14 @@ export default function ProjectCard({
   barTone,
   projectBarWidth,
 }) {
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    if (id) {
+      navigate(`${ROUTES.PROJECT_DETAIL.replace(':projectId', id)}`);
+    }
+  };
+
   const statusClass =
     statusTone === 'passing'
       ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
@@ -43,7 +57,18 @@ export default function ProjectCard({
         : 'bg-slate-400';
 
   return (
-    <div className="flex flex-col gap-5 rounded-2xl border bg-white p-6 shadow-sm">
+    <div 
+      className="flex flex-col gap-5 rounded-2xl border bg-white p-6 shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-[var(--brand-primary)]/30"
+      onClick={handleClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleClick();
+        }
+      }}
+    >
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-lg font-semibold tracking-tight">{title}</div>

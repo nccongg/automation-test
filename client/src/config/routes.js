@@ -17,6 +17,7 @@ export const ROUTES = {
   // Protected routes
   DASHBOARD: '/',
   PROJECTS: '/projects',
+  PROJECT_DETAIL: '/projects/:projectId',
   TEST_CASES: '/test-cases',
   TEST_RUNNER: '/test-runner',
   TEST_RESULTS: '/results',
