@@ -21,6 +21,8 @@ import ResetPasswordSuccessPage from '@/pages/auth/ResetPasswordSuccessPage';
 // Main app pages
 import DashboardPage from '@/pages/main/DashboardPage';
 import ProjectsPage from '@/pages/main/ProjectsPage';
+import ProjectDetailPage from '@/pages/main/ProjectDetailPage';
+import ProjectOverviewPage from '@/pages/main/ProjectOverviewPage';
 import TestCasesPage from '@/pages/main/TestCasesPage';
 import TestRunnerPage from '@/pages/TestRunnerPage';
 import TestResultsPage from '@/pages/main/TestResultsPage';
@@ -44,6 +46,13 @@ export default function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<DashboardPage />} />
             <Route path="projects" element={<ProjectsPage />} />
+            <Route path="projects/:projectId" element={<ProjectDetailPage />}>
+              <Route index element={<Navigate to="overview" replace />} />
+              <Route path="overview" element={<ProjectOverviewPage />} />
+              <Route path="test-cases" element={<div className="py-10 text-center text-muted-foreground">Test Cases coming soon</div>} />
+              <Route path="test-runs" element={<div className="py-10 text-center text-muted-foreground">Test Runs coming soon</div>} />
+              <Route path="settings" element={<div className="py-10 text-center text-muted-foreground">Settings coming soon</div>} />
+            </Route>
             <Route path="test-cases" element={<TestCasesPage />} />
             <Route path="test-runner" element={<TestRunnerPage />} />
             <Route path="results" element={<TestResultsPage />} />

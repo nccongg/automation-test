@@ -2,46 +2,50 @@
  * Projects API Module
  * 
  * Project management API calls
- * Currently uses mock data - replace with real API when ready
  */
 
-import { 
-  getProjectsList as getProjectsListMock,
-  getProjectById as getProjectByIdMock,
-  createProject as createProjectMock,
-} from '@/mocks/handlers/apiHandlers';
+import { apiClient } from '@/api/client';
 
 /**
  * Get all projects
  * @returns {Promise<Object[]>} List of projects
- * 
- * TODO: Replace with real API call
  */
 export async function getProjectsList() {
-  const response = await getProjectsListMock();
-  return response.data;
+  const response = await apiClient.get('/projects');
+  return response.data?.data || response.data;
 }
 
 /**
  * Get single project by ID
  * @param {string} projectId - Project ID
  * @returns {Promise<Object>} Project details
- * 
- * TODO: Replace with real API call
  */
 export async function getProjectById(projectId) {
-  const response = await getProjectByIdMock(projectId);
-  return response.data;
+  const response = await apiClient.get(`/projects/${projectId}`);
+  return response.data?.data || response.data;
 }
 
 /**
  * Create new project
  * @param {Object} projectData - Project data
  * @returns {Promise<Object>} Created project
- * 
- * TODO: Replace with real API call
  */
 export async function createProject(projectData) {
-  const response = await createProjectMock(projectData);
-  return response.data;
+  const payload = {
+    name: projectData?.name,
+    description: projectData?.description,
+    base_url: projectData?.base_url || projectData?.baseUrl,
+  };
+
+  const response = await apiClient.post('/projects', payload);
+  return response.data?.data || response.data;
+}
+
+/**
+ * Get recent projects for dashboard cards.
+ * @param {number} limit
+ */
+export async function getRecentProjects(limit = 5) {
+  const response = await apiClient.get(`/projects/recent?limit=${limit}`);
+  return response.data?.data || response.data;
 }

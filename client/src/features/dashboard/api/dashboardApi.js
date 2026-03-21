@@ -1,22 +1,17 @@
 /**
  * Dashboard API Module
  * 
- * Dashboard data fetching
- * Currently uses mock data - replace with real API when ready
+ * Dashboard data fetching from real backend API
  */
 
-import { getDashboardData as getDashboardDataMock } from '@/mocks/handlers/apiHandlers';
+import { apiClient } from '@/api/client';
 
 /**
  * Fetch dashboard statistics and recent projects
  * @returns {Promise<Object>} Dashboard data
- * 
- * TODO: Replace with real API call:
- * import { apiClient } from '@/api/client';
- * return apiClient.get('/dashboard');
  */
 export async function getDashboardData() {
-  // Mock implementation - replace with real API call
-  const response = await getDashboardDataMock();
-  return response.data;
+  const response = await apiClient.get('/dashboard');
+  // Backend contract: { status: 'ok', data: <payload>, message }
+  return response.data?.data || response.data;
 }

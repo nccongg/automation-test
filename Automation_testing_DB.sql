@@ -470,3 +470,190 @@ COMMENT ON TABLE reports IS 'Generated execution reports';
 COMMENT ON TABLE tags IS 'Project-level tags for history filtering';
 COMMENT ON TABLE test_run_tags IS 'Many-to-many mapping between runs and tags';
 COMMENT ON VIEW v_test_history IS 'Search-oriented aggregated view of test execution history';
+
+-- =========================================================
+-- 21) SAMPLE DATA FOR DASHBOARD DEMO
+-- =========================================================
+-- Insert sample user for testing
+INSERT INTO users (email, name, password_hash) VALUES
+('demo@example.com', 'Demo User', '$2b$10$rQZ9vXJXL8K5qN3mH7yP8.vK8zLxR9wQ2nF5tY6uI3oP7sA1bC2dE');
+
+-- Insert sample projects (10 realistic projects)
+INSERT INTO projects (user_id, name, description, base_url, config) VALUES
+(1, 'Mobile Banking App', 'Comprehensive testing for login, transactions, and account management features', 'https://mobile-banking.example.com', '{}'),
+(1, 'E-commerce Website', 'End-to-end testing for product search, cart, and checkout flow', 'https://shop.example.com', '{}'),
+(1, 'Admin Dashboard', 'User management, analytics, and reporting system validation', 'https://admin.example.com', '{}'),
+(1, 'Social Media Platform', 'Post creation, feed interactions, and messaging features', 'https://social.example.com', '{}'),
+(1, 'Healthcare Portal', 'Patient records, appointment scheduling, and telemedicine features', 'https://healthcare.example.com', '{}'),
+(1, 'CRM Management System', 'Customer relationship management and sales pipeline tracking', 'https://crm.example.com', '{}'),
+(1, 'Learning Platform', 'Online courses, quizzes, and progress tracking system', 'https://learning.example.com', '{}'),
+(1, 'Booking System', 'Hotel and flight booking with payment integration', 'https://booking.example.com', '{}'),
+(1, 'Food Delivery App', 'Restaurant browsing, ordering, and delivery tracking', 'https://food-delivery.example.com', '{}'),
+(1, 'Real Estate Platform', 'Property listings, virtual tours, and agent contact system', 'https://realestate.example.com', '{}');
+
+-- Insert sample test cases for projects (varying counts)
+INSERT INTO test_cases (project_id, title, goal, status, created_at, updated_at) VALUES
+-- Mobile Banking App (8 test cases)
+(1, 'User Login Validation', 'Verify user can login with valid credentials', 'ready', NOW() - INTERVAL '15 days', NOW() - INTERVAL '2 days'),
+(1, 'Fund Transfer', 'Test domestic fund transfer between accounts', 'ready', NOW() - INTERVAL '14 days', NOW() - INTERVAL '1 day'),
+(1, 'Bill Payment', 'Verify bill payment functionality with multiple providers', 'ready', NOW() - INTERVAL '13 days', NOW() - INTERVAL '3 days'),
+(1, 'Account Balance Check', 'Test balance inquiry displays correct amount', 'ready', NOW() - INTERVAL '12 days', NOW() - INTERVAL '2 days'),
+(1, 'Transaction History', 'Verify transaction list loads with proper filtering', 'ready', NOW() - INTERVAL '11 days', NOW() - INTERVAL '1 day'),
+(1, 'Card Management', 'Test card blocking and unblocking features', 'ready', NOW() - INTERVAL '10 days', NOW() - INTERVAL '4 days'),
+(1, 'Profile Update', 'Verify user can update contact information', 'ready', NOW() - INTERVAL '9 days', NOW() - INTERVAL '2 days'),
+(1, 'Two-Factor Authentication', 'Test 2FA setup and verification flow', 'ready', NOW() - INTERVAL '8 days', NOW() - INTERVAL '1 day'),
+
+-- E-commerce Website (7 test cases)
+(2, 'Product Search', 'Verify search returns relevant products', 'ready', NOW() - INTERVAL '20 days', NOW() - INTERVAL '5 days'),
+(2, 'Add to Cart', 'Test adding products to shopping cart', 'ready', NOW() - INTERVAL '19 days', NOW() - INTERVAL '4 days'),
+(2, 'Checkout Process', 'Verify complete checkout flow with payment', 'ready', NOW() - INTERVAL '18 days', NOW() - INTERVAL '3 days'),
+(2, 'User Registration', 'Test new user account creation', 'ready', NOW() - INTERVAL '17 days', NOW() - INTERVAL '6 days'),
+(2, 'Product Review', 'Verify customers can leave product reviews', 'ready', NOW() - INTERVAL '16 days', NOW() - INTERVAL '2 days'),
+(2, 'Wishlist Management', 'Test adding and removing items from wishlist', 'ready', NOW() - INTERVAL '15 days', NOW() - INTERVAL '3 days'),
+(2, 'Order Tracking', 'Verify order status and tracking information', 'ready', NOW() - INTERVAL '14 days', NOW() - INTERVAL '1 day'),
+
+-- Admin Dashboard (6 test cases)
+(3, 'Dashboard Analytics', 'Verify analytics widgets display correct data', 'ready', NOW() - INTERVAL '25 days', NOW() - INTERVAL '7 days'),
+(3, 'User Management', 'Test CRUD operations for user accounts', 'ready', NOW() - INTERVAL '24 days', NOW() - INTERVAL '5 days'),
+(3, 'Role Assignment', 'Verify admin can assign roles to users', 'ready', NOW() - INTERVAL '23 days', NOW() - INTERVAL '4 days'),
+(3, 'Report Generation', 'Test generating and exporting reports', 'ready', NOW() - INTERVAL '22 days', NOW() - INTERVAL '6 days'),
+(3, 'System Settings', 'Verify configuration settings can be updated', 'ready', NOW() - INTERVAL '21 days', NOW() - INTERVAL '3 days'),
+(3, 'Audit Logs', 'Test viewing and filtering audit logs', 'ready', NOW() - INTERVAL '20 days', NOW() - INTERVAL '2 days'),
+
+-- Social Media Platform (6 test cases)
+(4, 'Create Post', 'Verify users can create text and image posts', 'ready', NOW() - INTERVAL '18 days', NOW() - INTERVAL '4 days'),
+(4, 'News Feed', 'Test feed displays posts from followed users', 'ready', NOW() - INTERVAL '17 days', NOW() - INTERVAL '3 days'),
+(4, 'Like and Comment', 'Verify engagement features work correctly', 'ready', NOW() - INTERVAL '16 days', NOW() - INTERVAL '2 days'),
+(4, 'Direct Messaging', 'Test sending and receiving messages', 'ready', NOW() - INTERVAL '15 days', NOW() - INTERVAL '5 days'),
+(4, 'Profile Customization', 'Verify users can update profile and cover photo', 'ready', NOW() - INTERVAL '14 days', NOW() - INTERVAL '3 days'),
+(4, 'Notification System', 'Test push and email notifications', 'ready', NOW() - INTERVAL '13 days', NOW() - INTERVAL '1 day'),
+
+-- Healthcare Portal (5 test cases)
+(5, 'Patient Registration', 'Verify new patient can register', 'ready', NOW() - INTERVAL '22 days', NOW() - INTERVAL '6 days'),
+(5, 'Appointment Booking', 'Test scheduling appointments with doctors', 'ready', NOW() - INTERVAL '21 days', NOW() - INTERVAL '4 days'),
+(5, 'Medical Records Access', 'Verify patients can view their records', 'ready', NOW() - INTERVAL '20 days', NOW() - INTERVAL '5 days'),
+(5, 'Prescription Management', 'Test viewing and requesting prescriptions', 'ready', NOW() - INTERVAL '19 days', NOW() - INTERVAL '3 days'),
+(5, 'Video Consultation', 'Verify telemedicine video calls work', 'ready', NOW() - INTERVAL '18 days', NOW() - INTERVAL '2 days'),
+
+-- CRM Management System (5 test cases)
+(6, 'Lead Creation', 'Verify sales team can create new leads', 'ready', NOW() - INTERVAL '28 days', NOW() - INTERVAL '8 days'),
+(6, 'Pipeline Management', 'Test moving deals through sales stages', 'ready', NOW() - INTERVAL '27 days', NOW() - INTERVAL '6 days'),
+(6, 'Contact Management', 'Verify contact information can be updated', 'ready', NOW() - INTERVAL '26 days', NOW() - INTERVAL '5 days'),
+(6, 'Email Integration', 'Test sending emails from CRM', 'ready', NOW() - INTERVAL '25 days', NOW() - INTERVAL '7 days'),
+(6, 'Sales Reports', 'Verify sales analytics and forecasting', 'ready', NOW() - INTERVAL '24 days', NOW() - INTERVAL '4 days'),
+
+-- Learning Platform (5 test cases)
+(7, 'Course Enrollment', 'Verify students can enroll in courses', 'ready', NOW() - INTERVAL '30 days', NOW() - INTERVAL '9 days'),
+(7, 'Video Playback', 'Test course video streaming', 'ready', NOW() - INTERVAL '29 days', NOW() - INTERVAL '7 days'),
+(7, 'Quiz Submission', 'Verify quiz taking and auto-grading', 'ready', NOW() - INTERVAL '28 days', NOW() - INTERVAL '6 days'),
+(7, 'Progress Tracking', 'Test course progress visualization', 'ready', NOW() - INTERVAL '27 days', NOW() - INTERVAL '5 days'),
+(7, 'Certificate Generation', 'Verify certificates issued on completion', 'ready', NOW() - INTERVAL '26 days', NOW() - INTERVAL '8 days'),
+
+-- Booking System (5 test cases)
+(8, 'Hotel Search', 'Verify hotel search with filters', 'ready', NOW() - INTERVAL '24 days', NOW() - INTERVAL '7 days'),
+(8, 'Room Booking', 'Test room reservation and payment', 'ready', NOW() - INTERVAL '23 days', NOW() - INTERVAL '5 days'),
+(8, 'Flight Search', 'Verify flight search and comparison', 'ready', NOW() - INTERVAL '22 days', NOW() - INTERVAL '6 days'),
+(8, 'Booking Management', 'Test viewing and cancelling bookings', 'ready', NOW() - INTERVAL '21 days', NOW() - INTERVAL '4 days'),
+(8, 'Payment Processing', 'Verify multiple payment methods', 'ready', NOW() - INTERVAL '20 days', NOW() - INTERVAL '3 days'),
+
+-- Food Delivery App (5 test cases)
+(9, 'Restaurant Browse', 'Verify restaurant listing and filtering', 'ready', NOW() - INTERVAL '26 days', NOW() - INTERVAL '8 days'),
+(9, 'Menu Selection', 'Test adding items to cart from menu', 'ready', NOW() - INTERVAL '25 days', NOW() - INTERVAL '6 days'),
+(9, 'Delivery Address', 'Verify address selection and validation', 'ready', NOW() - INTERVAL '24 days', NOW() - INTERVAL '5 days'),
+(9, 'Order Tracking', 'Test real-time delivery tracking', 'ready', NOW() - INTERVAL '23 days', NOW() - INTERVAL '4 days'),
+(9, 'Payment and Tips', 'Verify payment and tip calculation', 'ready', NOW() - INTERVAL '22 days', NOW() - INTERVAL '7 days'),
+
+-- Real Estate Platform (5 test cases)
+(10, 'Property Search', 'Verify property search with advanced filters', 'ready', NOW() - INTERVAL '32 days', NOW() - INTERVAL '10 days'),
+(10, 'Virtual Tour', 'Test 3D property tour functionality', 'ready', NOW() - INTERVAL '31 days', NOW() - INTERVAL '8 days'),
+(10, 'Agent Contact', 'Verify contacting real estate agents', 'ready', NOW() - INTERVAL '30 days', NOW() - INTERVAL '7 days'),
+(10, 'Mortgage Calculator', 'Test mortgage calculation tool', 'ready', NOW() - INTERVAL '29 days', NOW() - INTERVAL '9 days'),
+(10, 'Favorite Properties', 'Verify saving and comparing properties', 'ready', NOW() - INTERVAL '28 days', NOW() - INTERVAL '6 days');
+
+-- Insert sample test runs with varying results and timestamps
+-- Mobile Banking App runs (recent activity)
+INSERT INTO test_runs (test_case_id, status, verdict, started_at, finished_at, created_at) VALUES
+(1, 'completed', 'pass', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '1 hour 55 minutes', NOW() - INTERVAL '2 hours'),
+(2, 'completed', 'pass', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '1 hour 50 minutes', NOW() - INTERVAL '2 hours'),
+(3, 'completed', 'pass', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '1 hour 45 minutes', NOW() - INTERVAL '2 hours'),
+(4, 'completed', 'pass', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '1 hour 40 minutes', NOW() - INTERVAL '2 hours'),
+(5, 'completed', 'pass', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '1 hour 35 minutes', NOW() - INTERVAL '2 hours'),
+(6, 'completed', 'pass', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '1 hour 30 minutes', NOW() - INTERVAL '2 hours'),
+(7, 'completed', 'fail', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '1 hour 25 minutes', NOW() - INTERVAL '2 hours'),
+(8, 'completed', 'pass', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '1 hour 20 minutes', NOW() - INTERVAL '2 hours');
+
+-- E-commerce Website runs (some failures)
+INSERT INTO test_runs (test_case_id, status, verdict, started_at, finished_at, created_at) VALUES
+(9, 'completed', 'pass', NOW() - INTERVAL '5 hours', NOW() - INTERVAL '4 hours 55 minutes', NOW() - INTERVAL '5 hours'),
+(10, 'completed', 'pass', NOW() - INTERVAL '5 hours', NOW() - INTERVAL '4 hours 50 minutes', NOW() - INTERVAL '5 hours'),
+(11, 'completed', 'fail', NOW() - INTERVAL '5 hours', NOW() - INTERVAL '4 hours 45 minutes', NOW() - INTERVAL '5 hours'),
+(12, 'completed', 'pass', NOW() - INTERVAL '5 hours', NOW() - INTERVAL '4 hours 40 minutes', NOW() - INTERVAL '5 hours'),
+(13, 'completed', 'fail', NOW() - INTERVAL '5 hours', NOW() - INTERVAL '4 hours 35 minutes', NOW() - INTERVAL '5 hours'),
+(14, 'completed', 'pass', NOW() - INTERVAL '5 hours', NOW() - INTERVAL '4 hours 30 minutes', NOW() - INTERVAL '5 hours'),
+(15, 'completed', 'pass', NOW() - INTERVAL '5 hours', NOW() - INTERVAL '4 hours 25 minutes', NOW() - INTERVAL '5 hours');
+
+-- Admin Dashboard runs (mixed results)
+INSERT INTO test_runs (test_case_id, status, verdict, started_at, finished_at, created_at) VALUES
+(16, 'completed', 'pass', NOW() - INTERVAL '1 day', NOW() - INTERVAL '23 hours 55 minutes', NOW() - INTERVAL '1 day'),
+(17, 'completed', 'pass', NOW() - INTERVAL '1 day', NOW() - INTERVAL '23 hours 50 minutes', NOW() - INTERVAL '1 day'),
+(18, 'completed', 'pass', NOW() - INTERVAL '1 day', NOW() - INTERVAL '23 hours 45 minutes', NOW() - INTERVAL '1 day'),
+(19, 'completed', 'fail', NOW() - INTERVAL '1 day', NOW() - INTERVAL '23 hours 40 minutes', NOW() - INTERVAL '1 day'),
+(20, 'completed', 'fail', NOW() - INTERVAL '1 day', NOW() - INTERVAL '23 hours 35 minutes', NOW() - INTERVAL '1 day'),
+(21, 'completed', 'fail', NOW() - INTERVAL '1 day', NOW() - INTERVAL '23 hours 30 minutes', NOW() - INTERVAL '1 day');
+
+-- Social Media Platform runs (mostly passing)
+INSERT INTO test_runs (test_case_id, status, verdict, started_at, finished_at, created_at) VALUES
+(22, 'completed', 'pass', NOW() - INTERVAL '3 hours', NOW() - INTERVAL '2 hours 55 minutes', NOW() - INTERVAL '3 hours'),
+(23, 'completed', 'pass', NOW() - INTERVAL '3 hours', NOW() - INTERVAL '2 hours 50 minutes', NOW() - INTERVAL '3 hours'),
+(24, 'completed', 'pass', NOW() - INTERVAL '3 hours', NOW() - INTERVAL '2 hours 45 minutes', NOW() - INTERVAL '3 hours'),
+(25, 'completed', 'pass', NOW() - INTERVAL '3 hours', NOW() - INTERVAL '2 hours 40 minutes', NOW() - INTERVAL '3 hours'),
+(26, 'completed', 'pass', NOW() - INTERVAL '3 hours', NOW() - INTERVAL '2 hours 35 minutes', NOW() - INTERVAL '3 hours'),
+(27, 'completed', 'fail', NOW() - INTERVAL '3 hours', NOW() - INTERVAL '2 hours 30 minutes', NOW() - INTERVAL '3 hours');
+
+-- Healthcare Portal runs (all passing)
+INSERT INTO test_runs (test_case_id, status, verdict, started_at, finished_at, created_at) VALUES
+(28, 'completed', 'pass', NOW() - INTERVAL '6 hours', NOW() - INTERVAL '5 hours 55 minutes', NOW() - INTERVAL '6 hours'),
+(29, 'completed', 'pass', NOW() - INTERVAL '6 hours', NOW() - INTERVAL '5 hours 50 minutes', NOW() - INTERVAL '6 hours'),
+(30, 'completed', 'pass', NOW() - INTERVAL '6 hours', NOW() - INTERVAL '5 hours 45 minutes', NOW() - INTERVAL '6 hours'),
+(31, 'completed', 'pass', NOW() - INTERVAL '6 hours', NOW() - INTERVAL '5 hours 40 minutes', NOW() - INTERVAL '6 hours'),
+(32, 'completed', 'pass', NOW() - INTERVAL '6 hours', NOW() - INTERVAL '5 hours 35 minutes', NOW() - INTERVAL '6 hours');
+
+-- CRM Management System runs (good pass rate)
+INSERT INTO test_runs (test_case_id, status, verdict, started_at, finished_at, created_at) VALUES
+(33, 'completed', 'pass', NOW() - INTERVAL '8 hours', NOW() - INTERVAL '7 hours 55 minutes', NOW() - INTERVAL '8 hours'),
+(34, 'completed', 'pass', NOW() - INTERVAL '8 hours', NOW() - INTERVAL '7 hours 50 minutes', NOW() - INTERVAL '8 hours'),
+(35, 'completed', 'pass', NOW() - INTERVAL '8 hours', NOW() - INTERVAL '7 hours 45 minutes', NOW() - INTERVAL '8 hours'),
+(36, 'completed', 'pass', NOW() - INTERVAL '8 hours', NOW() - INTERVAL '7 hours 40 minutes', NOW() - INTERVAL '8 hours'),
+(37, 'completed', 'fail', NOW() - INTERVAL '8 hours', NOW() - INTERVAL '7 hours 35 minutes', NOW() - INTERVAL '8 hours');
+
+-- Learning Platform runs (excellent pass rate)
+INSERT INTO test_runs (test_case_id, status, verdict, started_at, finished_at, created_at) VALUES
+(38, 'completed', 'pass', NOW() - INTERVAL '12 hours', NOW() - INTERVAL '11 hours 55 minutes', NOW() - INTERVAL '12 hours'),
+(39, 'completed', 'pass', NOW() - INTERVAL '12 hours', NOW() - INTERVAL '11 hours 50 minutes', NOW() - INTERVAL '12 hours'),
+(40, 'completed', 'pass', NOW() - INTERVAL '12 hours', NOW() - INTERVAL '11 hours 45 minutes', NOW() - INTERVAL '12 hours'),
+(41, 'completed', 'pass', NOW() - INTERVAL '12 hours', NOW() - INTERVAL '11 hours 40 minutes', NOW() - INTERVAL '12 hours'),
+(42, 'completed', 'pass', NOW() - INTERVAL '12 hours', NOW() - INTERVAL '11 hours 35 minutes', NOW() - INTERVAL '12 hours');
+
+-- Booking System runs (moderate pass rate)
+INSERT INTO test_runs (test_case_id, status, verdict, started_at, finished_at, created_at) VALUES
+(43, 'completed', 'pass', NOW() - INTERVAL '1 day 2 hours', NOW() - INTERVAL '1 day 1 hour 55 minutes', NOW() - INTERVAL '1 day 2 hours'),
+(44, 'completed', 'pass', NOW() - INTERVAL '1 day 2 hours', NOW() - INTERVAL '1 day 1 hour 50 minutes', NOW() - INTERVAL '1 day 2 hours'),
+(45, 'completed', 'fail', NOW() - INTERVAL '1 day 2 hours', NOW() - INTERVAL '1 day 1 hour 45 minutes', NOW() - INTERVAL '1 day 2 hours'),
+(46, 'completed', 'fail', NOW() - INTERVAL '1 day 2 hours', NOW() - INTERVAL '1 day 1 hour 40 minutes', NOW() - INTERVAL '1 day 2 hours'),
+(47, 'completed', 'pass', NOW() - INTERVAL '1 day 2 hours', NOW() - INTERVAL '1 day 1 hour 35 minutes', NOW() - INTERVAL '1 day 2 hours');
+
+-- Food Delivery App runs (good results)
+INSERT INTO test_runs (test_case_id, status, verdict, started_at, finished_at, created_at) VALUES
+(48, 'completed', 'pass', NOW() - INTERVAL '10 hours', NOW() - INTERVAL '9 hours 55 minutes', NOW() - INTERVAL '10 hours'),
+(49, 'completed', 'pass', NOW() - INTERVAL '10 hours', NOW() - INTERVAL '9 hours 50 minutes', NOW() - INTERVAL '10 hours'),
+(50, 'completed', 'pass', NOW() - INTERVAL '10 hours', NOW() - INTERVAL '9 hours 45 minutes', NOW() - INTERVAL '10 hours'),
+(51, 'completed', 'pass', NOW() - INTERVAL '10 hours', NOW() - INTERVAL '9 hours 40 minutes', NOW() - INTERVAL '10 hours'),
+(52, 'completed', 'fail', NOW() - INTERVAL '10 hours', NOW() - INTERVAL '9 hours 35 minutes', NOW() - INTERVAL '10 hours');
+
+-- Real Estate Platform runs (all passing)
+INSERT INTO test_runs (test_case_id, status, verdict, started_at, finished_at, created_at) VALUES
+(53, 'completed', 'pass', NOW() - INTERVAL '2 days', NOW() - INTERVAL '1 day 23 hours 55 minutes', NOW() - INTERVAL '2 days'),
+(54, 'completed', 'pass', NOW() - INTERVAL '2 days', NOW() - INTERVAL '1 day 23 hours 50 minutes', NOW() - INTERVAL '2 days'),
+(55, 'completed', 'pass', NOW() - INTERVAL '2 days', NOW() - INTERVAL '1 day 23 hours 45 minutes', NOW() - INTERVAL '2 days'),
+(56, 'completed', 'pass', NOW() - INTERVAL '2 days', NOW() - INTERVAL '1 day 23 hours 40 minutes', NOW() - INTERVAL '2 days'),
+(57, 'completed', 'pass', NOW() - INTERVAL '2 days', NOW() - INTERVAL '1 day 23 hours 35 minutes', NOW() - INTERVAL '2 days');

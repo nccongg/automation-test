@@ -1,105 +1,25 @@
-const DUMMY_DASHBOARD_DATA = {
-  kpis: [
-    {
-      label: "Total Test",
-      value: "140",
-      iconBg: "bg-sky-100",
-      iconText: "text-sky-700",
-      iconEmoji: "⚡",
-      trendDirection: "up",
-      trendPercent: "8.5%",
-      trendText: "Up from past week",
-      barColor: "sky",
-      trendBarWidth: 72,
-    },
-    {
-      label: "Pass Rate",
-      value: "87.5%",
-      iconBg: "bg-emerald-100",
-      iconText: "text-emerald-700",
-      iconEmoji: "✓",
-      trendDirection: "up",
-      trendPercent: "1.3%",
-      trendText: "Up from past week",
-      barColor: "emerald",
-      trendBarWidth: 64,
-    },
-    {
-      label: "Failed Tests",
-      value: "18",
-      iconBg: "bg-red-100",
-      iconText: "text-red-700",
-      iconEmoji: "×",
-      trendDirection: "down",
-      trendPercent: "4.3%",
-      trendText: "Down from past week",
-      barColor: "red",
-      trendBarWidth: 58,
-    },
-    {
-      label: "Avg Duration",
-      value: "2.4m",
-      iconBg: "bg-slate-100",
-      iconText: "text-slate-700",
-      iconEmoji: "⏱",
-      trendDirection: "up",
-      trendPercent: "1.8%",
-      trendText: "Up from past week",
-      barColor: "slate",
-      trendBarWidth: 60,
-    },
-  ],
-  recentProjects: [
-    {
-      title: "Mobile Banking App",
-      description: "Test login and transaction feature",
-      status: "Passing",
-      statusTone: "passing",
-      testCases: 24,
-      passRate: "87.5%",
-      lastRun: "2 hours ago",
-      barTone: "green",
-      projectBarWidth: 78,
-    },
-    {
-      title: "E-commerce Website",
-      description: "Testing flow checkout and product search",
-      status: "Failing",
-      statusTone: "failing",
-      testCases: 24,
-      passRate: "87.5%",
-      lastRun: "2 hours ago",
-      barTone: "red",
-      projectBarWidth: 82,
-    },
-    {
-      title: "Admin dashboard",
-      description: "User management and analytics",
-      status: "Pending",
-      statusTone: "pending",
-      testCases: 24,
-      passRate: "87.5%",
-      lastRun: "2 hours ago",
-      barTone: "slate",
-      projectBarWidth: 58,
-    },
-    {
-      title: "Social Media Platform",
-      description: "Post creation and feed interactions",
-      status: "Passing",
-      statusTone: "passing",
-      testCases: 24,
-      passRate: "87.5%",
-      lastRun: "2 hours ago",
-      barTone: "green",
-      projectBarWidth: 74,
-    },
-  ],
-};
+/**
+ * Dashboard Service
+ * 
+ * Fetches dashboard data from backend API
+ */
 
+import { getDashboardData as fetchDashboardData } from '@/features/dashboard/api/dashboardApi';
+import { getRecentProjects } from '@/features/projects/api/projectsApi';
+
+/**
+ * Fetch dashboard data from API
+ * @returns {Promise<Object>} Dashboard data with kpis and recentProjects
+ */
 export async function getDashboardData() {
-  // Simulate a future API call. Replace this with a real fetch later.
-  await new Promise((r) => setTimeout(r, 350));
-  return DUMMY_DASHBOARD_DATA;
+  const [dashboardPayload, recentProjects] = await Promise.all([
+    fetchDashboardData(),
+    getRecentProjects(5),
+  ]);
+
+  return {
+    kpis: dashboardPayload?.kpis || [],
+    recentProjects: recentProjects || [],
+  };
 }
 
