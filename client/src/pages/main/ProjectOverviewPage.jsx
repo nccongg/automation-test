@@ -11,7 +11,7 @@ import EmptyState from '@/shared/components/common/EmptyState';
 import { formatRelativeTime } from '@/shared/utils';
 
 export default function ProjectOverviewPage() {
-  const { project } = useOutletContext();
+  const { project, onProjectUpdated } = useOutletContext();
 
   const [prompt, setPrompt] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
@@ -32,7 +32,7 @@ export default function ProjectOverviewPage() {
 
   return (
     <div className="space-y-6">
-      <ProjectHeader project={project} />
+      <ProjectHeader project={project} onProjectUpdated={onProjectUpdated} />
 
       <section className="rounded-xl border bg-white p-6 shadow-sm space-y-5">
         <div className="flex items-start justify-between gap-4">

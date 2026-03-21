@@ -64,10 +64,50 @@ async function getProjectById(req, res, next) {
   }
 }
 
+async function updateProject(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const { projectId } = req.params;
+    const data = await projectsService.updateProject(userId, projectId, req.body);
+
+    res.json({
+      status: 'ok',
+      data,
+      message: 'Project updated successfully',
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteProject(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const { projectId } = req.params;
+    const deleted = await projectsService.deleteProject(userId, projectId);
+
+    if (!deleted) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Project not found or access denied',
+      });
+    }
+
+    res.json({
+      status: 'ok',
+      message: 'Project deleted successfully',
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   createProject,
   getProjects,
   getRecentProjects,
   getProjectById,
+  updateProject,
+  deleteProject,
 };
 

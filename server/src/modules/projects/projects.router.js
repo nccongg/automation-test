@@ -33,5 +33,17 @@ router.get('/recent', ctrl.getRecentProjects);
  */
 router.get('/:projectId', ctrl.getProjectById);
 
+/**
+ * @route   PUT /api/projects/:projectId
+ * @desc    Update a project by ID
+ */
+router.put('/:projectId', ctrl.updateProject);
+
+/**
+ * @route   DELETE /api/projects/:projectId
+ * @desc    Delete a project by ID
+ */
+router.delete('/:projectId', ctrl.deleteProject);
+
 module.exports = router;
 

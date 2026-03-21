@@ -156,10 +156,45 @@ async function getProjectById(userId, projectId) {
   };
 }
 
+async function updateProject(userId, projectId, body) {
+  assertUser(userId);
+
+  const name = body?.name ? String(body.name).trim() : undefined;
+  const description = body?.description ? String(body.description).trim() : undefined;
+  const baseUrl = body?.base_url || body?.baseUrl ? String(body?.base_url || body?.baseUrl).trim() : undefined;
+
+  if (name !== undefined && name.length === 0) {
+    throw { status: 400, message: 'Project name cannot be empty' };
+  }
+
+  const updated = await projectsRepository.updateProject(userId, projectId, {
+    name,
+    description,
+    baseUrl,
+  });
+
+  return {
+    id: updated.id,
+    name: updated.name,
+    description: updated.description,
+    baseUrl: updated.base_url,
+    createdAt: updated.created_at,
+    updatedAt: updated.updated_at,
+  };
+}
+
+async function deleteProject(userId, projectId) {
+  assertUser(userId);
+
+  return await projectsRepository.deleteProject(userId, projectId);
+}
+
 module.exports = {
   createProject,
   getProjects,
   getRecentProjects,
   getProjectById,
+  updateProject,
+  deleteProject,
 };
 

@@ -212,10 +212,52 @@ async function getProjectById(userId, projectId) {
   };
 }
 
+async function updateProject(userId, projectId, { name, description, baseUrl }) {
+  const projectIdNum = parseInt(projectId, 10);
+  if (isNaN(projectIdNum)) {
+    throw new Error('Invalid project ID');
+  }
+
+  const sql = `
+    UPDATE projects
+    SET 
+      name = COALESCE($3, name),
+      description = COALESCE($4, description),
+      base_url = COALESCE($5, base_url),
+      updated_at = NOW()
+    WHERE id = $1 AND user_id = $2
+    RETURNING id, name, description, base_url, created_at, updated_at
+  `;
+
+  const result = await query(sql, [projectIdNum, userId, name, description, baseUrl]);
+  if (!result.rows.length) {
+    throw new Error('Project not found or access denied');
+  }
+  return result.rows[0];
+}
+
+async function deleteProject(userId, projectId) {
+  const projectIdNum = parseInt(projectId, 10);
+  if (isNaN(projectIdNum)) {
+    throw new Error('Invalid project ID');
+  }
+
+  const sql = `
+    DELETE FROM projects
+    WHERE id = $1 AND user_id = $2
+    RETURNING id
+  `;
+
+  const result = await query(sql, [projectIdNum, userId]);
+  return result.rows.length > 0;
+}
+
 module.exports = {
   createProject,
   getProjects,
   getRecentProjects,
   getProjectById,
+  updateProject,
+  deleteProject,
 };
 
