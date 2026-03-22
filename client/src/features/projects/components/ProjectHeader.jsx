@@ -27,6 +27,41 @@ import UpdateProjectDialog from './UpdateProjectDialog';
 import { deleteProject } from '@/features/projects/api/projectsApi';
 
 /**
+ * Collapsible description component
+ */
+function CollapsibleDescription({ text, maxLines = 2, maxChars = 180 }) {
+  const [expanded, setExpanded] = useState(false);
+  const shouldCollapse = text && text.length > maxChars;
+
+  const collapsedStyles = {
+    display: '-webkit-box',
+    WebkitLineClamp: maxLines,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden',
+  };
+
+  return (
+    <div className="text-sm text-muted-foreground max-w-2xl">
+      <p
+        className="break-words whitespace-pre-wrap"
+        style={expanded || !shouldCollapse ? {} : collapsedStyles}
+      >
+        {text || 'No description'}
+      </p>
+      {shouldCollapse && (
+        <button
+          type="button"
+          onClick={() => setExpanded((prev) => !prev)}
+          className="mt-1 text-xs font-medium text-[var(--brand-primary)] hover:text-[var(--brand-primary-hover)]"
+        >
+          {expanded ? 'Show less' : 'Read more'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
  * @param {Object} props
  * @param {Object} props.project - Project data
  * @param {Function} props.onProjectUpdated - Callback when project is updated
@@ -94,9 +129,7 @@ export default function ProjectHeader({ project, onProjectUpdated }) {
                 {project.status}
               </span>
             </div>
-            <p className="text-sm text-muted-foreground max-w-2xl">
-              {project.description}
-            </p>
+            <CollapsibleDescription text={project.description} maxLines={2} maxChars={120} />
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span>Base URL: {project.baseUrl}</span>
               <span>•</span>

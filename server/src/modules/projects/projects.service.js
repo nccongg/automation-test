@@ -77,23 +77,33 @@ async function createProject(userId, body) {
   };
 }
 
-async function getProjects(userId) {
+async function getProjects(userId, page = 1, limit = 6) {
   assertUser(userId);
 
-  const rows = await projectsRepository.getProjects(userId);
+  const result = await projectsRepository.getProjects(userId, page, limit);
 
-  return rows.map((p) => {
-    const statusInfo = formatStatus(p.status);
+  return {
+    data: result.rows.map((p) => {
+      const statusInfo = formatStatus(p.status);
+      const passRateNum = p.total_runs > 0 
+        ? Math.round((p.passed_runs / p.total_runs) * 100) 
+        : 0;
 
-    return {
-      id: p.id,
-      name: p.name,
-      owner: p.owner_name,
-      status: statusInfo.display,
-      statusTone: statusInfo.tone,
-      lastRun: formatRelativeTimeFromDb(p.last_run_at),
-    };
-  });
+      return {
+        id: p.id,
+        name: p.name,
+        owner: p.owner_name,
+        status: statusInfo.display,
+        statusTone: statusInfo.tone,
+        testCases: parseInt(p.total_test_cases, 10) || 0,
+        passRate: `${passRateNum}%`,
+        lastRun: formatRelativeTimeFromDb(p.last_run_at),
+        barTone: p.status === 'passing' ? 'green' : p.status === 'failing' ? 'red' : 'slate',
+        projectBarWidth: passRateNum,
+      };
+    }),
+    pagination: result.pagination,
+  };
 }
 
 async function getRecentProjects(userId, limit = 5) {

@@ -20,11 +20,15 @@ async function createProject(req, res, next) {
 async function getProjects(req, res, next) {
   try {
     const userId = req.user?.userId;
-    const data = await projectsService.getProjects(userId);
+    const page = req.query?.page ? parseInt(req.query.page, 10) : 1;
+    const limit = req.query?.limit ? parseInt(req.query.limit, 10) : 6;
+    
+    const result = await projectsService.getProjects(userId, page, limit);
 
     res.json({
       status: 'ok',
-      data,
+      data: result.data,
+      pagination: result.pagination,
       message: 'Projects fetched successfully',
     });
   } catch (err) {

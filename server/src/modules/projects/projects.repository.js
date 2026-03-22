@@ -13,7 +13,21 @@ async function createProject(userId, { name, description, baseUrl }) {
   return result.rows[0];
 }
 
-async function getProjects(userId) {
+async function getProjects(userId, page = 1, limit = 6) {
+  const offset = (page - 1) * limit;
+  const pageNum = parseInt(page, 10) || 1;
+  const limitNum = parseInt(limit, 10) || 6;
+
+  // Get total count
+  const countSql = `
+    SELECT COUNT(DISTINCT p.id) as total
+    FROM projects p
+    WHERE p.user_id = $1
+  `;
+  const countResult = await query(countSql, [userId]);
+  const total = parseInt(countResult.rows[0].total, 10);
+  const totalPages = Math.ceil(total / limitNum);
+
   const sql = `
     WITH project_metrics AS (
       SELECT
@@ -54,10 +68,20 @@ async function getProjects(userId) {
       END AS status
     FROM project_metrics
     ORDER BY COALESCE(last_run_at, now()) DESC
+    LIMIT $2 OFFSET $3
   `;
 
-  const result = await query(sql, [userId]);
-  return result.rows;
+  const result = await query(sql, [userId, limitNum, offset]);
+  
+  return {
+    rows: result.rows,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total,
+      totalPages,
+    },
+  };
 }
 
 async function getRecentProjects(userId, limit = 5) {

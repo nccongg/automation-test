@@ -1,21 +1,21 @@
 /**
  * Dashboard Page
- * 
+ *
  * Main dashboard view showing KPIs and recent projects
  * Uses feature components from /features/dashboard
  */
 
-import { Plus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { useDashboard } from '@/features/dashboard/hooks/useDashboard';
-import KpiCard from '@/features/dashboard/components/KpiCard';
-import ProjectCard from '@/features/dashboard/components/ProjectCard';
-import LoadingSpinner from '@/shared/components/common/LoadingSpinner';
-import ErrorBanner from '@/shared/components/common/ErrorBanner';
-import PageHeader from '@/shared/components/common/PageHeader';
-import EmptyState from '@/shared/components/common/EmptyState';
-import CreateProjectDialog from '@/features/projects/components/CreateProjectDialog';
+import { Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useDashboard } from "@/features/dashboard/hooks/useDashboard";
+import KpiCard from "@/features/dashboard/components/KpiCard";
+import ProjectCard from "@/shared/components/project/ProjectCard";
+import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import ErrorBanner from "@/shared/components/common/ErrorBanner";
+import PageHeader from "@/shared/components/common/PageHeader";
+import EmptyState from "@/shared/components/common/EmptyState";
+import CreateProjectDialog from "@/features/projects/components/CreateProjectDialog";
 
 export default function DashboardPage() {
   const [createOpen, setCreateOpen] = useState(false);
@@ -36,7 +36,13 @@ export default function DashboardPage() {
   }
 
   if (error) {
-    return <ErrorBanner message={error} fullWidth onRetry={() => window.location.reload()} />;
+    return (
+      <ErrorBanner
+        message={error}
+        fullWidth
+        onRetry={() => window.location.reload()}
+      />
+    );
   }
 
   const kpis = data?.kpis || [];
@@ -64,23 +70,37 @@ export default function DashboardPage() {
           title="No Projects Yet"
           description="Create your first automation project to start generating and running tests."
           action={{
-            label: 'Create Project',
+            label: "Create Project",
             onClick: () => setCreateOpen(true),
           }}
         />
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {kpis.map((kpi) => (
               <KpiCard key={kpi.id || kpi.label} {...kpi} />
             ))}
           </div>
 
           <section className="space-y-5">
-            <h2 className="text-lg font-semibold tracking-tight">Recent Projects</h2>
-            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            <h2 className="text-lg font-semibold tracking-tight">
+              Recent Projects
+            </h2>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {recentProjects.map((p) => (
-                <ProjectCard key={p.id || p.title} {...p} />
+                <ProjectCard
+                  key={p.id || p.title}
+                  projectId={p.id}
+                  title={p.title || p.name}
+                  description={p.description || "No description available"}
+                  status={p.status}
+                  statusTone={p.statusTone}
+                  testCases={p.testCases}
+                  passRate={p.passRate}
+                  lastRun={p.lastRun}
+                  barTone={p.barTone}
+                  projectBarWidth={p.projectBarWidth}
+                />
               ))}
             </div>
           </section>

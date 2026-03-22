@@ -1,30 +1,30 @@
 /**
  * Test Cases Page
- * 
+ *
  * Displays test cases list with filtering and search
  * Uses feature components from /features/test-cases
  */
 
-import { useState } from 'react';
-import { Search, Plus, Filter } from 'lucide-react';
-import { useTestCases } from '@/features/test-cases/hooks/useTestCases';
-import LoadingSpinner from '@/shared/components/common/LoadingSpinner';
-import ErrorBanner from '@/shared/components/common/ErrorBanner';
-import EmptyState from '@/shared/components/common/EmptyState';
-import PageHeader from '@/shared/components/common/PageHeader';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useState } from "react";
+import { Search, Plus, Filter } from "lucide-react";
+import { useTestCases } from "@/features/test-cases/hooks/useTestCases";
+import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import ErrorBanner from "@/shared/components/common/ErrorBanner";
+import EmptyState from "@/shared/components/common/EmptyState";
+import PageHeader from "@/shared/components/common/PageHeader";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 /**
  * Status Badge Component
  */
 function StatusBadge({ status }) {
   const styles = {
-    Passed: 'bg-emerald-100 text-emerald-700 border-emerald-500/20',
-    Failed: 'bg-red-100 text-red-700 border-red-500/20',
-    Pending: 'bg-slate-100 text-slate-700 border-slate-500/20',
-    Skipped: 'bg-blue-100 text-blue-700 border-blue-500/20',
+    Passed: "bg-emerald-100 text-emerald-700 border-emerald-500/20",
+    Failed: "bg-red-100 text-red-700 border-red-500/20",
+    Pending: "bg-slate-100 text-slate-700 border-slate-500/20",
+    Skipped: "bg-blue-100 text-blue-700 border-blue-500/20",
   };
 
   return (
@@ -39,22 +39,56 @@ function StatusBadge({ status }) {
  */
 function PriorityBadge({ priority }) {
   const styles = {
-    Critical: 'bg-red-100 text-red-700 font-semibold',
-    High: 'bg-orange-100 text-orange-700',
-    Medium: 'bg-yellow-100 text-yellow-700',
-    Low: 'bg-slate-100 text-slate-600',
+    Critical: "bg-red-100 text-red-700 font-semibold",
+    High: "bg-orange-100 text-orange-700",
+    Medium: "bg-yellow-100 text-yellow-700",
+    Low: "bg-slate-100 text-slate-600",
   };
 
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs ${styles[priority] || styles.Medium}`}>
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs ${styles[priority] || styles.Medium}`}
+    >
       {priority}
     </span>
   );
 }
 
+function CollapsibleDescription({ text, maxChars = 180, maxLines = 2 }) {
+  const [expanded, setExpanded] = useState(false);
+  const shouldCollapse = text && text.length > maxChars;
+
+  const collapsedStyles = {
+    display: "-webkit-box",
+    WebkitLineClamp: maxLines,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+  };
+
+  return (
+    <div className="mt-1 text-sm text-muted-foreground">
+      <p
+        className="whitespace-pre-wrap"
+        style={expanded || !shouldCollapse ? {} : collapsedStyles}
+      >
+        {text || "No description"}
+      </p>
+      {shouldCollapse && (
+        <button
+          type="button"
+          className="mt-1 text-xs font-medium text-[var(--brand-primary)] hover:text-[var(--brand-primary-hover)]"
+          onClick={() => setExpanded((prev) => !prev)}
+        >
+          {expanded ? "Show less" : "Read more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function TestCasesPage() {
   const { testCases, loading, error } = useTestCases();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
 
   if (loading) {
     return (
@@ -65,12 +99,19 @@ export default function TestCasesPage() {
   }
 
   if (error) {
-    return <ErrorBanner message={error} fullWidth onRetry={() => window.location.reload()} />;
+    return (
+      <ErrorBanner
+        message={error}
+        fullWidth
+        onRetry={() => window.location.reload()}
+      />
+    );
   }
 
-  const filteredCases = testCases.filter((tc) =>
-    tc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tc.description.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCases = testCases.filter(
+    (tc) =>
+      tc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tc.description.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (
@@ -107,11 +148,11 @@ export default function TestCasesPage() {
       {/* Results */}
       {filteredCases.length === 0 ? (
         <EmptyState
-          title={searchTerm ? 'No test cases found' : 'No Test Cases'}
+          title={searchTerm ? "No test cases found" : "No Test Cases"}
           description={
             searchTerm
-              ? 'Try adjusting your search terms'
-              : 'Create your first test case to get started'
+              ? "Try adjusting your search terms"
+              : "Create your first test case to get started"
           }
         />
       ) : (
@@ -128,9 +169,11 @@ export default function TestCasesPage() {
                     <StatusBadge status={tc.status} />
                     <PriorityBadge priority={tc.priority} />
                   </div>
-                  <p className="mt-1 truncate text-sm text-muted-foreground">
-                    {tc.description}
-                  </p>
+                  <CollapsibleDescription
+                    text={tc.description}
+                    maxChars={120}
+                    maxLines={2}
+                  />
                   <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
                     <span>Suite: {tc.suite}</span>
                     <span>Type: {tc.type}</span>
