@@ -26,12 +26,11 @@ router.get('/health', async (req, res) => {
 
 // ─── Module Routes ────────────────────────────────────────────────────────────
 router.use('/auth', require('./modules/auth/auth.router'));
+//router.use('/test-cases', require('./modules/testCase/testCase.routes'));
+router.use('/test-runs', require('./modules/testRun/testRun.routes'));
+//router.use('/results', require('./modules/result/result.routes'));
+router.use('/agent', require('./modules/agent/agent.routes'));
 router.use('/dashboard', require('./modules/dashboard/dashboard.router'));
 router.use('/projects', require('./modules/projects/projects.router'));
-
-// Uncomment as you implement each module:
-// router.use('/test-cases', require('./modules/testCase/testCase.router'));
-// router.use('/test-runs',  require('./modules/testRun/testRun.router'));
-// router.use('/results',    require('./modules/result/result.router'));
 
 module.exports = router;
