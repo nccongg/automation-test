@@ -13,8 +13,15 @@ import { useState } from 'react';
 
 export default function ProjectDetailPage() {
   const { projectId } = useParams();
-  const { data, loading, error } = useProject();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  
+  // Force reload project data when reloadKey changes
+  const { data, loading, error } = useProject(reloadKey > 0 ? `${projectId}-${reloadKey}` : projectId);
+
+  const handleProjectUpdated = () => {
+    setReloadKey(prev => prev + 1);
+  };
 
   if (loading) {
     return (
@@ -132,7 +139,7 @@ export default function ProjectDetailPage() {
       </aside>
 
       <main className="min-w-0 flex-1">
-        <Outlet context={{ project: data, projectId }} />
+        <Outlet context={{ project: data, projectId, onProjectUpdated: handleProjectUpdated }} />
       </main>
     </div>
   );

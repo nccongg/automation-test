@@ -1,20 +1,20 @@
 /**
  * Projects Page
- * 
+ *
  * Lists all projects with their status and details
  * Uses feature components from /features/projects
  */
 
-import { Plus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { useProjects } from '@/features/projects/hooks/useProjects';
-import ProjectRowCard from '@/features/projects/components/ProjectRowCard';
-import LoadingSpinner from '@/shared/components/common/LoadingSpinner';
-import ErrorBanner from '@/shared/components/common/ErrorBanner';
-import EmptyState from '@/shared/components/common/EmptyState';
-import PageHeader from '@/shared/components/common/PageHeader';
-import CreateProjectDialog from '@/features/projects/components/CreateProjectDialog';
+import { Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useProjects } from "@/features/projects/hooks/useProjects";
+import ProjectCard from "@/shared/components/project/ProjectCard";
+import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import ErrorBanner from "@/shared/components/common/ErrorBanner";
+import EmptyState from "@/shared/components/common/EmptyState";
+import PageHeader from "@/shared/components/common/PageHeader";
+import CreateProjectDialog from "@/features/projects/components/CreateProjectDialog";
 
 export default function ProjectsPage() {
   const [createOpen, setCreateOpen] = useState(false);
@@ -35,7 +35,13 @@ export default function ProjectsPage() {
   }
 
   if (error) {
-    return <ErrorBanner message={error} fullWidth onRetry={() => window.location.reload()} />;
+    return (
+      <ErrorBanner
+        message={error}
+        fullWidth
+        onRetry={() => window.location.reload()}
+      />
+    );
   }
 
   return (
@@ -60,24 +66,33 @@ export default function ProjectsPage() {
           title="No Projects Yet"
           description="Get started by creating your first automation project."
           action={{
-            label: 'Create Project',
+            label: "Create Project",
             onClick: () => setCreateOpen(true),
           }}
         />
       ) : (
-        <div className="space-y-4">
-          {projects.map((project) => (
-            <ProjectRowCard
-              key={project.id}
-              id={project.id}
-              name={project.name}
-              owner={project.owner}
-              status={project.status}
-              statusTone={project.statusTone}
-              updatedAt={project.lastRun}
-            />
-          ))}
-        </div>
+        <section className="space-y-5">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Recent Projects
+          </h2>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {projects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                projectId={project.id}
+                title={project.name}
+                description={project.description || "No description available"}
+                status={project.status}
+                statusTone={project.statusTone}
+                testCases={project.testCases ?? 0}
+                passRate={project.passRate || "0%"}
+                lastRun={project.lastRun}
+                barTone={project.barTone || "slate"}
+                projectBarWidth={project.projectBarWidth ?? 0}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
       <CreateProjectDialog

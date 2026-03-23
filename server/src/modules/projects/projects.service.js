@@ -77,23 +77,33 @@ async function createProject(userId, body) {
   };
 }
 
-async function getProjects(userId) {
+async function getProjects(userId, page = 1, limit = 6) {
   assertUser(userId);
 
-  const rows = await projectsRepository.getProjects(userId);
+  const result = await projectsRepository.getProjects(userId, page, limit);
 
-  return rows.map((p) => {
-    const statusInfo = formatStatus(p.status);
+  return {
+    data: result.rows.map((p) => {
+      const statusInfo = formatStatus(p.status);
+      const passRateNum = p.total_runs > 0 
+        ? Math.round((p.passed_runs / p.total_runs) * 100) 
+        : 0;
 
-    return {
-      id: p.id,
-      name: p.name,
-      owner: p.owner_name,
-      status: statusInfo.display,
-      statusTone: statusInfo.tone,
-      lastRun: formatRelativeTimeFromDb(p.last_run_at),
-    };
-  });
+      return {
+        id: p.id,
+        name: p.name,
+        owner: p.owner_name,
+        status: statusInfo.display,
+        statusTone: statusInfo.tone,
+        testCases: parseInt(p.total_test_cases, 10) || 0,
+        passRate: `${passRateNum}%`,
+        lastRun: formatRelativeTimeFromDb(p.last_run_at),
+        barTone: p.status === 'passing' ? 'green' : p.status === 'failing' ? 'red' : 'slate',
+        projectBarWidth: passRateNum,
+      };
+    }),
+    pagination: result.pagination,
+  };
 }
 
 async function getRecentProjects(userId, limit = 5) {
@@ -156,10 +166,45 @@ async function getProjectById(userId, projectId) {
   };
 }
 
+async function updateProject(userId, projectId, body) {
+  assertUser(userId);
+
+  const name = body?.name ? String(body.name).trim() : undefined;
+  const description = body?.description ? String(body.description).trim() : undefined;
+  const baseUrl = body?.base_url || body?.baseUrl ? String(body?.base_url || body?.baseUrl).trim() : undefined;
+
+  if (name !== undefined && name.length === 0) {
+    throw { status: 400, message: 'Project name cannot be empty' };
+  }
+
+  const updated = await projectsRepository.updateProject(userId, projectId, {
+    name,
+    description,
+    baseUrl,
+  });
+
+  return {
+    id: updated.id,
+    name: updated.name,
+    description: updated.description,
+    baseUrl: updated.base_url,
+    createdAt: updated.created_at,
+    updatedAt: updated.updated_at,
+  };
+}
+
+async function deleteProject(userId, projectId) {
+  assertUser(userId);
+
+  return await projectsRepository.deleteProject(userId, projectId);
+}
+
 module.exports = {
   createProject,
   getProjects,
   getRecentProjects,
   getProjectById,
+  updateProject,
+  deleteProject,
 };
 

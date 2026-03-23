@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -6,41 +6,44 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorBanner from "@/shared/components/common/ErrorBanner";
-import { createProject } from "@/features/projects/api/projectsApi";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import LoadingSpinner from '@/shared/components/common/LoadingSpinner';
+import ErrorBanner from '@/shared/components/common/ErrorBanner';
+import { updateProject } from '@/features/projects/api/projectsApi';
 
-export default function CreateProjectDialog({ open, onOpenChange, onCreated }) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [baseUrl, setBaseUrl] = useState("");
-  const [error, setError] = useState("");
+export default function UpdateProjectDialog({
+  open,
+  onOpenChange,
+  onUpdated,
+  project,
+}) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const canSubmit = useMemo(() => {
-    return (
-      name.trim().length > 0 &&
-      description.trim().length > 0 &&
-      baseUrl.trim().length > 0
-    );
+    return name.trim().length > 0 && description.trim().length > 0 && baseUrl.trim().length > 0;
   }, [name, description, baseUrl]);
 
+  // Populate form when dialog opens or project changes
   useEffect(() => {
     if (!open) return;
-    setName("");
-    setDescription("");
-    setBaseUrl("");
-    setError("");
+    
+    setName(project?.title || '');
+    setDescription(project?.description || '');
+    setBaseUrl(project?.baseUrl || '');
+    setError('');
     setIsSubmitting(false);
-  }, [open]);
+  }, [open, project]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setError('');
 
     const payload = {
       name: name.trim(),
@@ -49,17 +52,17 @@ export default function CreateProjectDialog({ open, onOpenChange, onCreated }) {
     };
 
     if (!canSubmit) {
-      setError("Please fill in Project Name, Description, and Base URL.");
+      setError('Please fill in Project Name, Description, and Base URL.');
       return;
     }
 
     try {
       setIsSubmitting(true);
-      const created = await createProject(payload);
-      onCreated?.(created);
+      await updateProject(project.id, payload);
+      onUpdated?.();
       onOpenChange?.(false);
     } catch (err) {
-      setError(err?.message || "Failed to create project.");
+      setError(err?.message || 'Failed to update project.');
     } finally {
       setIsSubmitting(false);
     }
@@ -67,24 +70,15 @@ export default function CreateProjectDialog({ open, onOpenChange, onCreated }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton={true}
-        className="max-w-xl w-[95vw] sm:w-full"
-      >
+      <DialogContent showCloseButton={true} className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Create New Project</DialogTitle>
+          <DialogTitle>Update Project</DialogTitle>
           <DialogDescription>
-            Set up a new test automation project for your website
+            Edit project details below
           </DialogDescription>
         </DialogHeader>
 
-        {error && (
-          <ErrorBanner
-            message={error}
-            fullWidth
-            onDismiss={() => setError("")}
-          />
-        )}
+        {error && <ErrorBanner message={error} fullWidth onDismiss={() => setError('')} />}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -121,25 +115,24 @@ export default function CreateProjectDialog({ open, onOpenChange, onCreated }) {
             />
           </div>
 
-          <DialogFooter className="flex-col gap-2 sm:flex-row pt-2">
+          <DialogFooter className="pt-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange?.(false)}
               disabled={isSubmitting}
-              className="w-full sm:w-auto"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={!canSubmit || isSubmitting}
-              className="w-full sm:w-auto bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)]"
+              className="bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)]"
             >
               {isSubmitting ? (
-                <LoadingSpinner size="sm" label="Creating..." />
+                <LoadingSpinner size="sm" label="Updating..." />
               ) : (
-                "Create Project"
+                'Update Project'
               )}
             </Button>
           </DialogFooter>

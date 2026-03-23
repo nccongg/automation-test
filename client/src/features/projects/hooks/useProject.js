@@ -11,10 +11,12 @@ import { getProjectById } from '../api/projectApi';
 
 /**
  * Hook to fetch project details by ID from URL params
+ * @param {string} overrideProjectId - Optional project ID override
  * @returns {Object} Project state { data, loading, error }
  */
-export function useProject() {
+export function useProject(overrideProjectId) {
   const { projectId } = useParams();
+  const effectiveProjectId = overrideProjectId || projectId;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -25,7 +27,7 @@ export function useProject() {
     const fetchProject = async () => {
       try {
         setLoading(true);
-        const res = await getProjectById(projectId);
+        const res = await getProjectById(effectiveProjectId);
         if (!mounted) return;
         setData(res);
       } catch (e) {
@@ -42,7 +44,7 @@ export function useProject() {
     return () => {
       mounted = false;
     };
-  }, [projectId]);
+  }, [effectiveProjectId]);
 
   return { data, loading, error };
 }
