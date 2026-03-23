@@ -30,5 +30,7 @@ router.use('/auth', require('./modules/auth/auth.router'));
 router.use('/test-runs', require('./modules/testRun/testRun.routes'));
 //router.use('/results', require('./modules/result/result.routes'));
 router.use('/agent', require('./modules/agent/agent.routes'));
+router.use('/dashboard', require('./modules/dashboard/dashboard.router'));
+router.use('/projects', require('./modules/projects/projects.router'));
 
 module.exports = router;
