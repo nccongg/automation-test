@@ -25,6 +25,10 @@ const env = {
   // Auth
   JWT_SECRET: process.env.JWT_SECRET || 'secret',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
+
+  // Agent-Worker
+  AGENT_WORKER_URL: process.env.AGENT_WORKER_URL,
+  AGENT_CALLBACK_SECRET: process.env.AGENT_CALLBACK_SECRET,
 };
 
 module.exports = env;

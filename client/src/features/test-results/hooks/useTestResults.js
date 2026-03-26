@@ -1,39 +1,78 @@
-/**
- * Test Results Hook
- */
-
 import { useState, useEffect } from 'react';
-import { getTestResults } from '../api/testResultsApi';
+import { getTestResults, getTestRunDetail } from '../api/testResultsApi';
 
 export function useTestResults() {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [expandedRunId, setExpandedRunId] = useState(null);
+  const [runDetails, setRunDetails] = useState({});
+  const [detailLoadingId, setDetailLoadingId] = useState(null);
+
   useEffect(() => {
     let mounted = true;
 
-    const fetch = async () => {
+    const fetchData = async ({ silent = false } = {}) => {
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         const res = await getTestResults();
         if (!mounted) return;
         setResults(res);
+        setError('');
       } catch (e) {
         if (!mounted) return;
         setError(e?.message || 'Failed to load test results.');
       } finally {
         if (!mounted) return;
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
     };
 
-    fetch();
+    fetchData();
+
+    const intervalId = setInterval(() => {
+      fetchData({ silent: true });
+    }, 3000);
 
     return () => {
       mounted = false;
+      clearInterval(intervalId);
     };
   }, []);
 
-  return { results, loading, error };
+  const toggleRunDetail = async (runId) => {
+    if (expandedRunId === runId) {
+      setExpandedRunId(null);
+      return;
+    }
+
+    setExpandedRunId(runId);
+
+    if (runDetails[runId]) return;
+
+    try {
+      setDetailLoadingId(runId);
+      const detail = await getTestRunDetail(runId);
+
+      setRunDetails((prev) => ({
+        ...prev,
+        [runId]: detail,
+      }));
+    } catch (e) {
+      setError(e?.message || 'Failed to load test run detail.');
+    } finally {
+      setDetailLoadingId(null);
+    }
+  };
+
+  return {
+    results,
+    loading,
+    error,
+    expandedRunId,
+    runDetails,
+    detailLoadingId,
+    toggleRunDetail,
+  };
 }
