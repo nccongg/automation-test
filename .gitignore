@@ -46,3 +46,6 @@ coverage/
 .cache/
 .eslintcache
 .parcel-cache/
+
+#venv
+venv/
