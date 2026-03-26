@@ -49,3 +49,5 @@ coverage/
 
 #venv
 venv/
+
+__pycache__/
