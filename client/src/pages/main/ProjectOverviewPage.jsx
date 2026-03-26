@@ -1,33 +1,49 @@
 import { useState } from 'react';
-import { useOutletContext, NavLink } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { CheckCircle2, XCircle, Sparkles } from 'lucide-react';
 import ProjectHeader from '@/features/projects/components/ProjectHeader';
 import ProjectStats from '@/features/projects/components/ProjectStats';
+import { createTestRun } from '@/features/test-results/api/testResultsApi';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import LoadingSpinner from '@/shared/components/common/LoadingSpinner';
 import EmptyState from '@/shared/components/common/EmptyState';
 import { formatRelativeTime } from '@/shared/utils';
 
+const TEMP_TEST_CASE_ID = 1; // <-- đổi thành testCaseId thật trong DB
+
 export default function ProjectOverviewPage() {
   const { project, onProjectUpdated } = useOutletContext();
+  const navigate = useNavigate();
 
   const [prompt, setPrompt] = useState('');
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState('');
+  const [running, setRunning] = useState(false);
+  const [runMessage, setRunMessage] = useState('');
+  const [runError, setRunError] = useState('');
 
-  const handleAnalyze = async () => {
+  const handleRunTest = async () => {
     if (!prompt.trim()) return;
-    setAnalyzing(true);
-    setAnalysisResult('');
 
-    // Mock behavior: simulate AI analysis based on prompt.
-    await new Promise((r) => setTimeout(r, 1300));
-    setAnalysisResult(
-      `Mock AI analysis complete. Based on your requirements: "${prompt}"\n\nNext step: Generate test scenarios and automate them using AI.`
-    );
-    setAnalyzing(false);
+    try {
+      setRunning(true);
+      setRunMessage('');
+      setRunError('');
+
+      const result = await createTestRun({
+        testCaseId: TEMP_TEST_CASE_ID,
+        promptText: prompt.trim(),
+      });
+
+      setRunMessage(
+        `Run #${result?.testRun?.id ?? 'N/A'} created successfully. Redirecting to Test Runs...`
+      );
+
+      navigate(`/projects/${project.id}/test-runs`);
+    } catch (error) {
+      setRunError(error?.message || 'Failed to start test run.');
+    } finally {
+      setRunning(false);
+    }
   };
 
   return (
@@ -38,10 +54,10 @@ export default function ProjectOverviewPage() {
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <h2 className="text-lg font-semibold tracking-tight">
-              AI Website Analysis
+              Run Test with Prompt
             </h2>
             <p className="text-sm text-muted-foreground">
-              Describe your testing requirements and let AI generate intelligent test cases
+              Temporary flow: use a real testCaseId in DB and override its prompt to start a test run
             </p>
           </div>
           <div className="grid size-10 place-items-center rounded-full bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]">
@@ -52,35 +68,45 @@ export default function ProjectOverviewPage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-end">
           <div className="flex-1 space-y-2">
             <Label htmlFor="ai-prompt" className="text-sm">
-              AI Test Generation Prompt
+              Test Prompt
             </Label>
             <textarea
               id="ai-prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe what you want to test...\n\nExample: 'Test the login functionality, product search, shopping cart, and checkout process'"
-              disabled={analyzing}
+              placeholder="Example: Open login page, enter valid credentials, click login, verify dashboard is visible"
+              disabled={running}
               className="min-h-[100px] w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
 
           <Button
             type="button"
-            onClick={handleAnalyze}
-            disabled={analyzing || !prompt.trim()}
+            onClick={handleRunTest}
+            disabled={running || !prompt.trim()}
             className="bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)] md:w-auto"
           >
-            {analyzing ? (
-              <LoadingSpinner size="sm" label="Analyzing..." />
+            {running ? (
+              <LoadingSpinner size="sm" label="Starting..." />
             ) : (
-              'Generate with AI'
+              'Run Test'
             )}
           </Button>
         </div>
 
-        {analysisResult && (
-          <div className="rounded-lg bg-muted/30 p-4 text-sm text-muted-foreground whitespace-pre-wrap">
-            {analysisResult}
+        <div className="text-xs text-muted-foreground">
+          Using temporary testCaseId: <strong>{TEMP_TEST_CASE_ID}</strong>
+        </div>
+
+        {runMessage && (
+          <div className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-700 whitespace-pre-wrap">
+            {runMessage}
+          </div>
+        )}
+
+        {runError && (
+          <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700 whitespace-pre-wrap">
+            {runError}
           </div>
         )}
       </section>
@@ -133,4 +159,3 @@ export default function ProjectOverviewPage() {
     </div>
   );
 }
-
