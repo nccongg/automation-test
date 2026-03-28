@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { getTestCases } from "../api/testCasesApi";
 
+import { useState, useEffect } from "react";
+import { getTestCases } from "../api/testCasesApi";
+
 export function useTestCases(projectId) {
   const [testCases, setTestCases] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,8 +18,7 @@ export function useTestCases(projectId) {
         setLoading(true);
         const res = await getTestCases(projectId);
         if (!mounted) return;
-        setTestCases(res);
-        setError("");
+        setTestCases(Array.isArray(res) ? res : []);
       } catch (e) {
         if (!mounted) return;
         setError(e?.message || "Failed to load test cases.");

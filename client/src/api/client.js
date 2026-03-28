@@ -19,16 +19,22 @@ const BASE_URL = import.meta.env.VITE_API_URL || '/api';
  */
 async function request(path, options = {}) {
   const token = localStorage.getItem('token');
+  const { params, ...fetchOptions } = options;
+
+  let url = `${BASE_URL}${path}`;
+  if (params && Object.keys(params).length > 0) {
+    url = `${url}?${new URLSearchParams(params).toString()}`;
+  }
 
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...options.headers,
+    ...fetchOptions.headers,
   };
 
   try {
-    const res = await fetch(`${BASE_URL}${path}`, {
-      ...options,
+    const res = await fetch(url, {
+      ...fetchOptions,
       headers,
     });
 

@@ -1,20 +1,19 @@
-'use strict';
+"use strict";
 
-const { Router } = require('express');
-const testCaseController = require('./testCase.controller');
+const { Router } = require("express");
+const ctrl = require("./testCase.controller");
+const authMiddleware = require("../../middleware/auth.middleware");
 
 const router = Router();
 
 /**
- * Get all test cases of one project
- * GET /api/test-cases/project/:projectId
+ * @route   POST /api/test-cases/generate
+ * @desc    Generate test cases from a prompt using AI
+ * @access  Private
  */
-router.get('/project/:projectId', testCaseController.listProjectTestCases);
-
-/**
- * Get saved scripts of one test case
- * GET /api/test-cases/:testCaseId/scripts
- */
-router.get('/:testCaseId/scripts', testCaseController.listExecutionScriptsByTestCase);
+router.use(authMiddleware);
+router.get("/", ctrl.getTestCases);
+router.post("/generate", ctrl.generateTestCases);
+router.post("/save", ctrl.saveTestCases);
 
 module.exports = router;

@@ -1,60 +1,76 @@
-'use strict';
+"use strict";
 
-const testCaseService = require('./testCase.service');
+const testCaseService = require("./testCase.service");
 
-async function listProjectTestCases(req, res) {
+async function getTestCases(req, res, next) {
   try {
-    const projectId = Number(req.params.projectId);
-
-    if (!Number.isInteger(projectId) || projectId <= 0) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'projectId must be a positive integer',
-      });
-    }
-
-    const items = await testCaseService.listProjectTestCases(projectId);
-
-    return res.json({
-      status: 'ok',
-      data: items,
-    });
-  } catch (error) {
-    console.error('[TestCaseController.listProjectTestCases]', error);
-    return res.status(500).json({
-      status: 'error',
-      message: error.message || 'Failed to load test cases',
-    });
+    const userId = req.user?.userId;
+    const projectId = req.query.projectId ? Number(req.query.projectId) : null;
+    console.log("[getTestCases] userId:", userId, "projectId:", projectId);
+    const data = await testCaseService.getTestCases(userId, projectId);
+    console.log("[getTestCases] rows returned:", data.length, data);
+    res.json({ status: "ok", data });
+  } catch (err) {
+    next(err);
   }
 }
 
-async function listExecutionScriptsByTestCase(req, res) {
+async function generateTestCases(req, res, next) {
   try {
-    const testCaseId = Number(req.params.testCaseId);
+    const userId = req.user?.userId;
+    const { prompt } = req.body;
 
-    if (!Number.isInteger(testCaseId) || testCaseId <= 0) {
+    if (!prompt) {
       return res.status(400).json({
-        status: 'error',
-        message: 'testCaseId must be a positive integer',
+        status: "error",
+        message: "Prompt is required to generate test cases",
       });
     }
 
-    const items = await testCaseService.listExecutionScriptsByTestCase(testCaseId);
+    const data = await testCaseService.generateTestCases(userId, prompt);
 
-    return res.json({
-      status: 'ok',
-      data: items,
+    console.log("[generateTestCases] response:", JSON.stringify(data, null, 2));
+
+    res.json({
+      status: "ok",
+      data,
+      message: "Test cases generated successfully",
     });
-  } catch (error) {
-    console.error('[TestCaseController.listExecutionScriptsByTestCase]', error);
-    return res.status(500).json({
-      status: 'error',
-      message: error.message || 'Failed to load execution scripts',
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function saveTestCases(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const { projectId, promptText, testCases } = req.body;
+
+    if (!projectId) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "projectId is required" });
+    }
+
+    const saved = await testCaseService.saveTestCases(
+      userId,
+      projectId,
+      promptText,
+      testCases,
+    );
+
+    res.status(201).json({
+      status: "ok",
+      data: saved,
+      message: `${saved.length} test case(s) saved successfully`,
     });
+  } catch (err) {
+    next(err);
   }
 }
 
 module.exports = {
-  listProjectTestCases,
-  listExecutionScriptsByTestCase,
+  getTestCases,
+  generateTestCases,
+  saveTestCases,
 };

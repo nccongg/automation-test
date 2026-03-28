@@ -1,21 +1,21 @@
-import { apiClient } from '@/api';
+import { apiClient } from "@/api";
 
 function formatDateTime(dateString) {
-  if (!dateString) return 'N/A';
+  if (!dateString) return "N/A";
 
   const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return 'N/A';
+  if (Number.isNaN(date.getTime())) return "N/A";
 
   return date.toLocaleString();
 }
 
 function formatDuration(startedAt, finishedAt) {
-  if (!startedAt || !finishedAt) return '-';
+  if (!startedAt || !finishedAt) return "-";
 
   const start = new Date(startedAt).getTime();
   const end = new Date(finishedAt).getTime();
 
-  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return '-';
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return "-";
 
   const totalSeconds = Math.floor((end - start) / 1000);
   const minutes = Math.floor(totalSeconds / 60);
@@ -26,24 +26,24 @@ function formatDuration(startedAt, finishedAt) {
 }
 
 function formatStepStatus(status) {
-  if (!status) return 'Unknown';
+  if (!status) return "Unknown";
   return String(status).charAt(0).toUpperCase() + String(status).slice(1);
 }
 
 function mapVerdictToResult(verdict, status) {
-  if (verdict === 'pass') return 'Passed';
-  if (verdict === 'fail') return 'Failed';
+  if (verdict === "pass") return "Passed";
+  if (verdict === "fail") return "Failed";
 
-  if (status === 'queued' || status === 'running') return 'Running';
-  if (status === 'completed') return 'Completed';
+  if (status === "queued" || status === "running") return "Running";
+  if (status === "completed") return "Completed";
 
-  return 'Pending';
+  return "Pending";
 }
 
 function calculateSummary(runs) {
   const totalRuns = runs.length;
-  const passed = runs.filter((run) => run.result === 'Passed').length;
-  const failed = runs.filter((run) => run.result === 'Failed').length;
+  const passed = runs.filter((run) => run.result === "Passed").length;
+  const failed = runs.filter((run) => run.result === "Failed").length;
   const skipped = 0;
 
   const durationValuesInSeconds = runs
@@ -58,11 +58,11 @@ function calculateSummary(runs) {
     })
     .filter((value) => value !== null);
 
-  let avgDuration = '-';
+  let avgDuration = "-";
   if (durationValuesInSeconds.length > 0) {
     const avgSeconds = Math.floor(
       durationValuesInSeconds.reduce((sum, value) => sum + value, 0) /
-        durationValuesInSeconds.length
+        durationValuesInSeconds.length,
     );
 
     const minutes = Math.floor(avgSeconds / 60);
@@ -71,7 +71,7 @@ function calculateSummary(runs) {
   }
 
   const passRate =
-    totalRuns > 0 ? `${((passed / totalRuns) * 100).toFixed(1)}%` : '0%';
+    totalRuns > 0 ? `${((passed / totalRuns) * 100).toFixed(1)}%` : "0%";
 
   return {
     totalRuns,
@@ -80,7 +80,7 @@ function calculateSummary(runs) {
     skipped,
     passRate,
     avgDuration,
-    lastRunDate: runs[0]?.executedAt || 'N/A',
+    lastRunDate: runs[0]?.executedAt || "N/A",
   };
 }
 
@@ -89,18 +89,18 @@ function normalizeApiPayload(response) {
 }
 
 function normalizeScreenshotUrl(filePath) {
-  if (!filePath) return '';
+  if (!filePath) return "";
 
-  if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+  if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
     return filePath;
   }
 
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
-  return `${baseUrl}/${filePath.replace(/^\/+/, '')}`;
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+  return `${baseUrl}/${filePath.replace(/^\/+/, "")}`;
 }
 
 export async function getTestResults() {
-  const response = await apiClient.get('/test-runs');
+  const response = await apiClient.get("/test-runs");
   const payload = normalizeApiPayload(response);
   const rawRuns = Array.isArray(payload) ? payload : [];
 
@@ -110,14 +110,14 @@ export async function getTestResults() {
     return {
       id: run.id,
       projectName: run.test_case_title || `Run #${run.id}`,
-      status: run.status || 'unknown',
+      status: run.status || "unknown",
       result,
       totalTests: 1,
-      passed: result === 'Passed' ? 1 : 0,
-      failed: result === 'Failed' ? 1 : 0,
+      passed: result === "Passed" ? 1 : 0,
+      failed: result === "Failed" ? 1 : 0,
       duration: formatDuration(run.started_at, run.finished_at),
       executedAt: formatDateTime(run.created_at),
-      executedBy: 'System',
+      executedBy: "System",
       _rawStartedAt: run.started_at,
       _rawFinishedAt: run.finished_at,
     };
@@ -146,7 +146,7 @@ export async function getTestRunDetail(runId) {
           id: evidence.id,
           filePath: evidence.file_path,
           imageUrl: normalizeScreenshotUrl(evidence.file_path),
-          pageUrl: evidence.page_url || '',
+          pageUrl: evidence.page_url || "",
           capturedAt: formatDateTime(evidence.captured_at),
         }));
 
@@ -154,12 +154,12 @@ export async function getTestRunDetail(runId) {
         id: step.id,
         stepNo: step.step_no,
         title: step.step_title || step.action || `Step ${step.step_no}`,
-        action: step.action || '',
+        action: step.action || "",
         status: formatStepStatus(step.status),
-        message: step.message || '',
-        currentUrl: step.current_url || '',
-        thoughtText: step.thought_text || '',
-        extractedContent: step.extracted_content || '',
+        message: step.message || "",
+        currentUrl: step.current_url || "",
+        thoughtText: step.thought_text || "",
+        extractedContent: step.extracted_content || "",
         createdAt: formatDateTime(step.created_at),
         screenshots,
       };
@@ -168,8 +168,16 @@ export async function getTestRunDetail(runId) {
 }
 
 export async function createTestRun({ testCaseId, promptText }) {
-  const response = await apiClient.post('/test-runs', {
+  const response = await apiClient.post("/test-runs", {
     testCaseId,
+    promptText,
+  });
+
+  return normalizeApiPayload(response);
+}
+
+export async function generateTestCase(promptText) {
+  const response = await apiClient.post("/test-cases/generate", {
     promptText,
   });
 
