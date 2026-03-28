@@ -34,6 +34,7 @@ export function useTestCases(projectId) {
       mounted = false;
     };
   }, [projectId]);
+  }, [projectId]);
 
   return { testCases, loading, error };
 }
