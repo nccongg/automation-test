@@ -1,26 +1,35 @@
 /**
  * Project Detail Page
- * 
+ *
  * Main project view showing overview, test cases, runs, and settings
  */
 
-import { NavLink, Outlet, useParams } from 'react-router-dom';
-import { useProject } from '@/features/projects/hooks/useProject';
-import LoadingSpinner from '@/shared/components/common/LoadingSpinner';
-import ErrorBanner from '@/shared/components/common/ErrorBanner';
-import { BarChart3, FileText, PlayCircle, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { NavLink, Outlet, useParams } from "react-router-dom";
+import { useProject } from "@/features/projects/hooks/useProject";
+import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import ErrorBanner from "@/shared/components/common/ErrorBanner";
+import {
+  BarChart3,
+  FileText,
+  PlayCircle,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { useState } from "react";
 
 export default function ProjectDetailPage() {
   const { projectId } = useParams();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  
+
   // Force reload project data when reloadKey changes
-  const { data, loading, error } = useProject(reloadKey > 0 ? `${projectId}-${reloadKey}` : projectId);
+  const { data, loading, error } = useProject(
+    reloadKey > 0 ? `${projectId}-${reloadKey}` : projectId,
+  );
 
   const handleProjectUpdated = () => {
-    setReloadKey(prev => prev + 1);
+    setReloadKey((prev) => prev + 1);
   };
 
   if (loading) {
@@ -33,29 +42,29 @@ export default function ProjectDetailPage() {
 
   if (error) {
     return (
-      <ErrorBanner 
-        message={error} 
-        fullWidth 
-        onRetry={() => window.location.reload()} 
+      <ErrorBanner
+        message={error}
+        fullWidth
+        onRetry={() => window.location.reload()}
       />
     );
   }
 
   if (!data) {
     return (
-      <ErrorBanner 
-        message="Project not found" 
-        fullWidth 
-        onRetry={() => window.history.back()} 
+      <ErrorBanner
+        message="Project not found"
+        fullWidth
+        onRetry={() => window.history.back()}
       />
     );
   }
 
   return (
-    <div className="flex gap-6">
-      <aside 
-        className={`shrink-0 rounded-xl border bg-white p-2 transition-all duration-300 ease-in-out ${
-          isSidebarCollapsed ? 'w-16' : 'w-64'
+    <div className="flex gap-6 max-h-screen overflow-hidden">
+      <aside
+        className={`sticky top-0 self-start shrink-0 rounded-xl border bg-white p-2 transition-all duration-300 ease-in-out overflow-y-auto ${
+          isSidebarCollapsed ? "w-16" : "w-64"
         }`}
       >
         <div className="flex items-center justify-between mb-2">
@@ -68,7 +77,7 @@ export default function ProjectDetailPage() {
             type="button"
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {isSidebarCollapsed ? (
               <ChevronRight className="size-4" />
@@ -77,69 +86,83 @@ export default function ProjectDetailPage() {
             )}
           </button>
         </div>
-        
+
         <nav className="space-y-1">
           <NavLink
             to="overview"
             end
             className={({ isActive }) =>
               [
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                isActive ? 'bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]' : 'text-muted-foreground hover:bg-muted',
-                isSidebarCollapsed ? 'justify-center px-2' : '',
-              ].join(' ')
+                "flex items-center gap-3 rounded-xl px-3 py-4 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
+                  : "text-muted-foreground hover:bg-muted",
+                isSidebarCollapsed ? "justify-center px-2" : "",
+              ].join(" ")
             }
           >
-            <FileText className="size-4 shrink-0" />
-            {!isSidebarCollapsed && 'Overview'}
+            <FileText className="size-5 shrink-0" />
+            {!isSidebarCollapsed && "Overview"}
           </NavLink>
 
           <NavLink
             to="test-cases"
             className={({ isActive }) =>
               [
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                isActive ? 'bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]' : 'text-muted-foreground hover:bg-muted',
-                isSidebarCollapsed ? 'justify-center px-2' : '',
-              ].join(' ')
+                "flex items-center gap-3 rounded-xl px-3 py-4 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
+                  : "text-muted-foreground hover:bg-muted",
+                isSidebarCollapsed ? "justify-center px-2" : "",
+              ].join(" ")
             }
           >
-            <PlayCircle className="size-4 shrink-0" />
-            {!isSidebarCollapsed && 'Test Cases'}
+            <PlayCircle className="size-5 shrink-0" />
+            {!isSidebarCollapsed && "Test Cases"}
           </NavLink>
 
           <NavLink
             to="test-runs"
             className={({ isActive }) =>
               [
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                isActive ? 'bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]' : 'text-muted-foreground hover:bg-muted',
-                isSidebarCollapsed ? 'justify-center px-2' : '',
-              ].join(' ')
+                "flex items-center gap-3 rounded-xl px-3 py-4 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
+                  : "text-muted-foreground hover:bg-muted",
+                isSidebarCollapsed ? "justify-center px-2" : "",
+              ].join(" ")
             }
           >
-            <BarChart3 className="size-4 shrink-0" />
-            {!isSidebarCollapsed && 'Test Runs'}
+            <BarChart3 className="size-5 shrink-0" />
+            {!isSidebarCollapsed && "Test Runs"}
           </NavLink>
 
           <NavLink
             to="settings"
             className={({ isActive }) =>
               [
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                isActive ? 'bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]' : 'text-muted-foreground hover:bg-muted',
-                isSidebarCollapsed ? 'justify-center px-2' : '',
-              ].join(' ')
+                "flex items-center gap-3 rounded-xl px-3 py-4 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
+                  : "text-muted-foreground hover:bg-muted",
+                isSidebarCollapsed ? "justify-center px-2" : "",
+              ].join(" ")
             }
           >
-            <Settings className="size-4 shrink-0" />
-            {!isSidebarCollapsed && 'Settings'}
+            <Settings className="size-5 shrink-0" />
+            {!isSidebarCollapsed && "Settings"}
           </NavLink>
         </nav>
       </aside>
 
-      <main className="min-w-0 flex-1">
-        <Outlet context={{ project: data, projectId, onProjectUpdated: handleProjectUpdated }} />
+      <main className="min-w-0 flex-1 overflow-y-auto">
+        <Outlet
+          context={{
+            project: data,
+            projectId,
+            onProjectUpdated: handleProjectUpdated,
+          }}
+        />
       </main>
     </div>
   );

@@ -1,17 +1,37 @@
-import { apiClient } from "@/api/client";
+/**
+ * Test Cases API Module
+ *
+ * Test case management API calls
+ * Currently uses mock data - replace with real API when ready
+ */
 
-export const testCasesApi = {
-  async getTestCases(projectId) {
-    const res = await apiClient.get(`/test-cases/project/${projectId}`);
-    return res?.data || [];
-  },
+import { apiClient } from "@/api";
 
-  async getTestCaseScripts(testCaseId) {
-    const res = await apiClient.get(`/test-cases/${testCaseId}/scripts`);
-    return res?.data || [];
-  },
-};
+export async function getTestCases(projectId) {
+  const params = projectId ? { projectId } : {};
+  const response = await apiClient.get("/test-cases", { params });
+  return response.data;
+}
 
-export const getTestCases = (projectId) => testCasesApi.getTestCases(projectId);
-export const getTestCaseScripts = (testCaseId) =>
-  testCasesApi.getTestCaseScripts(testCaseId);
+export async function getTestCaseById(testCaseId) {
+  const response = await apiClient.get(`/test-cases/${testCaseId}`);
+  return response.data;
+}
+
+export async function generateTestCase(promptText) {
+  const response = await apiClient.post("/test-cases/generate", {
+    prompt: promptText,
+  });
+
+  return response.data;
+}
+
+export async function saveTestCases({ projectId, promptText, testCases }) {
+  const response = await apiClient.post("/test-cases/save", {
+    projectId,
+    promptText,
+    testCases,
+  });
+
+  return response.data;
+}

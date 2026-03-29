@@ -7,18 +7,25 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
+
 const env = require('./config/env');
 const routes = require('./routes');
 
 const app = express();
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(morgan(env.NODE_ENV === 'development' ? 'dev' : 'combined'));
 
 app.use(express.json({ limit: env.BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: env.BODY_LIMIT }));
+
+// ─── Swagger UI ───────────────────────────────────────────────────────────────
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get('/api-docs.json', (_req, res) => res.json(swaggerSpec));
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api', routes);

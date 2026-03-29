@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Search } from "lucide-react";
+import { Search, Plus, Filter } from "lucide-react";
+import { useParams } from "react-router-dom";
 import { useTestCases } from "@/features/test-cases/hooks/useTestCases";
 import { createTestRun } from "@/features/test-results/api/testResultsApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
@@ -26,8 +26,6 @@ function StatusBadge({ status }) {
 
 export default function TestCasesPage() {
   const { projectId } = useParams();
-  const navigate = useNavigate();
-
   const { testCases, loading, error } = useTestCases(projectId);
   const [searchTerm, setSearchTerm] = useState("");
   const [runningId, setRunningId] = useState(null);
@@ -69,17 +67,13 @@ export default function TestCasesPage() {
     );
   }
 
-  const filteredCases = testCases.filter((tc) => {
-    const title = tc.title || "";
-    const goal = tc.goal || "";
-    const promptText = tc.promptText || "";
+  const filteredCases = testCases.filter(
+    (tc) =>
+      tc.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tc.description?.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
 
-    return (
-      title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      goal.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      promptText.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
+  console.log("Filtered Cases:", filteredCases);
 
   return (
     <div className="space-y-8">
@@ -113,6 +107,7 @@ export default function TestCasesPage() {
           }
         />
       ) : (
+        // <div className="rounded-xl border bg-white">cccccc</div>
         <div className="rounded-xl border bg-white">
           <div className="grid gap-px divide-y">
             {filteredCases.map((tc) => (
@@ -146,7 +141,9 @@ export default function TestCasesPage() {
                 <div className="shrink-0">
                   <button
                     onClick={() => handleRun(tc)}
-                    disabled={runningId === tc.testCaseId || tc.status === "archived"}
+                    disabled={
+                      runningId === tc.testCaseId || tc.status === "archived"
+                    }
                     className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {runningId === tc.testCaseId ? "Running..." : "Run"}
