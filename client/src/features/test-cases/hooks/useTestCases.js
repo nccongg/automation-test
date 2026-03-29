@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
 import { getTestCases } from "../api/testCasesApi";
 
-import { useState, useEffect } from "react";
-import { getTestCases } from "../api/testCasesApi";
-
 export function useTestCases(projectId) {
   const [testCases, setTestCases] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +30,6 @@ export function useTestCases(projectId) {
     return () => {
       mounted = false;
     };
-  }, [projectId]);
   }, [projectId]);
 
   return { testCases, loading, error };
