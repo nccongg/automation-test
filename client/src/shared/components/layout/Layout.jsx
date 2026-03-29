@@ -147,7 +147,9 @@ export default function Layout() {
         onMouseLeave={() => setIsHovering(false)}
       >
         {/* Header with Logo and Collapse Toggle */}
-        <div className="flex items-center justify-between px-6 py-6">
+        <div
+          className={`flex items-center justify-between ${showExpanded ? "px-6 py-6" : "px-2 py-6"}`}
+        >
           {showExpanded && (
             <div className="flex items-center gap-3">
               <div className="grid h-9 w-9 place-items-center rounded-lg bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow)]">
@@ -159,7 +161,7 @@ export default function Layout() {
             </div>
           )}
           {!showExpanded && (
-            <div className="mx-auto">
+            <div className="mx-auto p-0">
               <div className="grid h-9 w-9 place-items-center rounded-lg bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow)]">
                 <Activity className="size-5" />
               </div>

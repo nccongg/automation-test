@@ -87,16 +87,17 @@ router.get("/:id", testRunController.getTestRunDetail);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [testCaseIds]
+ *             required:
+ *               - testCaseId
  *             properties:
- *               testCaseIds:
- *                 type: array
- *                 items:
- *                   type: integer
- *                 example: [1, 2, 3]
- *               projectId:
+ *               testCaseId:
  *                 type: integer
+ *                 description: ID of the test case to run
  *                 example: 1
+ *               promptText:
+ *                 type: string
+ *                 description: Optional prompt text for the test run
+ *                 example: Test the login flow
  *     responses:
  *       201:
  *         description: Test run created and started
@@ -105,11 +106,16 @@ router.get("/:id", testRunController.getTestRunDetail);
  *             schema:
  *               type: object
  *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 runId:
- *                   type: integer
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     runId:
+ *                       type: integer
+ *       400:
+ *         description: Bad Request (missing testCaseId)
  *       401:
  *         description: Unauthorized
  */

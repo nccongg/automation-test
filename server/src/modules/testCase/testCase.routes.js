@@ -21,6 +21,13 @@ const router = Router();
  *     tags: [Test Cases]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: projectId
+ *         schema:
+ *           type: integer
+ *         description: Filter test cases by project ID
+ *         example: 1
  *     responses:
  *       200:
  *         description: List of test cases
@@ -31,7 +38,7 @@ const router = Router();
  *               properties:
  *                 status:
  *                   type: string
- *                   example: success
+ *                   example: ok
  *                 data:
  *                   type: array
  *                   items:
@@ -136,6 +143,83 @@ const router = Router();
  *                   example: success
  *                 runId:
  *                   type: integer
+ *       401:
+ *         description: Unauthorized
+ */
+
+/**
+ * @swagger
+ * /test-cases/save:
+ *   post:
+ *     summary: Save generated test cases
+ *     tags: [Test Cases]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - projectId
+ *               - testCases
+ *             properties:
+ *               projectId:
+ *                 type: integer
+ *                 description: Project ID to associate test cases with
+ *                 example: 1
+ *               promptText:
+ *                 type: string
+ *                 description: Original prompt used to generate test cases
+ *                 example: User login with email and password
+ *               testCases:
+ *                 type: array
+ *                 description: Array of test cases to save
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     title:
+ *                       type: string
+ *                       example: Verify login with valid credentials
+ *                     type:
+ *                       type: string
+ *                       example: custom
+ *                     steps:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["Navigate to login page", "Enter valid email", "Enter valid password", "Click Login"]
+ *                     expectedResult:
+ *                       type: string
+ *                       example: User is redirected to dashboard
+ *     responses:
+ *       201:
+ *         description: Test cases saved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 message:
+ *                   type: string
+ *                   example: 3 test case(s) saved successfully
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       title:
+ *                         type: string
+ *                       versionId:
+ *                         type: integer
+ *       400:
+ *         description: Bad Request (missing projectId or testCases)
  *       401:
  *         description: Unauthorized
  */
