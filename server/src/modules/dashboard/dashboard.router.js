@@ -6,11 +6,50 @@ const authMiddleware = require('../../middleware/auth.middleware');
 
 const router = Router();
 
-/**
- * @route   GET /api/dashboard
- * @desc    Get dashboard data (KPIs and recent projects)
- */
 router.use(authMiddleware);
+
+/**
+ * @swagger
+ * tags:
+ *   name: Dashboard
+ *   description: Dashboard summary data
+ */
+
+/**
+ * @swagger
+ * /dashboard:
+ *   get:
+ *     summary: Get dashboard data (KPIs and recent projects)
+ *     tags: [Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard summary
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalProjects:
+ *                       type: integer
+ *                     totalTestCases:
+ *                       type: integer
+ *                     totalTestRuns:
+ *                       type: integer
+ *                     recentProjects:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       401:
+ *         description: Unauthorized
+ */
 router.get('/', ctrl.getDashboard);
 
 module.exports = router;

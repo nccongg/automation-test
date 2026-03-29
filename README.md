@@ -2,15 +2,19 @@
 
 A full-stack web-based automation testing platform powered by Selenium WebDriver and Gemini AI.
 
+## API document
+
+Open http://localhost:3001/api-docs to view the list of API
+
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | ReactJS + Vite + shadcn/ui + Tailwind CSS |
-| Backend | Node.js + Express.js |
-| Database | PostgreSQL 16 |
-| Automation | Selenium WebDriver |
-| AI | Google Gemini AI |
+| Layer      | Technology                                |
+| ---------- | ----------------------------------------- |
+| Frontend   | ReactJS + Vite + shadcn/ui + Tailwind CSS |
+| Backend    | Node.js + Express.js                      |
+| Database   | PostgreSQL 16                             |
+| Automation | Selenium WebDriver                        |
+| AI         | Google Gemini AI                          |
 
 ## Project Structure
 
@@ -40,6 +44,7 @@ automation-test/
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js >= 18
 - PostgreSQL 16
 - Chrome browser (for Selenium)
@@ -56,24 +61,26 @@ cd ../server && npm install
 
 **Backend dependencies** (tự động cài qua `npm install`):
 
-| Package | Mục đích |
-|---------|---------|
-| `express` | HTTP server |
-| `pg` | Kết nối PostgreSQL |
-| `dotenv` | Đọc file `.env` |
-| `cors` | Cho phép frontend gọi API |
-| `helmet` | Bảo mật HTTP headers |
-| `morgan` | Log request |
-| `uuid` | Generate unique IDs |
+| Package   | Mục đích                  |
+| --------- | ------------------------- |
+| `express` | HTTP server               |
+| `pg`      | Kết nối PostgreSQL        |
+| `dotenv`  | Đọc file `.env`           |
+| `cors`    | Cho phép frontend gọi API |
+| `helmet`  | Bảo mật HTTP headers      |
+| `morgan`  | Log request               |
+| `uuid`    | Generate unique IDs       |
 
 ### 2. Configure environment variables
 
 **Mac/Linux:**
+
 ```bash
 cp .env.example .env
 ```
 
 **Windows:**
+
 ```cmd
 copy .env.example .env
 ```
@@ -147,11 +154,11 @@ npm run dev
 
 ## API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/health` | Health check |
-| GET/POST | `/api/test-cases` | Manage test cases |
-| GET/PUT/DELETE | `/api/test-cases/:id` | Single test case |
-| POST | `/api/test-runs` | Execute a test |
-| GET | `/api/test-runs/:id` | Get run status |
-| GET | `/api/results` | Get test results |
+| Method         | Path                  | Description       |
+| -------------- | --------------------- | ----------------- |
+| GET            | `/api/health`         | Health check      |
+| GET/POST       | `/api/test-cases`     | Manage test cases |
+| GET/PUT/DELETE | `/api/test-cases/:id` | Single test case  |
+| POST           | `/api/test-runs`      | Execute a test    |
+| GET            | `/api/test-runs/:id`  | Get run status    |
+| GET            | `/api/results`        | Get test results  |
