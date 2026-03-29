@@ -1,5 +1,12 @@
-from pydantic import BaseModel
-from typing import Optional, Any, List, Dict
+from __future__ import annotations
+
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, Field, model_validator
+
+
+ExecutionMode = Literal["goal_based_agent", "replay_script"]
+ReplayScriptType = Literal["strict_replay_json", "browser_use_history"]
 
 
 class ProjectPayload(BaseModel):
@@ -7,13 +14,53 @@ class ProjectPayload(BaseModel):
     baseUrl: str
 
 
+class ReplayStepPayload(BaseModel):
+    stepNo: int
+    actionName: str
+    actionInput: Dict[str, Any] = Field(default_factory=dict)
+    expectedUrl: Optional[str] = None
+    timeoutMs: Optional[int] = None
+    continueOnError: bool = False
+    captureScreenshot: bool = False
+    notes: Optional[str] = None
+
+
+class ReplayScriptInlinePayload(BaseModel):
+    formatVersion: int = 1
+    scriptType: ReplayScriptType = "strict_replay_json"
+    paramsSchema: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    steps: List[ReplayStepPayload] = Field(default_factory=list)
+
+
+class ReplayPayload(BaseModel):
+    scriptId: Optional[int] = None
+    params: Dict[str, Any] = Field(default_factory=dict)
+    strict: bool = True
+    allowLlmFallback: bool = False
+    scriptJson: Optional[ReplayScriptInlinePayload] = None
+
+    @model_validator(mode="after")
+    def validate_source(self) -> "ReplayPayload":
+        if self.scriptId is None and self.scriptJson is None:
+            raise ValueError("Replay payload requires either scriptId or scriptJson")
+        return self
+
+
 class TestCasePayload(BaseModel):
     id: int
     title: str
     goal: str
-    executionMode: str
+    executionMode: ExecutionMode
     promptText: Optional[str] = None
     planSnapshot: Optional[Dict[str, Any]] = None
+    replay: Optional[ReplayPayload] = None
+
+    @model_validator(mode="after")
+    def validate_replay(self) -> "TestCasePayload":
+        if self.executionMode == "replay_script" and self.replay is None:
+            raise ValueError("testCase.replay is required when executionMode='replay_script'")
+        return self
 
 
 class RuntimeConfigPayload(BaseModel):
@@ -25,8 +72,11 @@ class RuntimeConfigPayload(BaseModel):
     useVision: bool = True
     headless: bool = True
     browserType: str = "chromium"
-    allowedDomains: List[str] = []
+    allowedDomains: List[str] = Field(default_factory=list)
     viewport: Optional[Dict[str, int]] = None
+    locale: Optional[str] = None
+    timezone: Optional[str] = None
+    extraConfig: Dict[str, Any] = Field(default_factory=dict)
 
 
 class BrowserProfilePayload(BaseModel):
@@ -34,6 +84,8 @@ class BrowserProfilePayload(BaseModel):
     provider: str = "local"
     profileType: str = "ephemeral"
     profileRef: Optional[str] = None
+    profileDirectory: Optional[str] = None
+    profileData: Dict[str, Any] = Field(default_factory=dict)
 
 
 class RunRequest(BaseModel):

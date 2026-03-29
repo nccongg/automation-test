@@ -1,21 +1,17 @@
-/**
- * Test Cases API Module
- * 
- * Test case management API calls
- * Currently uses mock data - replace with real API when ready
- */
+import { apiClient } from "@/api/client";
 
-import { 
-  getTestCases as getTestCasesMock,
-  getTestCaseById as getTestCaseByIdMock,
-} from '@/mocks/handlers/apiHandlers';
+export const testCasesApi = {
+  async getTestCases(projectId) {
+    const res = await apiClient.get(`/test-cases/project/${projectId}`);
+    return res?.data || [];
+  },
 
-export async function getTestCases() {
-  const response = await getTestCasesMock();
-  return response.data;
-}
+  async getTestCaseScripts(testCaseId) {
+    const res = await apiClient.get(`/test-cases/${testCaseId}/scripts`);
+    return res?.data || [];
+  },
+};
 
-export async function getTestCaseById(testCaseId) {
-  const response = await getTestCaseByIdMock(testCaseId);
-  return response.data;
-}
+export const getTestCases = (projectId) => testCasesApi.getTestCases(projectId);
+export const getTestCaseScripts = (testCaseId) =>
+  testCasesApi.getTestCaseScripts(testCaseId);
