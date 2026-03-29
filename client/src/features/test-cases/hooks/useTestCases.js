@@ -1,39 +1,37 @@
-/**
- * Test Cases Hook
- */
+import { useState, useEffect } from "react";
+import { getTestCases } from "../api/testCasesApi";
 
-import { useState, useEffect } from 'react';
-import { getTestCases } from '../api/testCasesApi';
-
-export function useTestCases() {
+export function useTestCases(projectId) {
   const [testCases, setTestCases] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let mounted = true;
 
-    const fetch = async () => {
+    const fetchData = async () => {
       try {
+        if (!projectId) return;
         setLoading(true);
-        const res = await getTestCases();
+        const res = await getTestCases(projectId);
         if (!mounted) return;
         setTestCases(res);
+        setError("");
       } catch (e) {
         if (!mounted) return;
-        setError(e?.message || 'Failed to load test cases.');
+        setError(e?.message || "Failed to load test cases.");
       } finally {
         if (!mounted) return;
         setLoading(false);
       }
     };
 
-    fetch();
+    fetchData();
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [projectId]);
 
   return { testCases, loading, error };
 }

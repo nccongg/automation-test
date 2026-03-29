@@ -1,94 +1,55 @@
-/**
- * Test Cases Page
- *
- * Displays test cases list with filtering and search
- * Uses feature components from /features/test-cases
- */
-
 import { useState } from "react";
-import { Search, Plus, Filter } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Search } from "lucide-react";
 import { useTestCases } from "@/features/test-cases/hooks/useTestCases";
+import { createTestRun } from "@/features/test-results/api/testResultsApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import ErrorBanner from "@/shared/components/common/ErrorBanner";
 import EmptyState from "@/shared/components/common/EmptyState";
 import PageHeader from "@/shared/components/common/PageHeader";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-/**
- * Status Badge Component
- */
 function StatusBadge({ status }) {
   const styles = {
-    Passed: "bg-emerald-100 text-emerald-700 border-emerald-500/20",
-    Failed: "bg-red-100 text-red-700 border-red-500/20",
-    Pending: "bg-slate-100 text-slate-700 border-slate-500/20",
-    Skipped: "bg-blue-100 text-blue-700 border-blue-500/20",
+    ready: "bg-emerald-100 text-emerald-700 border-emerald-500/20",
+    draft: "bg-yellow-100 text-yellow-700 border-yellow-500/20",
+    archived: "bg-slate-100 text-slate-700 border-slate-500/20",
   };
 
   return (
-    <Badge className={`border ${styles[status] || styles.Pending}`}>
+    <Badge className={`border ${styles[status] || styles.draft}`}>
       {status}
     </Badge>
   );
 }
 
-/**
- * Priority Badge Component
- */
-function PriorityBadge({ priority }) {
-  const styles = {
-    Critical: "bg-red-100 text-red-700 font-semibold",
-    High: "bg-orange-100 text-orange-700",
-    Medium: "bg-yellow-100 text-yellow-700",
-    Low: "bg-slate-100 text-slate-600",
-  };
-
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-xs ${styles[priority] || styles.Medium}`}
-    >
-      {priority}
-    </span>
-  );
-}
-
-function CollapsibleDescription({ text, maxChars = 180, maxLines = 2 }) {
-  const [expanded, setExpanded] = useState(false);
-  const shouldCollapse = text && text.length > maxChars;
-
-  const collapsedStyles = {
-    display: "-webkit-box",
-    WebkitLineClamp: maxLines,
-    WebkitBoxOrient: "vertical",
-    overflow: "hidden",
-  };
-
-  return (
-    <div className="mt-1 text-sm text-muted-foreground">
-      <p
-        className="whitespace-pre-wrap"
-        style={expanded || !shouldCollapse ? {} : collapsedStyles}
-      >
-        {text || "No description"}
-      </p>
-      {shouldCollapse && (
-        <button
-          type="button"
-          className="mt-1 text-xs font-medium text-[var(--brand-primary)] hover:text-[var(--brand-primary-hover)]"
-          onClick={() => setExpanded((prev) => !prev)}
-        >
-          {expanded ? "Show less" : "Read more"}
-        </button>
-      )}
-    </div>
-  );
-}
-
 export default function TestCasesPage() {
-  const { testCases, loading, error } = useTestCases();
+  const { projectId } = useParams();
+  const navigate = useNavigate();
+
+  const { testCases, loading, error } = useTestCases(projectId);
   const [searchTerm, setSearchTerm] = useState("");
+  const [runningId, setRunningId] = useState(null);
+  const [runError, setRunError] = useState("");
+
+  const handleRun = async (tc) => {
+    try {
+      setRunError("");
+      setRunningId(tc.testCaseId);
+
+      await createTestRun({
+        testCaseId: tc.testCaseId,
+        promptText: tc.promptText || "",
+      });
+
+      navigate("/test-results");
+    } catch (e) {
+      setRunError(e?.message || "Failed to start test run.");
+    } finally {
+      setRunningId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -108,26 +69,27 @@ export default function TestCasesPage() {
     );
   }
 
-  const filteredCases = testCases.filter(
-    (tc) =>
-      tc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tc.description.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const filteredCases = testCases.filter((tc) => {
+    const title = tc.title || "";
+    const goal = tc.goal || "";
+    const promptText = tc.promptText || "";
+
+    return (
+      title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      goal.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      promptText.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Test Cases"
-        description="Manage and organize your automated test cases"
-        action={
-          <Button className="bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)]">
-            <Plus className="mr-2 size-4" />
-            New Test Case
-          </Button>
-        }
+        description="Test cases loaded from database"
       />
 
-      {/* Filters */}
+      {runError && <ErrorBanner message={runError} fullWidth />}
+
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -139,20 +101,15 @@ export default function TestCasesPage() {
             className="pl-9"
           />
         </div>
-        <Button variant="outline">
-          <Filter className="mr-2 size-4" />
-          Filter
-        </Button>
       </div>
 
-      {/* Results */}
       {filteredCases.length === 0 ? (
         <EmptyState
           title={searchTerm ? "No test cases found" : "No Test Cases"}
           description={
             searchTerm
               ? "Try adjusting your search terms"
-              : "Create your first test case to get started"
+              : "No test cases available in this project"
           }
         />
       ) : (
@@ -160,26 +117,40 @@ export default function TestCasesPage() {
           <div className="grid gap-px divide-y">
             {filteredCases.map((tc) => (
               <div
-                key={tc.id}
-                className="flex items-center justify-between gap-4 p-4 hover:bg-slate-50"
+                key={tc.testCaseId}
+                className="flex items-start justify-between gap-4 p-4 hover:bg-slate-50"
               >
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex items-center gap-3">
-                    <h3 className="font-semibold">{tc.name}</h3>
+                    <h3 className="font-semibold">{tc.title}</h3>
                     <StatusBadge status={tc.status} />
-                    <PriorityBadge priority={tc.priority} />
                   </div>
-                  <CollapsibleDescription
-                    text={tc.description}
-                    maxChars={120}
-                    maxLines={2}
-                  />
+
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Goal:</span>{" "}
+                    {tc.goal}
+                  </div>
+
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Prompt:</span>{" "}
+                    {tc.promptText || "No prompt text"}
+                  </div>
+
                   <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
-                    <span>Suite: {tc.suite}</span>
-                    <span>Type: {tc.type}</span>
-                    <span>Last run: {tc.lastRun}</span>
-                    <span>Duration: {tc.duration}</span>
+                    <span>Version: {tc.versionNo}</span>
+                    <span>Mode: {tc.executionMode}</span>
+                    <span>Runtime Config: {tc.runtimeConfigId || "N/A"}</span>
                   </div>
+                </div>
+
+                <div className="shrink-0">
+                  <button
+                    onClick={() => handleRun(tc)}
+                    disabled={runningId === tc.testCaseId || tc.status === "archived"}
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {runningId === tc.testCaseId ? "Running..." : "Run"}
+                  </button>
                 </div>
               </div>
             ))}

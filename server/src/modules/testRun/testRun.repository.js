@@ -1,6 +1,8 @@
-const db = require("../../config/database");
+'use strict';
 
-async function getTestCaseExecutionContext(testCaseId) {
+const db = require('../../config/database');
+
+async function getTestCaseExecutionContext(testCaseId, userId) {
   const query = `
     SELECT
       tc.id AS test_case_id,
@@ -28,9 +30,12 @@ async function getTestCaseExecutionContext(testCaseId) {
       bp.profile_type,
       bp.profile_ref
     FROM test_cases tc
-    JOIN projects p ON p.id = tc.project_id
-    LEFT JOIN test_case_versions tcv ON tcv.id = tc.current_version_id
-    LEFT JOIN agent_runtime_configs arc ON arc.id = tcv.runtime_config_id
+    JOIN projects p
+      ON p.id = tc.project_id
+    LEFT JOIN test_case_versions tcv
+      ON tcv.id = tc.current_version_id
+    LEFT JOIN agent_runtime_configs arc
+      ON arc.id = tcv.runtime_config_id
     LEFT JOIN LATERAL (
       SELECT *
       FROM browser_profiles bp
@@ -42,11 +47,12 @@ async function getTestCaseExecutionContext(testCaseId) {
     ) bp ON TRUE
     WHERE tc.id = $1
       AND tc.deleted_at IS NULL
+      AND p.user_id = $2
     LIMIT 1
   `;
 
-  const result = await db.query(query, [testCaseId]);
-  return result.rows[0];
+  const result = await db.query(query, [testCaseId, userId]);
+  return result.rows[0] || null;
 }
 
 async function createTestRun({ testCaseId, versionId, triggeredBy }) {
@@ -71,6 +77,7 @@ async function createRunAttempt({
   agentPrompt,
   runtimeConfigSnapshot,
   browserProfileSnapshot,
+  triggerType = 'initial',
 }) {
   const nextAttemptQuery = `
     SELECT COALESCE(MAX(attempt_no), 0) + 1 AS next_attempt_no
@@ -92,18 +99,47 @@ async function createRunAttempt({
       agent_prompt,
       created_at
     )
-    VALUES ($1, $2, 'queued', 'initial', $3, $4, $5, NOW())
+    VALUES ($1, $2, 'queued', $3, $4, $5, $6, NOW())
     RETURNING *
   `;
 
   const result = await db.query(query, [
     testRunId,
     attemptNo,
+    triggerType,
     runtimeConfigSnapshot || {},
     browserProfileSnapshot || {},
     agentPrompt || null,
   ]);
 
+  return result.rows[0];
+}
+
+async function markRunStarted(testRunId) {
+  const query = `
+    UPDATE test_runs
+    SET
+      status = 'running',
+      started_at = COALESCE(started_at, NOW())
+    WHERE id = $1
+    RETURNING *
+  `;
+
+  const result = await db.query(query, [testRunId]);
+  return result.rows[0];
+}
+
+async function markAttemptStarted(attemptId) {
+  const query = `
+    UPDATE test_run_attempts
+    SET
+      status = 'running',
+      started_at = COALESCE(started_at, NOW())
+    WHERE id = $1
+    RETURNING *
+  `;
+
+  const result = await db.query(query, [attemptId]);
   return result.rows[0];
 }
 
@@ -264,7 +300,7 @@ async function updateTestRunFinal({
   return result.rows[0];
 }
 
-async function getRecentTestRuns(limit = 20) {
+async function getRecentTestRuns({ userId, projectId = null, limit = 20 }) {
   const query = `
     SELECT
       tr.id,
@@ -276,26 +312,75 @@ async function getRecentTestRuns(limit = 20) {
       tr.finished_at,
       tc.title AS test_case_title
     FROM test_runs tr
-    JOIN test_cases tc ON tc.id = tr.test_case_id
+    JOIN test_cases tc
+      ON tc.id = tr.test_case_id
+    JOIN projects p
+      ON p.id = tc.project_id
+    WHERE p.user_id = $1
+      AND ($2::bigint IS NULL OR tc.project_id = $2)
     ORDER BY tr.id DESC
-    LIMIT $1
+    LIMIT $3
   `;
 
-  const result = await db.query(query, [limit]);
+  const result = await db.query(query, [userId, projectId, limit]);
   return result.rows;
 }
 
-async function getTestRunDetail(testRunId) {
+async function getReplaySourceRun(testRunId, userId) {
+  const query = `
+    SELECT
+      tr.id AS source_run_id,
+      tr.test_case_id,
+      tr.test_case_version_id,
+      latest_attempt.agent_prompt
+    FROM test_runs tr
+    JOIN test_cases tc
+      ON tc.id = tr.test_case_id
+    JOIN projects p
+      ON p.id = tc.project_id
+    LEFT JOIN LATERAL (
+      SELECT tra.agent_prompt
+      FROM test_run_attempts tra
+      WHERE tra.test_run_id = tr.id
+      ORDER BY tra.attempt_no DESC, tra.id DESC
+      LIMIT 1
+    ) latest_attempt ON TRUE
+    WHERE tr.id = $1
+      AND p.user_id = $2
+    LIMIT 1
+  `;
+
+  const result = await db.query(query, [testRunId, userId]);
+  return result.rows[0] || null;
+}
+
+async function getTestRunDetail(testRunId, userId) {
   const runQuery = `
     SELECT
       tr.*,
       tc.title AS test_case_title,
       tc.goal AS test_case_goal
     FROM test_runs tr
-    JOIN test_cases tc ON tc.id = tr.test_case_id
+    JOIN test_cases tc
+      ON tc.id = tr.test_case_id
+    JOIN projects p
+      ON p.id = tc.project_id
     WHERE tr.id = $1
+      AND p.user_id = $2
     LIMIT 1
   `;
+
+  const runResult = await db.query(runQuery, [testRunId, userId]);
+  const run = runResult.rows[0] || null;
+
+  if (!run) {
+    return {
+      run: null,
+      attempts: [],
+      steps: [],
+      evidences: [],
+    };
+  }
 
   const attemptsQuery = `
     SELECT *
@@ -318,15 +403,14 @@ async function getTestRunDetail(testRunId) {
     ORDER BY id DESC
   `;
 
-  const [runResult, attemptsResult, stepsResult, evidencesResult] = await Promise.all([
-    db.query(runQuery, [testRunId]),
+  const [attemptsResult, stepsResult, evidencesResult] = await Promise.all([
     db.query(attemptsQuery, [testRunId]),
     db.query(stepsQuery, [testRunId]),
     db.query(evidencesQuery, [testRunId]),
   ]);
 
   return {
-    run: runResult.rows[0] || null,
+    run,
     attempts: attemptsResult.rows,
     steps: stepsResult.rows,
     evidences: evidencesResult.rows,
@@ -337,10 +421,13 @@ module.exports = {
   getTestCaseExecutionContext,
   createTestRun,
   createRunAttempt,
+  markRunStarted,
+  markAttemptStarted,
   insertRunStepLog,
   insertEvidence,
   updateRunAttemptFinal,
   updateTestRunFinal,
   getRecentTestRuns,
+  getReplaySourceRun,
   getTestRunDetail,
 };

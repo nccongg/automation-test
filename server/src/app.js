@@ -16,15 +16,19 @@ const app = express();
 app.use(helmet());
 app.use(cors());
 app.use(morgan(env.NODE_ENV === 'development' ? 'dev' : 'combined'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+app.use(express.json({ limit: env.BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: env.BODY_LIMIT }));
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api', routes);
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
-  res.status(404).json({ status: 'error', message: `Route ${req.method} ${req.path} not found` });
+  res.status(404).json({
+    status: 'error',
+    message: `Route ${req.method} ${req.path} not found`,
+  });
 });
 
 // ─── Global Error Handler ─────────────────────────────────────────────────────
@@ -41,7 +45,7 @@ app.listen(env.PORT, () => {
   console.log(`✅ Server running at http://localhost:${env.PORT}`);
   console.log(`   ENV: ${env.NODE_ENV}`);
   console.log(`   DB:  ${env.DB_HOST}:${env.DB_PORT}/${env.DB_NAME}`);
-  console.log(`   Agent Worker: ${env.AGENT_WORKER_URL}`);
+  console.log(`   Agent Worker: ${env.AGENT_WORKER_BASE_URL}`);
 });
 
 module.exports = app;
