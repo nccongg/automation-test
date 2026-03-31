@@ -1,5 +1,7 @@
 "use strict";
 
+const llmService = require("../llm/llm.service");
+const scanRepository = require("../scan/scan.repository");
 const testCaseRepository = require("./testCase.repository");
 
 function assertUser(userId) {
@@ -8,96 +10,220 @@ function assertUser(userId) {
   }
 }
 
-function normalizeAndValidateGeneratedTestCases(testCases) {
-  if (!Array.isArray(testCases) || testCases.length === 0) {
-    throw { status: 400, message: "testCases must be a non-empty array" };
+function toPositiveInt(value, fieldName) {
+  const num = Number(value);
+  if (!num || Number.isNaN(num) || num <= 0) {
+    throw { status: 400, message: `${fieldName} must be a valid positive number` };
+  }
+  return num;
+}
+
+function normalizeStepText(step) {
+  if (typeof step === "string") return step.trim();
+
+  if (step && typeof step === "object") {
+    return String(step.text || step.description || "").trim();
   }
 
-  return testCases.map((tc, index) => {
+  return "";
+}
+
+function normalizeExecutionMode(value) {
+  const allowed = new Set([
+    "step_based",
+    "goal_based_agent",
+    "hybrid_agent",
+    "replay_script",
+  ]);
+
+  return allowed.has(value) ? value : "step_based";
+}
+
+function buildDisplayText({ title, goal, steps, expectedResult }) {
+  const lines = [
+    `Test Case: ${title}`,
+    `Goal: ${goal}`,
+    "",
+    "Steps:",
+    ...steps.map((step, index) => `${index + 1}. ${step}`),
+  ];
+
+  if (expectedResult) {
+    lines.push("", `Expected Result: ${expectedResult}`);
+  }
+
+  return lines.join("\n");
+}
+
+function normalizeGeneratedCandidates(rawCases) {
+  if (!Array.isArray(rawCases) || rawCases.length === 0) {
+    throw { status: 422, message: "LLM did not return any test case candidates" };
+  }
+
+  return rawCases.map((tc, index) => {
     const title = String(tc?.title || "").trim();
-    const type = String(tc?.type || "custom").trim() || "custom";
+    const goal =
+      String(tc?.goal || "").trim() ||
+      String(tc?.expectedResult || "").trim() ||
+      title;
+
     const expectedResult = String(tc?.expectedResult || "").trim();
+
+    const steps = Array.isArray(tc?.steps)
+      ? tc.steps.map(normalizeStepText).filter(Boolean)
+      : [];
 
     if (!title) {
       throw {
-        status: 400,
-        message: `testCases[${index}].title is required`,
+        status: 422,
+        message: `Generated candidate at index ${index} is missing title`,
       };
     }
 
-    if (!Array.isArray(tc?.steps) || tc.steps.length === 0) {
+    if (!goal) {
       throw {
-        status: 400,
-        message: `testCases[${index}].steps must be a non-empty array`,
+        status: 422,
+        message: `Generated candidate at index ${index} is missing goal`,
       };
     }
-
-    const steps = tc.steps
-      .map((step) => String(step || "").trim())
-      .filter(Boolean);
 
     if (steps.length === 0) {
       throw {
-        status: 400,
-        message: `testCases[${index}].steps must contain at least one valid step`,
+        status: 422,
+        message: `Generated candidate at index ${index} must contain at least one valid step`,
       };
     }
 
+    const executionMode = normalizeExecutionMode(tc?.executionMode);
+
+    const normalizedSteps = steps.map((text, stepIndex) => ({
+      order: stepIndex + 1,
+      text,
+      action: "custom",
+    }));
+
     return {
       title,
-      type,
-      steps,
-      expectedResult,
+      goal,
+      promptText: String(tc?.promptText || "").trim(),
+      displayText: buildDisplayText({
+        title,
+        goal,
+        steps,
+        expectedResult,
+      }),
+      executionMode,
+      planSnapshot: {
+        title,
+        goal,
+        expectedResult,
+        steps: normalizedSteps,
+      },
+      variablesSchema:
+        tc?.variablesSchema && typeof tc.variablesSchema === "object"
+          ? tc.variablesSchema
+          : {},
     };
   });
 }
 
 async function getTestCases(userId, projectId) {
   assertUser(userId);
+
+  if (projectId !== null && projectId !== undefined) {
+    projectId = toPositiveInt(projectId, "projectId");
+  }
+
   return testCaseRepository.getTestCases(userId, projectId);
 }
 
-async function generateTestCases(userId, prompt, projectId = null) {
+async function generateTestCases(userId, { prompt, projectId }) {
   assertUser(userId);
 
-  if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
-    throw { status: 400, message: "Prompt is required to generate test cases" };
+  const trimmedPrompt = String(prompt || "").trim();
+  if (!trimmedPrompt) {
+    throw { status: 400, message: "prompt is required" };
   }
 
-  const testCases = await testCaseRepository.generateTestCases(
-    userId,
-    prompt.trim(),
-    projectId,
-  );
-
-  return testCases;
-}
-
-async function saveTestCases(userId, projectId, promptText, testCases) {
-  assertUser(userId);
-
-  const projectIdNum = Number(projectId);
-  if (!projectIdNum || Number.isNaN(projectIdNum)) {
-    throw { status: 400, message: "projectId is required" };
-  }
+  const projectIdNum = toPositiveInt(projectId, "projectId");
 
   const ownedProject = await testCaseRepository.findOwnedProjectById(
     userId,
-    projectIdNum,
+    projectIdNum
   );
 
   if (!ownedProject) {
     throw { status: 404, message: "Project not found or access denied" };
   }
 
-  const normalizedTestCases = normalizeAndValidateGeneratedTestCases(testCases);
+  const scanContext =
+    await scanRepository.getLatestCompletedScanByProject(projectIdNum);
 
-  return testCaseRepository.saveTestCases({
+  const llmResult = await llmService.generateTestCases(
+    userId,
+    trimmedPrompt,
+    scanContext
+  );
+
+  const rawCases = Array.isArray(llmResult)
+    ? llmResult
+    : Array.isArray(llmResult?.testCases)
+    ? llmResult.testCases
+    : [];
+
+  const normalizedCandidates = normalizeGeneratedCandidates(rawCases);
+
+  return testCaseRepository.createGenerationBatchWithCandidates({
     projectId: projectIdNum,
     userId,
-    promptText: typeof promptText === "string" ? promptText.trim() : "",
-    aiModel: process.env.LLM_PROVIDER || "ollama",
-    testCases: normalizedTestCases,
+    prompt: trimmedPrompt,
+    llmProvider:
+      llmResult?.llmProvider || process.env.LLM_PROVIDER || null,
+    llmModel:
+      llmResult?.llmModel || process.env.LLM_MODEL || process.env.LLM_PROVIDER || null,
+    candidates: normalizedCandidates,
+  });
+}
+
+async function saveTestCases(
+  userId,
+  { projectId, batchId, candidateIds, runtimeConfigId }
+) {
+  assertUser(userId);
+
+  const projectIdNum = toPositiveInt(projectId, "projectId");
+  const batchIdNum = toPositiveInt(batchId, "batchId");
+
+  const normalizedCandidateIds = Array.from(
+    new Set(
+      (candidateIds || []).map((id) => toPositiveInt(id, "candidateIds"))
+    )
+  );
+
+  if (normalizedCandidateIds.length === 0) {
+    throw { status: 400, message: "candidateIds must be a non-empty array" };
+  }
+
+  const ownedProject = await testCaseRepository.findOwnedProjectById(
+    userId,
+    projectIdNum
+  );
+
+  if (!ownedProject) {
+    throw { status: 404, message: "Project not found or access denied" };
+  }
+
+  const runtimeConfigIdNum =
+    runtimeConfigId === null || runtimeConfigId === undefined
+      ? null
+      : toPositiveInt(runtimeConfigId, "runtimeConfigId");
+
+  return testCaseRepository.saveCandidatesAsTestCases({
+    userId,
+    projectId: projectIdNum,
+    batchId: batchIdNum,
+    candidateIds: normalizedCandidateIds,
+    runtimeConfigId: runtimeConfigIdNum,
   });
 }
 

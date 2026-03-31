@@ -46,12 +46,14 @@ export default function TestCasesPage() {
   }, [testCases, searchTerm]);
 
   const handleRun = async (tc) => {
+    const testCaseId = tc.testCaseId ?? tc.id;
+
     try {
       setRunError("");
-      setRunningId(tc.testCaseId);
+      setRunningId(testCaseId);
 
       await createTestRun({
-        testCaseId: tc.testCaseId,
+        testCaseId,
         promptText: tc.promptText || "",
       });
 

@@ -10,6 +10,83 @@ const SUPPORTED_WORKER_EXECUTION_MODES = new Set([
   'replay_script',
 ]);
 
+const INPUT_ACTIONS = new Set([
+  'input',
+  'fill',
+  'type',
+  'input_text',
+  'enter_text',
+]);
+
+const SENSITIVE_KEY_RE = /password|passwd|pwd|secret|token|api[_-]?key|cookie|otp|username|user|email|phone|account|login/i;
+
+function resolveAgentPrompt(bundle) {
+  return (
+    bundle.display_text?.trim() ||
+    bundle.prompt_text?.trim() ||
+    bundle.goal?.trim() ||
+    null
+  );
+}
+
+function deepSanitize(value) {
+  if (Array.isArray(value)) {
+    return value.map(deepSanitize);
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  const result = {};
+  for (const [key, val] of Object.entries(value)) {
+    if (SENSITIVE_KEY_RE.test(key)) {
+      result[key] = '[REDACTED]';
+      continue;
+    }
+
+    if (key === 'text' && typeof val === 'string') {
+      result[key] = '[REDACTED]';
+      continue;
+    }
+
+    result[key] = deepSanitize(val);
+  }
+  return result;
+}
+
+function sanitizeStepJsonByAction(action, payload) {
+  if (!payload) return payload;
+  const actionName = String(action || '').toLowerCase().trim();
+
+  if (INPUT_ACTIONS.has(actionName)) {
+    return deepSanitize(payload);
+  }
+
+  return deepSanitize(payload);
+}
+
+function sanitizeFreeText(text) {
+  if (typeof text !== 'string' || !text.trim()) return text;
+  return text
+    .replace(/(password|pwd)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
+    .replace(/(username|user|email|account)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]');
+}
+
+function sanitizeRecordedScript(scriptJson) {
+  if (!scriptJson || typeof scriptJson !== 'object') return scriptJson;
+
+  return {
+    ...scriptJson,
+    steps: Array.isArray(scriptJson.steps)
+      ? scriptJson.steps.map((step) => ({
+          ...step,
+          actionInput: sanitizeStepJsonByAction(step?.actionName, step?.actionInput),
+        }))
+      : [],
+  };
+}
+
 async function postToWorkerRun(payload) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -122,6 +199,8 @@ function buildBaseRunPayload({
   runtimeConfig,
   browserProfile,
 }) {
+  const agentPrompt = resolveAgentPrompt(bundle);
+
   return {
     testRunId: testRun.id,
     attemptId: attempt.id,
@@ -135,7 +214,7 @@ function buildBaseRunPayload({
       title: bundle.title,
       goal: bundle.goal,
       executionMode: bundle.execution_mode,
-      promptText: bundle.prompt_text,
+      promptText: agentPrompt,
       planSnapshot: bundle.plan_snapshot,
     },
     runtimeConfig: mapRuntimeConfig(runtimeConfig),
@@ -216,7 +295,7 @@ async function startAgentRun({
     triggerType: 'initial',
     runtimeConfigSnapshot: mapRuntimeConfig(runtimeConfig),
     browserProfileSnapshot: mapBrowserProfile(browserProfile),
-    agentPrompt: bundle.prompt_text || bundle.goal,
+    agentPrompt: resolveAgentPrompt(bundle),
   });
 
   const workerPayload = buildBaseRunPayload({
@@ -331,6 +410,8 @@ async function replayAgentRun({
 }
 
 async function handleStepCallback(payload) {
+  const sanitizedAction = payload.action || payload.stepTitle;
+
   const stepLog = await agentRepository.insertOrUpdateRunStepLog({
     testRunId: payload.testRunId,
     attemptId: payload.attemptId,
@@ -338,13 +419,13 @@ async function handleStepCallback(payload) {
     stepTitle: payload.stepTitle,
     action: payload.action,
     status: payload.status,
-    message: payload.message,
+    message: sanitizeFreeText(payload.message),
     currentUrl: payload.currentUrl || null,
-    thoughtText: payload.thoughtText || null,
-    extractedContent: payload.extractedContent || null,
-    actionInputJson: payload.actionInputJson || null,
-    actionOutputJson: payload.actionOutputJson || null,
-    modelOutputJson: payload.modelOutputJson || null,
+    thoughtText: null, // không cần lưu thought vào DB
+    extractedContent: sanitizeFreeText(payload.extractedContent || null),
+    actionInputJson: sanitizeStepJsonByAction(sanitizedAction, payload.actionInputJson || null),
+    actionOutputJson: sanitizeStepJsonByAction(sanitizedAction, payload.actionOutputJson || null),
+    modelOutputJson: sanitizeStepJsonByAction(sanitizedAction, payload.modelOutputJson || null),
     durationMs: payload.durationMs || null,
   });
 
@@ -369,18 +450,18 @@ async function handleFinalCallback(payload) {
     attemptId: payload.attemptId,
     status: payload.status,
     verdict: payload.verdict,
-    finalResult: payload.finalResult || null,
-    structuredOutput: payload.structuredOutput || null,
-    errorMessage: payload.errorMessage || null,
+    finalResult: sanitizeFreeText(payload.finalResult || null),
+    structuredOutput: deepSanitize(payload.structuredOutput || null),
+    errorMessage: sanitizeFreeText(payload.errorMessage || null),
   });
 
   const updatedRun = await agentRepository.updateRunFinal({
     testRunId: payload.testRunId,
     status: payload.status,
     verdict: payload.verdict,
-    executionLog: payload.executionLog || null,
-    evidenceSummary: payload.evidenceSummary || null,
-    errorMessage: payload.errorMessage || null,
+    executionLog: deepSanitize(payload.executionLog || null),
+    evidenceSummary: deepSanitize(payload.evidenceSummary || null),
+    errorMessage: sanitizeFreeText(payload.errorMessage || null),
   });
 
   if (payload.recordedScript && payload.recordedScript.scriptJson) {
@@ -393,10 +474,11 @@ async function handleFinalCallback(payload) {
         sourceTestRunId: payload.testRunId,
         sourceAttemptId: payload.attemptId,
         scriptType: payload.recordedScript.scriptType,
-        scriptJson: payload.recordedScript.scriptJson,
+        scriptJson: sanitizeRecordedScript(payload.recordedScript.scriptJson),
         paramsSchema: payload.recordedScript.paramsSchema || {},
         metadataJson: {
           createdFrom: 'agent_final_callback',
+          sanitized: true,
         },
       });
     }

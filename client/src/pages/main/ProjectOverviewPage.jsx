@@ -30,8 +30,6 @@ import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import EmptyState from "@/shared/components/common/EmptyState";
 import { formatRelativeTime } from "@/shared/utils";
 
-const TEMP_TEST_CASE_ID = 1;
-
 const TEST_CASE_TYPES = [
   "functional",
   "edge",
@@ -41,6 +39,46 @@ const TEST_CASE_TYPES = [
   "security",
 ];
 
+function mapCandidateToUi(c) {
+  return {
+    id: c.id,
+    title: c.title ?? "Untitled test case",
+    type: "custom",
+    steps: Array.isArray(c.planSnapshot?.steps)
+      ? c.planSnapshot.steps
+          .map((s) =>
+            typeof s === "string" ? s : s?.text ?? s?.description ?? ""
+          )
+          .filter(Boolean)
+      : [],
+    expectedResult: c.planSnapshot?.expectedResult ?? "",
+    raw: c,
+  };
+}
+
+function extractSavedTestCaseIds(result) {
+  const rows = Array.isArray(result)
+    ? result
+    : Array.isArray(result?.data)
+    ? result.data
+    : Array.isArray(result?.items)
+    ? result.items
+    : Array.isArray(result?.savedTestCases)
+    ? result.savedTestCases
+    : [];
+
+  return rows
+    .map(
+      (item) =>
+        item?.id ??
+        item?.testCaseId ??
+        item?.selected_test_case_id ??
+        item?.selectedTestCaseId ??
+        null
+    )
+    .filter(Boolean);
+}
+
 export default function ProjectOverviewPage() {
   const { project, onProjectUpdated } = useOutletContext();
   const navigate = useNavigate();
@@ -48,90 +86,100 @@ export default function ProjectOverviewPage() {
   const [prompt, setPrompt] = useState("");
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState("");
-  const [testCases, setTestCases] = useState(null);
-
-  // const [testCases, setTestCases] = useState([
-  //   {
-  //     title: "Test case title",
-  //     type: "functional",
-  //     steps: ["Step 1: Do this", "Step 2: Do that", "Step 3: Verify something"],
-  //     expectedResult: "Expected result description goes here.",
-  //   },
-  //   {
-  //     title: "Test case title",
-  //     type: "functional",
-  //     steps: ["Step 1: Do this", "Step 2: Do that", "Step 3: Verify something"],
-  //     expectedResult: "Expected result description goes here.",
-  //   },
-  //   {
-  //     title: "Test case title",
-  //     type: "functional",
-  //     steps: ["Step 1: Do this", "Step 2: Do that", "Step 3: Verify something"],
-  //     expectedResult: "Expected result description goes here.",
-  //   },
-  //   {
-  //     title: "Test case title",
-  //     type: "functional",
-  //     steps: ["Step 1: Do this", "Step 2: Do that", "Step 3: Verify something"],
-  //     expectedResult: "Expected result description goes here.",
-  //   },
-  //   {
-  //     title: "Test case title",
-  //     type: "functional",
-  //     steps: ["Step 1: Do this", "Step 2: Do that", "Step 3: Verify something"],
-  //     expectedResult: "Expected result description goes here.",
-  //   },
-  //   {
-  //     title: "Test case title",
-  //     type: "functional",
-  //     steps: ["Step 1: Do this", "Step 2: Do that", "Step 3: Verify something"],
-  //     expectedResult: "Expected result description goes here.",
-  //   },
-  //   {
-  //     title: "Test case title",
-  //     type: "functional",
-  //     steps: ["Step 1: Do this", "Step 2: Do that", "Step 3: Verify something"],
-  //     expectedResult: "Expected result description goes here.",
-  //   },
-  // ]);
+  const [testCases, setTestCases] = useState([]);
+  const [batchId, setBatchId] = useState(null);
 
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
 
-  // Multi-select
   const [selected, setSelected] = useState(new Set());
 
-  // Edit dialog
   const [editIndex, setEditIndex] = useState(null);
   const [editForm, setEditForm] = useState(null);
 
-  // Test cases dialog
   const [showTestCasesDialog, setShowTestCasesDialog] = useState(false);
 
-  // Run state
   const [runningSelected, setRunningSelected] = useState(false);
   const [runResult, setRunResult] = useState("");
 
+  const getSelectedCandidateIds = () => {
+    if (!testCases?.length) return [];
+
+    if (selected.size > 0) {
+      return [...selected]
+        .map((i) => testCases[i]?.id)
+        .filter(Boolean);
+    }
+
+    return testCases.map((tc) => tc.id).filter(Boolean);
+  };
+
+  const saveSelectedCandidatesToDb = async () => {
+    if (!project?.id) {
+      throw new Error("Missing project id.");
+    }
+
+    if (!batchId) {
+      throw new Error("Missing batchId. Please generate test cases again.");
+    }
+
+    const candidateIds = getSelectedCandidateIds();
+
+    if (!candidateIds.length) {
+      throw new Error("No selected test cases to save.");
+    }
+
+  saveTestCases({
+    projectId: project.id,
+    batchId,
+    candidates: selectedCandidates.map((tc) => ({
+      candidateId: tc.id,
+      title: tc.title,
+      goal: tc.expectedResult,
+      steps: tc.steps,
+      expectedResult: tc.expectedResult,
+    })),
+  })
+
+    const savedTestCaseIds = extractSavedTestCaseIds(result);
+
+    if (!savedTestCaseIds.length) {
+      throw new Error(
+        "Saved successfully but API did not return saved testCaseIds."
+      );
+    }
+
+    return { result, savedTestCaseIds };
+  };
+
   const handleGenerateTestCase = async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim() || !project?.id) return;
+
     try {
       setRunning(true);
       setRunError("");
       setRunResult("");
+      setSaveMessage("");
       setSelected(new Set());
+      setBatchId(null);
 
       const result = await generateTestCase(prompt.trim(), project.id);
-      console.log("[generateTestCase] result:", result);
-      setTestCases(result?.testCases ?? []);
+
+      const batch = result?.batch ?? null;
+      const candidates = result?.candidates ?? [];
+
+      setBatchId(batch?.id ?? null);
+      setTestCases(candidates.map(mapCandidateToUi));
       setShowTestCasesDialog(true);
     } catch (error) {
       setRunError(error?.message || "Failed to generate test cases.");
+      setTestCases([]);
+      setBatchId(null);
     } finally {
       setRunning(false);
     }
   };
 
-  // --- Selection ---
   const toggleSelect = (i) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -148,10 +196,12 @@ export default function ProjectOverviewPage() {
     }
   };
 
-  // --- Edit ---
   const openEdit = (i) => {
     setEditIndex(i);
-    setEditForm({ ...testCases[i], stepsText: testCases[i].steps.join("\n") });
+    setEditForm({
+      ...testCases[i],
+      stepsText: testCases[i].steps.join("\n"),
+    });
   };
 
   const closeEdit = () => {
@@ -162,6 +212,7 @@ export default function ProjectOverviewPage() {
   const saveEdit = () => {
     const updated = [...testCases];
     updated[editIndex] = {
+      ...updated[editIndex],
       title: editForm.title,
       type: editForm.type,
       steps: editForm.stepsText
@@ -174,19 +225,17 @@ export default function ProjectOverviewPage() {
     closeEdit();
   };
 
-  // --- Save to DB ---
   const handleSaveTestCases = async () => {
     if (!testCases?.length) return;
+
     try {
       setSaving(true);
       setSaveMessage("");
-      const result = await saveTestCases({
-        projectId: project.id,
-        promptText: prompt,
-        testCases,
-      });
-      const count = result.data?.length ?? 0;
-      toast.success(`${count} test case(s) saved successfully!`);
+
+      const { savedTestCaseIds } = await saveSelectedCandidatesToDb();
+
+      setSaveMessage(`${savedTestCaseIds.length} test case(s) saved successfully.`);
+      toast.success(`${savedTestCaseIds.length} test case(s) saved successfully!`);
       setShowTestCasesDialog(false);
       navigate(`/projects/${project.id}/test-cases`);
     } catch (error) {
@@ -196,31 +245,34 @@ export default function ProjectOverviewPage() {
     }
   };
 
-  // --- Run selected ---
   const handleRunSelected = async () => {
     if (selected.size === 0) return;
+
     try {
       setRunningSelected(true);
+      setRunError("");
       setRunResult("");
 
-      const toRun = [...selected].map((i) => testCases[i]);
+      const { savedTestCaseIds } = await saveSelectedCandidatesToDb();
+
       await Promise.all(
-        toRun.map((tc) =>
+        savedTestCaseIds.map((testCaseId) =>
           createTestRun({
-            testCaseId: TEMP_TEST_CASE_ID,
-            promptText: [
-              tc.title,
-              `Steps:\n${tc.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}`,
-              `Expected: ${tc.expectedResult}`,
-            ].join("\n\n"),
-          }),
-        ),
+            testCaseId,
+          })
+        )
       );
 
-      setRunResult(`${selected.size} test run(s) started. Redirecting...`);
-      setTimeout(() => navigate(`/projects/${project.id}/test-runs`), 1500);
+      setRunResult(`${savedTestCaseIds.length} test run(s) started. Redirecting...`);
+      toast.success(`${savedTestCaseIds.length} test run(s) started.`);
+      setShowTestCasesDialog(false);
+
+      setTimeout(() => {
+        navigate(`/projects/${project.id}/test-runs`);
+      }, 1200);
     } catch (error) {
-      setRunError(error?.message || "Failed to start test runs.");
+      setRunError(error?.message || "Failed to save and start test runs.");
+      toast.error(error?.message || "Failed to save and start test runs.");
     } finally {
       setRunningSelected(false);
     }
@@ -230,7 +282,6 @@ export default function ProjectOverviewPage() {
     <div className="space-y-6">
       <ProjectHeader project={project} onProjectUpdated={onProjectUpdated} />
 
-      {/* Generate section */}
       <section className="rounded-xl border bg-white p-6 shadow-sm space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
@@ -306,7 +357,6 @@ export default function ProjectOverviewPage() {
 
       <ProjectStats project={project} />
 
-      {/* Recent Activity */}
       <section className="space-y-4">
         <h3 className="text-lg font-semibold tracking-tight">
           Recent Activity
@@ -351,7 +401,6 @@ export default function ProjectOverviewPage() {
         )}
       </section>
 
-      {/* Generated Test Cases Dialog */}
       <Dialog open={showTestCasesDialog} onOpenChange={setShowTestCasesDialog}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
@@ -370,6 +419,7 @@ export default function ProjectOverviewPage() {
               />
               <span className="text-sm text-muted-foreground">Select all</span>
             </div>
+
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
@@ -387,6 +437,7 @@ export default function ProjectOverviewPage() {
                   </>
                 )}
               </Button>
+
               {selected.size > 0 && (
                 <Button
                   size="sm"
@@ -413,9 +464,9 @@ export default function ProjectOverviewPage() {
                 No test cases returned.
               </p>
             ) : (
-              testCases?.map((tc, i) => (
+              testCases.map((tc, i) => (
                 <div
-                  key={i}
+                  key={tc.id ?? i}
                   onClick={() => toggleSelect(i)}
                   className={`rounded-lg border p-4 space-y-2 transition-colors cursor-pointer ${
                     selected.has(i)
@@ -434,6 +485,7 @@ export default function ProjectOverviewPage() {
                         {tc.title}
                       </span>
                     </div>
+
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs rounded-full bg-slate-200 px-2 py-0.5 text-slate-600">
                         {tc.type}
@@ -450,6 +502,7 @@ export default function ProjectOverviewPage() {
                       </button>
                     </div>
                   </div>
+
                   <ol className="list-decimal list-inside space-y-1 pl-6">
                     {tc.steps.map((step, j) => (
                       <li key={j} className="text-xs text-muted-foreground">
@@ -457,6 +510,7 @@ export default function ProjectOverviewPage() {
                       </li>
                     ))}
                   </ol>
+
                   <p className="text-xs text-emerald-700 font-medium pl-6">
                     Expected: {tc.expectedResult}
                   </p>
@@ -467,7 +521,6 @@ export default function ProjectOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
       {editForm && (
         <Dialog open={editIndex !== null} onOpenChange={closeEdit}>
           <DialogContent className="max-w-lg">

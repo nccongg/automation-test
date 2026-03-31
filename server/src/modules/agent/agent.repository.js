@@ -24,6 +24,7 @@ async function findTestCaseBundle(testCaseId, testCaseVersionId = null) {
       tc.current_version_id,
       tcv.id AS test_case_version_id,
       tcv.prompt_text,
+      tcv.display_text,
       tcv.plan_snapshot,
       tcv.execution_mode,
       tcv.runtime_config_id,

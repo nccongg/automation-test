@@ -1,12 +1,8 @@
 "use strict";
 
-const testRunRepository = require("./testRun.repository");
-const agentService = require("../agent/agent.service");
-
-const SUPPORTED_WORKER_EXECUTION_MODES = new Set([
-  "goal_based_agent",
-  "replay_script",
-]);
+const llmService = require("../llm/llm.service");
+const scanRepository = require("../scan/scan.repository");
+const testCaseRepository = require("./testCase.repository");
 
 function assertUser(userId) {
   if (!userId) {
@@ -14,279 +10,311 @@ function assertUser(userId) {
   }
 }
 
-function assertSupportedExecutionMode(mode) {
-  if (!SUPPORTED_WORKER_EXECUTION_MODES.has(mode)) {
-    throw {
-      status: 400,
-      message:
-        `Unsupported execution mode for current worker: ${mode}. ` +
-        `Only goal_based_agent and replay_script are supported.`,
+function toPositiveInt(value, fieldName) {
+  const num = Number(value);
+  if (!num || Number.isNaN(num) || num <= 0) {
+    throw { status: 400, message: `${fieldName} must be a valid positive number` };
+  }
+  return num;
+}
+
+function normalizeStepText(step) {
+  if (typeof step === "string") return step.trim();
+
+  if (step && typeof step === "object") {
+    return String(step.text || step.description || "").trim();
+  }
+
+  return "";
+}
+
+function normalizeExecutionMode(value) {
+  const allowed = new Set([
+    "step_based",
+    "goal_based_agent",
+    "hybrid_agent",
+    "replay_script",
+  ]);
+
+  return allowed.has(value) ? value : "step_based";
+}
+
+function buildDisplayText({ title, goal, steps, expectedResult }) {
+  const lines = [
+    `Test Case: ${title}`,
+    `Goal: ${goal}`,
+    "",
+    "Steps:",
+    ...steps.map((step, index) => `${index + 1}. ${step}`),
+  ];
+
+  if (expectedResult) {
+    lines.push("", `Expected Result: ${expectedResult}`);
+  }
+
+  return lines.join("\n");
+}
+
+function normalizeGeneratedCandidates(rawCases) {
+  if (!Array.isArray(rawCases) || rawCases.length === 0) {
+    throw { status: 422, message: "LLM did not return any test case candidates" };
+  }
+
+  return rawCases.map((tc, index) => {
+    const title = String(tc?.title || "").trim();
+    const goal =
+      String(tc?.goal || "").trim() ||
+      String(tc?.expectedResult || "").trim() ||
+      title;
+
+    const expectedResult = String(tc?.expectedResult || "").trim();
+
+    const steps = Array.isArray(tc?.steps)
+      ? tc.steps.map(normalizeStepText).filter(Boolean)
+      : [];
+
+    if (!title) {
+      throw {
+        status: 422,
+        message: `Generated candidate at index ${index} is missing title`,
+      };
+    }
+
+    if (!goal) {
+      throw {
+        status: 422,
+        message: `Generated candidate at index ${index} is missing goal`,
+      };
+    }
+
+    if (steps.length === 0) {
+      throw {
+        status: 422,
+        message: `Generated candidate at index ${index} must contain at least one valid step`,
+      };
+    }
+
+    const executionMode = normalizeExecutionMode(tc?.executionMode);
+
+    const normalizedSteps = steps.map((text, stepIndex) => ({
+      order: stepIndex + 1,
+      text,
+      action: "custom",
+    }));
+
+    return {
+      title,
+      goal,
+      promptText: String(tc?.promptText || "").trim(),
+      displayText: buildDisplayText({
+        title,
+        goal,
+        steps,
+        expectedResult,
+      }),
+      executionMode,
+      planSnapshot: {
+        title,
+        goal,
+        expectedResult,
+        steps: normalizedSteps,
+      },
+      variablesSchema:
+        tc?.variablesSchema && typeof tc.variablesSchema === "object"
+          ? tc.variablesSchema
+          : {},
     };
-  }
-}
-
-function resolveAgentPrompt(ctx, promptText) {
-  const override = typeof promptText === "string" ? promptText.trim() : "";
-  return override || ctx.prompt_text || ctx.goal;
-}
-
-function buildRuntimeConfigSnapshot(ctx) {
-  return {
-    llmProvider: ctx.llm_provider,
-    llmModel: ctx.llm_model,
-    maxSteps: ctx.max_steps,
-    timeoutSeconds: ctx.timeout_seconds,
-    useVision: ctx.use_vision,
-    headless: ctx.headless,
-    browserType: ctx.browser_type,
-    allowedDomains: ctx.allowed_domains || [],
-    viewport: ctx.viewport_json || null,
-    locale: ctx.locale || null,
-    timezone: ctx.timezone || null,
-    extraConfig: ctx.extra_config_json || {},
-  };
-}
-
-function buildBrowserProfileSnapshot(ctx) {
-  const profileData = ctx.profile_data || {};
-
-  return {
-    id: ctx.browser_profile_id || null,
-    provider: ctx.browser_provider || "local",
-    profileType: ctx.profile_type || "ephemeral",
-    profileRef: ctx.profile_ref || null,
-    profileDirectory:
-      ctx.profile_type === "system_chrome"
-        ? ctx.profile_ref || profileData.profileDirectory || null
-        : null,
-    profileData,
-  };
-}
-
-function mapExecutionMode(mode) {
-  if (mode === "replay_script") return "replay_script";
-  return "goal_based_agent";
-}
-
-function buildWorkerPayload(ctx, testRun, attempt, agentPrompt) {
-  return {
-    testRunId: testRun.id,
-    attemptId: attempt.id,
-    attemptNo: attempt.attempt_no,
-    project: {
-      id: ctx.project_id,
-      baseUrl: ctx.base_url,
-    },
-    testCase: {
-      id: ctx.test_case_id,
-      title: ctx.title,
-      goal: ctx.goal || agentPrompt,
-      executionMode: mapExecutionMode(ctx.execution_mode),
-      promptText: agentPrompt,
-      planSnapshot: ctx.plan_snapshot || null,
-    },
-    runtimeConfig: {
-      id: ctx.runtime_id,
-      llmProvider: ctx.llm_provider || "google",
-      llmModel: ctx.llm_model || "gemini-flash-latest",
-      maxSteps: ctx.max_steps || 20,
-      timeoutSeconds: ctx.timeout_seconds || 180,
-      useVision: ctx.use_vision ?? true,
-      headless: ctx.headless ?? true,
-      browserType: ctx.browser_type || "chromium",
-      allowedDomains: ctx.allowed_domains || [],
-      viewport: ctx.viewport_json || { width: 1280, height: 720 },
-      locale: ctx.locale || null,
-      timezone: ctx.timezone || null,
-      extraConfig: ctx.extra_config_json || {},
-    },
-    browserProfile: buildBrowserProfileSnapshot(ctx),
-  };
-}
-
-async function markDispatchFailed({ testRunId, attemptId, error }) {
-  const errorMessage = error?.message || "Failed to dispatch run to worker";
-
-  await testRunRepository.updateRunAttemptFinal({
-    attemptId,
-    status: "failed",
-    verdict: "error",
-    finalResult: null,
-    structuredOutput: null,
-    errorMessage,
-  });
-
-  await testRunRepository.updateTestRunFinal({
-    testRunId,
-    status: "failed",
-    verdict: "error",
-    executionLog: {
-      mode: "dispatch_to_worker",
-      dispatchStatus: "failed",
-    },
-    evidenceSummary: null,
-    errorMessage,
   });
 }
 
-async function startTestRun({ testCaseId, promptText, triggeredBy }) {
-  assertUser(triggeredBy);
-
-  const ctx = await testRunRepository.getTestCaseExecutionContext(
-    testCaseId,
-    triggeredBy,
-    null
-  );
-
-  if (!ctx) {
-    throw { status: 404, message: "Test case not found or access denied" };
+function normalizeEditedCandidates(rawCandidates) {
+  if (!Array.isArray(rawCandidates) || rawCandidates.length === 0) {
+    return [];
   }
 
-  if (!ctx.resolved_test_case_version_id) {
-    throw { status: 400, message: "Test case has no current version" };
-  }
+  return rawCandidates.map((tc, index) => {
+    const candidateId = toPositiveInt(
+      tc?.candidateId ?? tc?.id,
+      `candidates[${index}].candidateId`
+    );
 
-  if (!ctx.runtime_id && !ctx.runtime_config_id) {
-    throw {
-      status: 400,
-      message: "Test case version has no runtime config",
+    const title = String(tc?.title || "").trim();
+    const goal =
+      String(tc?.goal || "").trim() ||
+      String(tc?.expectedResult || "").trim() ||
+      title;
+
+    const expectedResult = String(tc?.expectedResult || "").trim();
+
+    const steps = Array.isArray(tc?.steps)
+      ? tc.steps.map(normalizeStepText).filter(Boolean)
+      : [];
+
+    if (!title) {
+      throw {
+        status: 400,
+        message: `candidates[${index}].title is required`,
+      };
+    }
+
+    if (!goal) {
+      throw {
+        status: 400,
+        message: `candidates[${index}].goal is required`,
+      };
+    }
+
+    if (steps.length === 0) {
+      throw {
+        status: 400,
+        message: `candidates[${index}].steps must contain at least one valid step`,
+      };
+    }
+
+    const executionMode = normalizeExecutionMode(tc?.executionMode);
+
+    const normalizedSteps = steps.map((text, stepIndex) => ({
+      order: stepIndex + 1,
+      text,
+      action: "custom",
+    }));
+
+    return {
+      candidateId,
+      title,
+      goal,
+      promptText: String(tc?.promptText || "").trim(),
+      displayText: buildDisplayText({
+        title,
+        goal,
+        steps,
+        expectedResult,
+      }),
+      executionMode,
+      planSnapshot: {
+        title,
+        goal,
+        expectedResult,
+        steps: normalizedSteps,
+      },
+      variablesSchema:
+        tc?.variablesSchema && typeof tc.variablesSchema === "object"
+          ? tc.variablesSchema
+          : {},
     };
-  }
-
-  assertSupportedExecutionMode(mapExecutionMode(ctx.execution_mode));
-
-  const agentPrompt = resolveAgentPrompt(ctx, promptText);
-
-  const testRun = await testRunRepository.createTestRun({
-    testCaseId,
-    versionId: ctx.resolved_test_case_version_id,
-    triggeredBy,
   });
-
-  const attempt = await testRunRepository.createRunAttempt({
-    testRunId: testRun.id,
-    agentPrompt,
-    runtimeConfigSnapshot: buildRuntimeConfigSnapshot(ctx),
-    browserProfileSnapshot: buildBrowserProfileSnapshot(ctx),
-    triggerType: "initial",
-  });
-
-  const workerPayload = buildWorkerPayload(ctx, testRun, attempt, agentPrompt);
-
-  try {
-    await agentService.startWorkerRun(workerPayload);
-  } catch (error) {
-    await markDispatchFailed({
-      testRunId: testRun.id,
-      attemptId: attempt.id,
-      error,
-    });
-    throw error;
-  }
-
-  return {
-    testRun,
-    attempt,
-    workerPayload,
-  };
 }
 
-async function listRecentTestRuns({ userId, projectId = null, limit = 20 }) {
+async function getTestCases(userId, projectId) {
   assertUser(userId);
 
-  return testRunRepository.getRecentTestRuns({
+  if (projectId !== null && projectId !== undefined) {
+    projectId = toPositiveInt(projectId, "projectId");
+  }
+
+  return testCaseRepository.getTestCases(userId, projectId);
+}
+
+async function generateTestCases(userId, { prompt, projectId }) {
+  assertUser(userId);
+
+  const trimmedPrompt = String(prompt || "").trim();
+  if (!trimmedPrompt) {
+    throw { status: 400, message: "prompt is required" };
+  }
+
+  const projectIdNum = toPositiveInt(projectId, "projectId");
+
+  const ownedProject = await testCaseRepository.findOwnedProjectById(
     userId,
-    projectId,
-    limit,
+    projectIdNum
+  );
+
+  if (!ownedProject) {
+    throw { status: 404, message: "Project not found or access denied" };
+  }
+
+  const scanContext =
+    await scanRepository.getLatestCompletedScanByProject(projectIdNum);
+
+  const llmResult = await llmService.generateTestCases(
+    userId,
+    trimmedPrompt,
+    scanContext
+  );
+
+  const rawCases = Array.isArray(llmResult)
+    ? llmResult
+    : Array.isArray(llmResult?.testCases)
+    ? llmResult.testCases
+    : [];
+
+  const normalizedCandidates = normalizeGeneratedCandidates(rawCases);
+
+  return testCaseRepository.createGenerationBatchWithCandidates({
+    projectId: projectIdNum,
+    userId,
+    prompt: trimmedPrompt,
+    llmProvider:
+      llmResult?.llmProvider || process.env.LLM_PROVIDER || null,
+    llmModel:
+      llmResult?.llmModel || process.env.LLM_MODEL || process.env.LLM_PROVIDER || null,
+    candidates: normalizedCandidates,
   });
 }
 
-async function getTestRunDetail(testRunId, userId) {
+async function saveTestCases(
+  userId,
+  { projectId, batchId, candidateIds, candidates, runtimeConfigId }
+) {
   assertUser(userId);
 
-  const detail = await testRunRepository.getTestRunDetail(testRunId, userId);
+  const projectIdNum = toPositiveInt(projectId, "projectId");
+  const batchIdNum = toPositiveInt(batchId, "batchId");
 
-  if (!detail.run) {
-    throw { status: 404, message: "Test run not found or access denied" };
-  }
+  const normalizedEditedCandidates = normalizeEditedCandidates(candidates);
 
-  return detail;
-}
+  const normalizedCandidateIds = normalizedEditedCandidates.length
+    ? normalizedEditedCandidates.map((item) => item.candidateId)
+    : Array.from(
+        new Set(
+          (candidateIds || []).map((id) => toPositiveInt(id, "candidateIds"))
+        )
+      );
 
-async function replayTestRun({ sourceRunId, triggeredBy }) {
-  assertUser(triggeredBy);
-
-  const sourceRun = await testRunRepository.getReplaySourceRun(
-    sourceRunId,
-    triggeredBy
-  );
-
-  if (!sourceRun) {
-    throw { status: 404, message: "Source run not found or access denied" };
-  }
-
-  const ctx = await testRunRepository.getTestCaseExecutionContext(
-    sourceRun.test_case_id,
-    triggeredBy,
-    sourceRun.test_case_version_id || null
-  );
-
-  if (!ctx) {
-    throw { status: 404, message: "Test case/version not found or access denied" };
-  }
-
-  if (!ctx.resolved_test_case_version_id) {
-    throw { status: 400, message: "Replay source has no resolvable version" };
-  }
-
-  if (!ctx.runtime_id && !ctx.runtime_config_id) {
+  if (normalizedCandidateIds.length === 0) {
     throw {
       status: 400,
-      message: "Replay version has no runtime config",
+      message: "candidateIds or candidates must be a non-empty array",
     };
   }
 
-  assertSupportedExecutionMode(mapExecutionMode(ctx.execution_mode));
+  const ownedProject = await testCaseRepository.findOwnedProjectById(
+    userId,
+    projectIdNum
+  );
 
-  const agentPrompt = resolveAgentPrompt(ctx, sourceRun.agent_prompt);
-
-  const testRun = await testRunRepository.createTestRun({
-    testCaseId: sourceRun.test_case_id,
-    versionId: ctx.resolved_test_case_version_id,
-    triggeredBy,
-  });
-
-  const attempt = await testRunRepository.createRunAttempt({
-    testRunId: testRun.id,
-    agentPrompt,
-    runtimeConfigSnapshot: buildRuntimeConfigSnapshot(ctx),
-    browserProfileSnapshot: buildBrowserProfileSnapshot(ctx),
-    triggerType: "manual_replay",
-  });
-
-  const workerPayload = buildWorkerPayload(ctx, testRun, attempt, agentPrompt);
-
-  try {
-    await agentService.startWorkerRun(workerPayload);
-  } catch (error) {
-    await markDispatchFailed({
-      testRunId: testRun.id,
-      attemptId: attempt.id,
-      error,
-    });
-    throw error;
+  if (!ownedProject) {
+    throw { status: 404, message: "Project not found or access denied" };
   }
 
-  return {
-    testRun,
-    attempt,
-    workerPayload,
-  };
+  const runtimeConfigIdNum =
+    runtimeConfigId === null || runtimeConfigId === undefined
+      ? null
+      : toPositiveInt(runtimeConfigId, "runtimeConfigId");
+
+  return testCaseRepository.saveCandidatesAsTestCases({
+    userId,
+    projectId: projectIdNum,
+    batchId: batchIdNum,
+    candidateIds: normalizedCandidateIds,
+    candidateOverrides: normalizedEditedCandidates,
+    runtimeConfigId: runtimeConfigIdNum,
+  });
 }
 
 module.exports = {
-  startTestRun,
-  listRecentTestRuns,
-  getTestRunDetail,
-  replayTestRun,
+  getTestCases,
+  generateTestCases,
+  saveTestCases,
 };

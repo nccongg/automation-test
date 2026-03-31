@@ -6,9 +6,13 @@ async function getTestCases(req, res, next) {
   try {
     const userId = req.user?.userId;
     const projectId = req.query.projectId ? Number(req.query.projectId) : null;
+
     const data = await testCaseService.getTestCases(userId, projectId);
 
-    res.json({ status: "ok", data });
+    res.json({
+      status: "ok",
+      data,
+    });
   } catch (err) {
     next(err);
   }
@@ -19,19 +23,29 @@ async function generateTestCases(req, res, next) {
     const userId = req.user?.userId;
     const { prompt, projectId } = req.body;
 
-    if (!prompt) {
+    if (!prompt || !String(prompt).trim()) {
       return res.status(400).json({
         status: "error",
-        message: "Prompt is required to generate test cases",
+        message: "prompt is required",
       });
     }
 
-    const data = await testCaseService.generateTestCases(userId, prompt, projectId ?? null);
+    if (!projectId) {
+      return res.status(400).json({
+        status: "error",
+        message: "projectId is required",
+      });
+    }
 
-    res.json({
+    const data = await testCaseService.generateTestCases(userId, {
+      prompt,
+      projectId,
+    });
+
+    res.status(201).json({
       status: "ok",
       data,
-      message: "Test cases generated successfully",
+      message: "Test case candidates generated successfully",
     });
   } catch (err) {
     next(err);
@@ -41,7 +55,13 @@ async function generateTestCases(req, res, next) {
 async function saveTestCases(req, res, next) {
   try {
     const userId = req.user?.userId;
-    const { projectId, promptText, testCases } = req.body;
+    const {
+      projectId,
+      batchId,
+      candidateIds,
+      candidates,
+      runtimeConfigId,
+    } = req.body;
 
     if (!projectId) {
       return res.status(400).json({
@@ -50,12 +70,32 @@ async function saveTestCases(req, res, next) {
       });
     }
 
-    const saved = await testCaseService.saveTestCases(
-      userId,
+    if (!batchId) {
+      return res.status(400).json({
+        status: "error",
+        message: "batchId is required",
+      });
+    }
+
+    const hasCandidateIds =
+      Array.isArray(candidateIds) && candidateIds.length > 0;
+    const hasCandidates =
+      Array.isArray(candidates) && candidates.length > 0;
+
+    if (!hasCandidateIds && !hasCandidates) {
+      return res.status(400).json({
+        status: "error",
+        message: "candidateIds or candidates must be a non-empty array",
+      });
+    }
+
+    const saved = await testCaseService.saveTestCases(userId, {
       projectId,
-      promptText,
-      testCases
-    );
+      batchId,
+      candidateIds,
+      candidates,
+      runtimeConfigId,
+    });
 
     res.status(201).json({
       status: "ok",

@@ -1,442 +1,581 @@
 "use strict";
 
-const db = require("../../config/database");
+const { pool } = require("../../config/database");
 
-async function getTestCaseExecutionContext(testCaseId, userId, testCaseVersionId = null) {
-  const query = `
-    SELECT
-      tc.id AS test_case_id,
-      tc.title,
-      tc.goal,
-      tc.project_id,
-      tc.current_version_id,
-      p.base_url,
+const GENERATION_LLM_PROVIDER =
+  process.env.GENERATION_LLM_PROVIDER ||
+  process.env.LLM_PROVIDER ||
+  "ollama";
 
-      tcv.id AS resolved_test_case_version_id,
-      tcv.prompt_text,
-      tcv.plan_snapshot,
-      tcv.execution_mode,
-      tcv.runtime_config_id,
+const GENERATION_LLM_MODEL =
+  process.env.GENERATION_LLM_MODEL ||
+  process.env.LLM_MODEL ||
+  "gemma3:4b";
 
-      arc.id AS runtime_id,
-      arc.llm_provider,
-      arc.llm_model,
-      arc.max_steps,
-      arc.timeout_seconds,
-      arc.use_vision,
-      arc.headless,
-      arc.browser_type,
-      arc.allowed_domains,
-      arc.viewport_json,
-      arc.locale,
-      arc.timezone,
-      arc.extra_config_json,
+const EXECUTION_LLM_PROVIDER =
+  process.env.EXECUTION_LLM_PROVIDER || "gemini";
 
-      bp.id AS browser_profile_id,
-      bp.provider AS browser_provider,
-      bp.profile_type,
-      bp.profile_ref,
-      bp.profile_data
-    FROM test_cases tc
-    JOIN projects p
-      ON p.id = tc.project_id
-    LEFT JOIN test_case_versions tcv
-      ON tcv.test_case_id = tc.id
-     AND tcv.id = COALESCE($3::bigint, tc.current_version_id)
-    LEFT JOIN agent_runtime_configs arc
-      ON arc.id = tcv.runtime_config_id
-    LEFT JOIN LATERAL (
-      SELECT *
-      FROM browser_profiles bp
-      WHERE bp.project_id = p.id
-        AND bp.is_default = TRUE
-        AND bp.deleted_at IS NULL
-      ORDER BY bp.id DESC
+const EXECUTION_LLM_MODEL =
+  process.env.EXECUTION_LLM_MODEL || "gemini-2.5-flash";
+
+async function findOwnedProjectById(userId, projectId) {
+  const result = await pool.query(
+    `
+      SELECT id, user_id, name
+      FROM projects
+      WHERE id = $1 AND user_id = $2
       LIMIT 1
-    ) bp ON TRUE
-    WHERE tc.id = $1
-      AND tc.deleted_at IS NULL
-      AND p.user_id = $2
-    LIMIT 1
-  `;
+    `,
+    [projectId, userId]
+  );
 
-  const result = await db.query(query, [testCaseId, userId, testCaseVersionId]);
   return result.rows[0] || null;
 }
 
-async function createTestRun({ testCaseId, versionId, triggeredBy }) {
-  const query = `
-    INSERT INTO test_runs (
-      test_case_id,
-      test_case_version_id,
-      status,
-      triggered_by,
-      created_at
-    )
-    VALUES ($1, $2, 'queued', $3, NOW())
-    RETURNING *
-  `;
+async function getTestCases(userId, projectId) {
+  const params = [userId];
+  let where = "p.user_id = $1";
 
-  const result = await db.query(query, [testCaseId, versionId, triggeredBy]);
-  return result.rows[0];
-}
+  if (projectId) {
+    params.push(projectId);
+    where += ` AND tc.project_id = $${params.length}`;
+  }
 
-async function createRunAttempt({
-  testRunId,
-  agentPrompt,
-  runtimeConfigSnapshot,
-  browserProfileSnapshot,
-  triggerType = "initial",
-}) {
-  const nextAttemptQuery = `
-    SELECT COALESCE(MAX(attempt_no), 0) + 1 AS next_attempt_no
-    FROM test_run_attempts
-    WHERE test_run_id = $1
-  `;
+  const result = await pool.query(
+    `
+      SELECT
+        tc.id AS "testCaseId",
+        tc.id,
+        tc.project_id AS "projectId",
+        tc.title,
+        tc.goal,
+        tc.status,
+        tc.ai_model AS "aiModel",
+        p.name AS suite,
 
-  const nextAttemptResult = await db.query(nextAttemptQuery, [testRunId]);
-  const attemptNo = nextAttemptResult.rows[0].next_attempt_no;
+        tcv.id AS "currentVersionId",
+        tcv.version_no AS "versionNo",
+        tcv.prompt_text AS "promptText",
+        tcv.execution_mode AS "executionMode",
+        tcv.runtime_config_id AS "runtimeConfigId",
+        tcv.display_text AS "displayText",
 
-  const query = `
-    INSERT INTO test_run_attempts (
-      test_run_id,
-      attempt_no,
-      status,
-      trigger_type,
-      runtime_config_snapshot,
-      browser_profile_snapshot,
-      agent_prompt,
-      created_at
-    )
-    VALUES ($1, $2, 'queued', $3, $4, $5, $6, NOW())
-    RETURNING *
-  `;
+        COALESCE(step_stats.step_count, 0) AS "stepCount",
+        tc.created_at AS "createdAt",
+        tc.updated_at AS "updatedAt"
+      FROM test_cases tc
+      JOIN projects p
+        ON p.id = tc.project_id
+      LEFT JOIN test_case_versions tcv
+        ON tcv.id = tc.current_version_id
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS step_count
+        FROM test_steps ts
+        WHERE ts.test_case_version_id = tc.current_version_id
+      ) step_stats ON TRUE
+      WHERE ${where}
+        AND tc.deleted_at IS NULL
+      ORDER BY tc.updated_at DESC, tc.created_at DESC
+    `,
+    params
+  );
 
-  const result = await db.query(query, [
-    testRunId,
-    attemptNo,
-    triggerType,
-    runtimeConfigSnapshot || {},
-    browserProfileSnapshot || {},
-    agentPrompt || null,
-  ]);
-
-  return result.rows[0];
-}
-
-async function markRunStarted(testRunId) {
-  const query = `
-    UPDATE test_runs
-    SET
-      status = 'running',
-      started_at = COALESCE(started_at, NOW())
-    WHERE id = $1
-    RETURNING *
-  `;
-
-  const result = await db.query(query, [testRunId]);
-  return result.rows[0];
-}
-
-async function markAttemptStarted(attemptId) {
-  const query = `
-    UPDATE test_run_attempts
-    SET
-      status = 'running',
-      started_at = COALESCE(started_at, NOW())
-    WHERE id = $1
-    RETURNING *
-  `;
-
-  const result = await db.query(query, [attemptId]);
-  return result.rows[0];
-}
-
-async function insertRunStepLog(payload) {
-  const query = `
-    INSERT INTO run_step_logs (
-      test_run_id,
-      test_run_attempt_id,
-      step_no,
-      step_title,
-      action,
-      status,
-      message,
-      current_url,
-      thought_text,
-      extracted_content,
-      action_input_json,
-      action_output_json,
-      model_output_json,
-      duration_ms,
-      started_at,
-      finished_at,
-      created_at
-    )
-    VALUES (
-      $1, $2, $3, $4, $5, $6, $7,
-      $8, $9, $10, $11, $12, $13, $14,
-      NOW(), NOW(), NOW()
-    )
-    RETURNING *
-  `;
-
-  const result = await db.query(query, [
-    payload.testRunId,
-    payload.attemptId,
-    payload.stepNo,
-    payload.stepTitle || null,
-    payload.action || null,
-    payload.status,
-    payload.message || null,
-    payload.currentUrl || null,
-    payload.thoughtText || null,
-    payload.extractedContent || null,
-    payload.actionInputJson || null,
-    payload.actionOutputJson || null,
-    payload.modelOutputJson || null,
-    payload.durationMs || null,
-  ]);
-
-  return result.rows[0];
-}
-
-async function insertEvidence({
-  testRunId,
-  attemptId,
-  runStepLogId,
-  screenshotPath,
-  currentUrl,
-}) {
-  const query = `
-    INSERT INTO evidences (
-      test_run_id,
-      test_run_attempt_id,
-      run_step_log_id,
-      evidence_type,
-      file_path,
-      storage_provider,
-      page_url,
-      captured_at,
-      created_at
-    )
-    VALUES ($1, $2, $3, 'screenshot', $4, 'local', $5, NOW(), NOW())
-    RETURNING *
-  `;
-
-  const result = await db.query(query, [
-    testRunId,
-    attemptId,
-    runStepLogId,
-    screenshotPath,
-    currentUrl || null,
-  ]);
-
-  return result.rows[0];
-}
-
-async function updateRunAttemptFinal({
-  attemptId,
-  status,
-  verdict,
-  finalResult,
-  structuredOutput,
-  errorMessage,
-}) {
-  const query = `
-    UPDATE test_run_attempts
-    SET
-      status = $2::varchar(30),
-      verdict = $3::varchar(20),
-      final_result = $4::text,
-      structured_output = $5::jsonb,
-      error_message = $6::text,
-      started_at = COALESCE(started_at, NOW()),
-      finished_at = CASE
-        WHEN $2::text IN ('completed', 'failed', 'cancelled') THEN NOW()
-        ELSE finished_at
-      END
-    WHERE id = $1
-    RETURNING *
-  `;
-
-  const result = await db.query(query, [
-    attemptId,
-    status,
-    verdict || null,
-    finalResult || null,
-    structuredOutput || null,
-    errorMessage || null,
-  ]);
-
-  return result.rows[0];
-}
-
-async function updateTestRunFinal({
-  testRunId,
-  status,
-  verdict,
-  executionLog,
-  evidenceSummary,
-  errorMessage,
-}) {
-  const query = `
-    UPDATE test_runs
-    SET
-      status = $2::varchar(30),
-      verdict = $3::varchar(20),
-      execution_log = $4::jsonb,
-      evidence_summary = $5::jsonb,
-      error_message = $6::text,
-      started_at = COALESCE(started_at, NOW()),
-      finished_at = CASE
-        WHEN $2::text IN ('completed', 'failed', 'cancelled') THEN NOW()
-        ELSE finished_at
-      END
-    WHERE id = $1
-    RETURNING *
-  `;
-
-  const result = await db.query(query, [
-    testRunId,
-    status,
-    verdict || null,
-    executionLog || null,
-    evidenceSummary || null,
-    errorMessage || null,
-  ]);
-
-  return result.rows[0];
-}
-
-async function getRecentTestRuns({ userId, projectId = null, limit = 20 }) {
-  const query = `
-    SELECT
-      tr.id,
-      tr.status,
-      tr.verdict,
-      tr.error_message,
-      tr.created_at,
-      tr.started_at,
-      tr.finished_at,
-      tc.title AS test_case_title
-    FROM test_runs tr
-    JOIN test_cases tc
-      ON tc.id = tr.test_case_id
-    JOIN projects p
-      ON p.id = tc.project_id
-    WHERE p.user_id = $1
-      AND ($2::bigint IS NULL OR tc.project_id = $2)
-    ORDER BY tr.id DESC
-    LIMIT $3
-  `;
-
-  const result = await db.query(query, [userId, projectId, limit]);
   return result.rows;
 }
 
-async function getReplaySourceRun(testRunId, userId) {
-  const query = `
-    SELECT
-      tr.id AS source_run_id,
-      tr.test_case_id,
-      tr.test_case_version_id,
-      latest_attempt.agent_prompt
-    FROM test_runs tr
-    JOIN test_cases tc
-      ON tc.id = tr.test_case_id
-    JOIN projects p
-      ON p.id = tc.project_id
-    LEFT JOIN LATERAL (
-      SELECT tra.agent_prompt
-      FROM test_run_attempts tra
-      WHERE tra.test_run_id = tr.id
-      ORDER BY tra.attempt_no DESC, tra.id DESC
-      LIMIT 1
-    ) latest_attempt ON TRUE
-    WHERE tr.id = $1
-      AND p.user_id = $2
-    LIMIT 1
-  `;
+async function createGenerationBatchWithCandidates({
+  projectId,
+  userId,
+  prompt,
+  llmProvider,
+  llmModel,
+  candidates,
+}) {
+  const client = await pool.connect();
 
-  const result = await db.query(query, [testRunId, userId]);
+  try {
+    await client.query("BEGIN");
+
+    const batchResult = await client.query(
+      `
+        INSERT INTO test_case_generation_batches (
+          project_id,
+          source_prompt,
+          status,
+          llm_provider,
+          llm_model,
+          candidate_count,
+          created_by
+        )
+        VALUES ($1, $2, 'generated', $3, $4, $5, $6)
+        RETURNING id, project_id, source_prompt, status, llm_provider, llm_model, candidate_count, created_at
+      `,
+      [
+        projectId,
+        prompt,
+        llmProvider,
+        llmModel,
+        candidates.length,
+        userId,
+      ]
+    );
+
+    const batch = batchResult.rows[0];
+    const insertedCandidates = [];
+
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[index];
+
+      const candidateResult = await client.query(
+        `
+          INSERT INTO test_case_generation_candidates (
+            batch_id,
+            title,
+            goal,
+            display_text,
+            prompt_text,
+            execution_mode,
+            plan_snapshot,
+            variables_schema,
+            candidate_order
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9)
+          RETURNING
+            id,
+            title,
+            goal,
+            display_text AS "displayText",
+            prompt_text AS "promptText",
+            execution_mode AS "executionMode",
+            plan_snapshot AS "planSnapshot",
+            variables_schema AS "variablesSchema",
+            candidate_order AS "candidateOrder",
+            is_selected AS "isSelected",
+            selected_test_case_id AS "selectedTestCaseId",
+            created_at AS "createdAt"
+        `,
+        [
+          batch.id,
+          candidate.title,
+          candidate.goal,
+          candidate.displayText,
+          candidate.promptText || prompt,
+          candidate.executionMode,
+          JSON.stringify(candidate.planSnapshot),
+          JSON.stringify(candidate.variablesSchema || {}),
+          index + 1,
+        ]
+      );
+
+      insertedCandidates.push(candidateResult.rows[0]);
+    }
+
+    await client.query("COMMIT");
+
+    return {
+      batch: {
+        id: batch.id,
+        projectId: batch.project_id,
+        sourcePrompt: batch.source_prompt,
+        status: batch.status,
+        llmProvider: batch.llm_provider,
+        llmModel: batch.llm_model,
+        candidateCount: batch.candidate_count,
+        createdAt: batch.created_at,
+      },
+      candidates: insertedCandidates,
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function findRuntimeConfigByIdForProject(
+  client,
+  projectId,
+  runtimeConfigId
+) {
+  const result = await client.query(
+    `
+      SELECT id
+      FROM agent_runtime_configs
+      WHERE id = $1
+        AND project_id = $2
+        AND deleted_at IS NULL
+      LIMIT 1
+    `,
+    [runtimeConfigId, projectId]
+  );
+
   return result.rows[0] || null;
 }
 
-async function getTestRunDetail(testRunId, userId) {
-  const runQuery = `
-    SELECT
-      tr.*,
-      tc.title AS test_case_title,
-      tc.goal AS test_case_goal
-    FROM test_runs tr
-    JOIN test_cases tc
-      ON tc.id = tr.test_case_id
-    JOIN projects p
-      ON p.id = tc.project_id
-    WHERE tr.id = $1
-      AND p.user_id = $2
-    LIMIT 1
-  `;
+async function ensureReusableRuntimeConfig(client, projectId, userId) {
+  const existing = await client.query(
+    `
+      SELECT id
+      FROM agent_runtime_configs
+      WHERE project_id = $1
+        AND deleted_at IS NULL
+      ORDER BY
+        CASE WHEN LOWER(name) LIKE 'default%' THEN 0 ELSE 1 END,
+        updated_at DESC,
+        id DESC
+      LIMIT 1
+    `,
+    [projectId]
+  );
 
-  const runResult = await db.query(runQuery, [testRunId, userId]);
-  const run = runResult.rows[0] || null;
-
-  if (!run) {
-    return {
-      run: null,
-      attempts: [],
-      steps: [],
-      evidences: [],
-    };
+  if (existing.rows[0]) {
+    return existing.rows[0].id;
   }
 
-  const attemptsQuery = `
-    SELECT *
-    FROM test_run_attempts
-    WHERE test_run_id = $1
-    ORDER BY id DESC
-  `;
+  const created = await client.query(
+    `
+      INSERT INTO agent_runtime_configs (
+        project_id,
+        name,
+        description,
+        llm_provider,
+        llm_model,
+        max_steps,
+        timeout_seconds,
+        use_vision,
+        headless,
+        browser_type,
+        created_by
+      )
+      VALUES (
+        $1,
+        'default-runtime',
+        'Default reusable runtime for project test cases',
+        $2,
+        $3,
+        30,
+        300,
+        TRUE,
+        TRUE,
+        'chromium',
+        $4
+      )
+      RETURNING id
+    `,
+    [
+      projectId,
+      EXECUTION_LLM_PROVIDER,
+      EXECUTION_LLM_MODEL,
+      userId,
+    ]
+  );
 
-  const stepsQuery = `
-    SELECT *
-    FROM run_step_logs
-    WHERE test_run_id = $1
-    ORDER BY step_no ASC, id ASC
-  `;
+  return created.rows[0].id;
+}
 
-  const evidencesQuery = `
-    SELECT *
-    FROM evidences
-    WHERE test_run_id = $1
-    ORDER BY id DESC
-  `;
+async function getSelectableCandidates(
+  client,
+  userId,
+  projectId,
+  batchId,
+  candidateIds
+) {
+  const result = await client.query(
+    `
+      SELECT
+        c.id,
+        c.title,
+        c.goal,
+        c.display_text,
+        c.prompt_text,
+        c.execution_mode,
+        c.plan_snapshot,
+        c.variables_schema,
+        c.candidate_order,
+        b.source_prompt,
+        b.llm_provider,
+        b.llm_model
+      FROM test_case_generation_candidates c
+      JOIN test_case_generation_batches b
+        ON b.id = c.batch_id
+      JOIN projects p
+        ON p.id = b.project_id
+      WHERE p.user_id = $1
+        AND b.project_id = $2
+        AND b.id = $3
+        AND c.id = ANY($4::bigint[])
+      ORDER BY c.candidate_order ASC, c.id ASC
+    `,
+    [userId, projectId, batchId, candidateIds]
+  );
 
-  const [attemptsResult, stepsResult, evidencesResult] = await Promise.all([
-    db.query(attemptsQuery, [testRunId]),
-    db.query(stepsQuery, [testRunId]),
-    db.query(evidencesQuery, [testRunId]),
-  ]);
+  return result.rows;
+}
 
-  return {
-    run,
-    attempts: attemptsResult.rows,
-    steps: stepsResult.rows,
-    evidences: evidencesResult.rows,
-  };
+function extractStepsFromPlanSnapshot(planSnapshot) {
+  if (!planSnapshot || typeof planSnapshot !== "object") return [];
+
+  if (!Array.isArray(planSnapshot.steps)) return [];
+
+  return planSnapshot.steps
+    .map((step, index) => {
+      if (typeof step === "string") {
+        const text = step.trim();
+        if (!text) return null;
+        return {
+          order: index + 1,
+          text,
+          action: "custom",
+          expectedResult: null,
+        };
+      }
+
+      if (step && typeof step === "object") {
+        const text = String(step.text || step.description || "").trim();
+        if (!text) return null;
+
+        return {
+          order: Number(step.order) || index + 1,
+          text,
+          action: String(step.action || "custom").trim() || "custom",
+          expectedResult: String(step.expectedResult || "").trim() || null,
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.order - b.order);
+}
+
+async function saveCandidatesAsTestCases({
+  userId,
+  projectId,
+  batchId,
+  candidateIds,
+  candidateOverrides = [],
+  runtimeConfigId,
+}) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const candidates = await getSelectableCandidates(
+      client,
+      userId,
+      projectId,
+      batchId,
+      candidateIds
+    );
+
+    if (candidates.length !== candidateIds.length) {
+      throw {
+        status: 404,
+        message: "One or more candidates were not found or access was denied",
+      };
+    }
+
+    let resolvedRuntimeConfigId = runtimeConfigId;
+
+    if (resolvedRuntimeConfigId) {
+      const runtimeConfig = await findRuntimeConfigByIdForProject(
+        client,
+        projectId,
+        resolvedRuntimeConfigId
+      );
+
+      if (!runtimeConfig) {
+        throw {
+          status: 404,
+          message: "runtimeConfigId not found for this project",
+        };
+      }
+    } else {
+      resolvedRuntimeConfigId = await ensureReusableRuntimeConfig(
+        client,
+        projectId,
+        userId
+      );
+    }
+
+    const overrideMap = new Map(
+      (candidateOverrides || []).map((item) => [item.candidateId, item])
+    );
+
+    const saved = [];
+
+    for (const candidate of candidates) {
+      const override = overrideMap.get(candidate.id);
+
+      const mergedTitle = override?.title || candidate.title;
+      const mergedGoal = override?.goal || candidate.goal;
+      const mergedPromptText =
+        override?.promptText || candidate.prompt_text || candidate.source_prompt || "";
+      const mergedDisplayText =
+        override?.displayText || candidate.display_text || null;
+      const mergedExecutionMode =
+        override?.executionMode || candidate.execution_mode || "step_based";
+      const mergedPlanSnapshot =
+        override?.planSnapshot || candidate.plan_snapshot || {};
+      const mergedVariablesSchema =
+        override?.variablesSchema || candidate.variables_schema || {};
+
+      const steps = extractStepsFromPlanSnapshot(mergedPlanSnapshot);
+
+      const expectedResult =
+        String(mergedPlanSnapshot.expectedResult || "").trim() || null;
+
+      const tcResult = await client.query(
+        `
+          INSERT INTO test_cases (
+            project_id,
+            title,
+            goal,
+            status,
+            ai_model,
+            created_by
+          )
+          VALUES ($1, $2, $3, 'draft', $4, $5)
+          RETURNING id
+        `,
+        [
+          projectId,
+          mergedTitle,
+          mergedGoal,
+          candidate.llm_model ||
+            GENERATION_LLM_MODEL ||
+            GENERATION_LLM_PROVIDER ||
+            null,
+          userId,
+        ]
+      );
+
+      const testCaseId = tcResult.rows[0].id;
+
+      const versionResult = await client.query(
+        `
+          INSERT INTO test_case_versions (
+            test_case_id,
+            version_no,
+            source_type,
+            prompt_text,
+            plan_snapshot,
+            variables_schema,
+            ai_model,
+            created_by,
+            execution_mode,
+            runtime_config_id,
+            display_text
+          )
+          VALUES ($1, 1, 'ai_generated', $2, $3::jsonb, $4::jsonb, $5, $6, $7, $8, $9)
+          RETURNING id
+        `,
+        [
+          testCaseId,
+          mergedPromptText,
+          JSON.stringify(mergedPlanSnapshot),
+          JSON.stringify(mergedVariablesSchema),
+          candidate.llm_model ||
+            GENERATION_LLM_MODEL ||
+            GENERATION_LLM_PROVIDER ||
+            null,
+          userId,
+          mergedExecutionMode,
+          resolvedRuntimeConfigId,
+          mergedDisplayText,
+        ]
+      );
+
+      const versionId = versionResult.rows[0].id;
+
+      for (let i = 0; i < steps.length; i += 1) {
+        const step = steps[i];
+        const isLast = i === steps.length - 1;
+
+        await client.query(
+          `
+            INSERT INTO test_steps (
+              test_case_version_id,
+              step_order,
+              action_type,
+              input_data,
+              expected_result
+            )
+            VALUES ($1, $2, $3, $4::jsonb, $5)
+          `,
+          [
+            versionId,
+            step.order,
+            step.action || "custom",
+            JSON.stringify({ description: step.text }),
+            step.expectedResult || (isLast ? expectedResult : null),
+          ]
+        );
+      }
+
+      await client.query(
+        `
+          UPDATE test_cases
+          SET current_version_id = $1,
+              updated_at = NOW()
+          WHERE id = $2
+        `,
+        [versionId, testCaseId]
+      );
+
+      await client.query(
+        `
+          UPDATE test_case_generation_candidates
+          SET
+            is_selected = TRUE,
+            selected_test_case_id = $1,
+            title = $3,
+            goal = $4,
+            display_text = $5,
+            prompt_text = $6,
+            execution_mode = $7,
+            plan_snapshot = $8::jsonb,
+            variables_schema = $9::jsonb
+          WHERE id = $2
+        `,
+        [
+          testCaseId,
+          candidate.id,
+          mergedTitle,
+          mergedGoal,
+          mergedDisplayText,
+          mergedPromptText,
+          mergedExecutionMode,
+          JSON.stringify(mergedPlanSnapshot),
+          JSON.stringify(mergedVariablesSchema),
+        ]
+      );
+
+      saved.push({
+        id: testCaseId,
+        title: mergedTitle,
+        goal: mergedGoal,
+        versionId,
+        runtimeConfigId: resolvedRuntimeConfigId,
+        candidateId: candidate.id,
+      });
+    }
+
+    await client.query("COMMIT");
+    return saved;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 module.exports = {
-  getTestCaseExecutionContext,
-  createTestRun,
-  createRunAttempt,
-  markRunStarted,
-  markAttemptStarted,
-  insertRunStepLog,
-  insertEvidence,
-  updateRunAttemptFinal,
-  updateTestRunFinal,
-  getRecentTestRuns,
-  getReplaySourceRun,
-  getTestRunDetail,
+  findOwnedProjectById,
+  getTestCases,
+  createGenerationBatchWithCandidates,
+  saveCandidatesAsTestCases,
 };

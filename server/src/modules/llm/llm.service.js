@@ -2,14 +2,24 @@
 
 const { cleanJSON } = require("./utils");
 
-const PROVIDER = process.env.LLM_PROVIDER || "gemini";
+const GENERATION_PROVIDER =
+  process.env.GENERATION_LLM_PROVIDER ||
+  process.env.LLM_PROVIDER ||
+  "ollama";
+
+const GENERATION_MODEL =
+  process.env.GENERATION_LLM_MODEL ||
+  process.env.LLM_MODEL ||
+  "gemma3:4b";
 
 async function generateFromLLM(messages) {
-  switch (PROVIDER) {
+  switch (GENERATION_PROVIDER) {
     case "gemini":
       return require("./providers/gemini").generateFromGemini(messages);
+
     case "ollama":
       return require("./providers/ollama").generateFromOllama(messages);
+
     default:
       return require("./providers/openai").generateFromOpenAI(messages);
   }
@@ -27,9 +37,11 @@ function _buildScanContext(scan) {
     title: p.title,
   }));
 
-  // Include interactions only for the first 10 pages to keep prompt size sane
   const interactions = {};
-  for (const [url, data] of Object.entries(scan.interaction_map || {}).slice(0, 10)) {
+  for (const [url, data] of Object.entries(scan.interaction_map || {}).slice(
+    0,
+    10
+  )) {
     interactions[url] = {
       forms: (data.forms || []).slice(0, 5),
       buttons: (data.buttons || []).slice(0, 10),
@@ -121,10 +133,24 @@ Return ONLY JSON.
 
   try {
     const raw = await generateFromLLM(messages);
-    return cleanJSON(raw);
+    const cleaned = cleanJSON(raw);
+
+    return {
+      ...cleaned,
+      llmProvider: GENERATION_PROVIDER,
+      llmModel: GENERATION_MODEL,
+    };
   } catch (err) {
     console.error("Error generating test cases:", err);
-    throw { status: 500, message: "Failed to generate test cases" };
+
+    throw {
+      status: err?.status || err?.response?.status || 500,
+      message:
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to generate test cases",
+    };
   }
 }
 

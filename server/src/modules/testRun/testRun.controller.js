@@ -11,8 +11,6 @@ async function createTestRun(req, res, next) {
   try {
     const userId = req.user?.userId;
     const testCaseId = toPositiveNumber(req.body?.testCaseId);
-    const promptText =
-      typeof req.body?.promptText === "string" ? req.body.promptText.trim() : null;
 
     if (!testCaseId) {
       return res.status(400).json({
@@ -23,7 +21,6 @@ async function createTestRun(req, res, next) {
 
     const result = await testRunService.startTestRun({
       testCaseId,
-      promptText: promptText || null,
       triggeredBy: userId,
     });
 

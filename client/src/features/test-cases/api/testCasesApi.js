@@ -10,33 +10,39 @@ export async function getTestCases(projectId) {
   const params = projectId ? { projectId } : {};
   const response = await apiClient.get("/test-cases", { params });
 
-  // Backend trả { status: "ok", data: [...] }
-  if (Array.isArray(response.data)) return response.data;
-  if (Array.isArray(response.data?.data)) return response.data.data;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response)) return response;
 
   return [];
 }
 
 export async function getTestCaseById(testCaseId) {
   const response = await apiClient.get(`/test-cases/${testCaseId}`);
-  return response.data?.data ?? response.data ?? null;
+  return response?.data ?? response ?? null;
 }
 
-export async function generateTestCase(promptText, projectId = null) {
+export async function generateTestCase(promptText, projectId) {
   const response = await apiClient.post("/test-cases/generate", {
     prompt: promptText,
-    ...(projectId ? { projectId } : {}),
+    projectId,
   });
 
-  return response.data?.data ?? response.data ?? [];
+  return response?.data ?? response;
 }
 
-export async function saveTestCases({ projectId, promptText, testCases }) {
-  const response = await apiClient.post("/test-cases/save", {
+export async function saveTestCases({
+  projectId,
+  batchId,
+  candidateIds,
+  runtimeConfigId = null,
+}) {
+  const payload = {
     projectId,
-    promptText,
-    testCases,
-  });
+    batchId,
+    candidateIds,
+    ...(runtimeConfigId ? { runtimeConfigId } : {}),
+  };
 
-  return response.data?.data ?? response.data ?? [];
+  const response = await apiClient.post("/test-cases/save", payload);
+  return response?.data ?? response;
 }

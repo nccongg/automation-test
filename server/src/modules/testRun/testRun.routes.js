@@ -111,10 +111,6 @@ router.get("/:id", testRunController.getTestRunDetail);
  *                 type: integer
  *                 description: ID of the test case to run
  *                 example: 1
- *               promptText:
- *                 type: string
- *                 description: Optional prompt override for the run
- *                 example: Test the login flow
  *     responses:
  *       202:
  *         description: Test run accepted and dispatched
