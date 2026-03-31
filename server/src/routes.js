@@ -33,5 +33,6 @@ router.use("/test-cases", require("./modules/testCase/testCase.routes"));
 router.use("/agent", require("./modules/agent/agent.routes"));
 router.use("/dashboard", require("./modules/dashboard/dashboard.router"));
 router.use("/projects", require("./modules/projects/projects.router"));
+router.use("/scans", require("./modules/scan/scan.routes"));
 
 module.exports = router;

@@ -15,6 +15,7 @@ import {
   generateTestCase,
   saveTestCases,
 } from "@/features/test-cases/api/testCasesApi";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -119,7 +120,7 @@ export default function ProjectOverviewPage() {
       setRunResult("");
       setSelected(new Set());
 
-      const result = await generateTestCase(prompt.trim());
+      const result = await generateTestCase(prompt.trim(), project.id);
       console.log("[generateTestCase] result:", result);
       setTestCases(result?.testCases ?? []);
       setShowTestCasesDialog(true);
@@ -184,11 +185,12 @@ export default function ProjectOverviewPage() {
         promptText: prompt,
         testCases,
       });
-      setSaveMessage(
-        `${result.data?.length ?? 0} test case(s) saved to database.`,
-      );
+      const count = result.data?.length ?? 0;
+      toast.success(`${count} test case(s) saved successfully!`);
+      setShowTestCasesDialog(false);
+      navigate(`/projects/${project.id}/test-cases`);
     } catch (error) {
-      setRunError(error?.message || "Failed to save test cases.");
+      toast.error(error?.message || "Failed to save test cases.");
     } finally {
       setSaving(false);
     }
@@ -381,7 +383,7 @@ export default function ProjectOverviewPage() {
                 ) : (
                   <>
                     <Save className="size-3.5" />
-                    Save to DB
+                    Save
                   </>
                 )}
               </Button>

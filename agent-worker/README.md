@@ -64,6 +64,7 @@ uvicorn app.main:app --port 8001
 ```bash
 source venv/bin/activate
 uvicorn app.main:app --port 8001
+uvicorn app.main:app --port 8001 --reload --log-level debug
 ```
 
 ---

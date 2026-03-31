@@ -22,9 +22,10 @@ export async function getTestCaseById(testCaseId) {
   return response.data?.data ?? response.data ?? null;
 }
 
-export async function generateTestCase(promptText) {
+export async function generateTestCase(promptText, projectId = null) {
   const response = await apiClient.post("/test-cases/generate", {
     prompt: promptText,
+    ...(projectId ? { projectId } : {}),
   });
 
   return response.data?.data ?? response.data ?? [];

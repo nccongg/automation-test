@@ -35,6 +35,7 @@ export async function createProject(projectData) {
     name: projectData?.name,
     description: projectData?.description,
     base_url: projectData?.base_url || projectData?.baseUrl,
+    config: projectData?.config ?? {},
   };
 
   const response = await apiClient.post('/projects', payload);

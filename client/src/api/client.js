@@ -40,6 +40,13 @@ async function request(path, options = {}) {
 
     const data = await res.json().catch(() => ({}));
 
+    if (res.status === 401 && !path.startsWith('/auth/')) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+      throw new Error('Session expired. Redirecting to login.');
+    }
+
     if (!res.ok) {
       throw new Error(data.message || `Request failed (${res.status})`);
     }
