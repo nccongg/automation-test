@@ -2,6 +2,7 @@
 
 const { pool } = require("../../config/database");
 const llmService = require("../llm/llm.service");
+const scanRepository = require("../scan/scan.repository");
 
 async function findOwnedProjectById(userId, projectId) {
   const result = await pool.query(
@@ -48,8 +49,12 @@ async function getTestCases(userId, projectId) {
   return result.rows;
 }
 
-async function generateTestCases(userId, prompt) {
-  return llmService.generateTestCases(userId, prompt);
+async function generateTestCases(userId, prompt, projectId = null) {
+  let scanContext = null;
+  if (projectId) {
+    scanContext = await scanRepository.getLatestCompletedScanByProject(projectId);
+  }
+  return llmService.generateTestCases(userId, prompt, scanContext);
 }
 
 async function saveTestCases({

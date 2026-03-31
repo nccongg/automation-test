@@ -5,6 +5,38 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, model_validator
 
 
+# ─── Crawl Schemas ───────────────────────────────────────────────────────────
+
+class FormAuthConfig(BaseModel):
+    type: Literal["form"]
+    loginUrl: str
+    usernameSelector: str
+    passwordSelector: str
+    submitSelector: str
+    username: str
+    password: str
+    successSelector: Optional[str] = None  # element to wait for after login
+
+
+class CookieAuthConfig(BaseModel):
+    type: Literal["cookie"]
+    cookies: List[Dict[str, str]]  # [{"name": "...", "value": "..."}]
+
+
+AuthConfig = FormAuthConfig | CookieAuthConfig
+
+
+class CrawlRequest(BaseModel):
+    scanId: int
+    baseUrl: str
+    authConfig: Optional[AuthConfig] = Field(default=None, discriminator="type")
+    maxPages: int = 30
+    maxDepth: int = 3
+    callbackUrl: str
+    callbackSecret: str
+    progressCallbackUrl: Optional[str] = None  # called after each page crawled
+
+
 ExecutionMode = Literal["goal_based_agent", "replay_script"]
 ReplayScriptType = Literal["strict_replay_json", "browser_use_history"]
 

@@ -57,14 +57,19 @@ async function getTestCases(userId, projectId) {
   return testCaseRepository.getTestCases(userId, projectId);
 }
 
-async function generateTestCases(userId, prompt) {
+async function generateTestCases(userId, prompt, projectId = null) {
   assertUser(userId);
 
   if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
     throw { status: 400, message: "Prompt is required to generate test cases" };
   }
 
-  const testCases = await testCaseRepository.generateTestCases(userId, prompt.trim());
+  const testCases = await testCaseRepository.generateTestCases(
+    userId,
+    prompt.trim(),
+    projectId,
+  );
+
   return testCases;
 }
 
@@ -78,7 +83,7 @@ async function saveTestCases(userId, projectId, promptText, testCases) {
 
   const ownedProject = await testCaseRepository.findOwnedProjectById(
     userId,
-    projectIdNum
+    projectIdNum,
   );
 
   if (!ownedProject) {

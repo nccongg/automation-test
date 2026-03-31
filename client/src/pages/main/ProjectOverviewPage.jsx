@@ -119,7 +119,7 @@ export default function ProjectOverviewPage() {
       setRunResult("");
       setSelected(new Set());
 
-      const result = await generateTestCase(prompt.trim());
+      const result = await generateTestCase(prompt.trim(), project.id);
       console.log("[generateTestCase] result:", result);
       setTestCases(result?.testCases ?? []);
       setShowTestCasesDialog(true);

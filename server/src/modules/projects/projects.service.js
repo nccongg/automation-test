@@ -64,9 +64,12 @@ async function createProject(userId, body) {
   const name = (body?.name || "").trim();
   const description = (body?.description || "").trim();
   const baseUrl = (body?.base_url || body?.baseUrl || "").trim();
+  const config =
+    body?.config && typeof body.config === "object" ? body.config : {};
 
   if (!name) throw { status: 400, message: "Project name is required" };
-  if (!description) throw { status: 400, message: "Project description is required" };
+  if (!description)
+    throw { status: 400, message: "Project description is required" };
   if (!baseUrl) throw { status: 400, message: "Base URL is required" };
   if (!isValidUrl(baseUrl)) {
     throw { status: 400, message: "Base URL must be a valid http/https URL" };
@@ -76,6 +79,7 @@ async function createProject(userId, body) {
     name,
     description,
     baseUrl,
+    config,
   });
 
   return {
@@ -135,7 +139,11 @@ async function getRecentProjects(userId, limit = 5) {
     const projectBarWidth = Math.round(passRateNum);
 
     const barTone =
-      p.status === "passing" ? "green" : p.status === "failing" ? "red" : "slate";
+      p.status === "passing"
+        ? "green"
+        : p.status === "failing"
+          ? "red"
+          : "slate";
 
     return {
       id: p.id,
@@ -186,7 +194,9 @@ async function updateProject(userId, projectId, body) {
 
   const name = body?.name !== undefined ? String(body.name).trim() : undefined;
   const description =
-    body?.description !== undefined ? String(body.description).trim() : undefined;
+    body?.description !== undefined
+      ? String(body.description).trim()
+      : undefined;
   const baseUrl =
     body?.base_url !== undefined || body?.baseUrl !== undefined
       ? String(body?.base_url || body?.baseUrl).trim()

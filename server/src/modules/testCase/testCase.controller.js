@@ -17,7 +17,7 @@ async function getTestCases(req, res, next) {
 async function generateTestCases(req, res, next) {
   try {
     const userId = req.user?.userId;
-    const { prompt } = req.body;
+    const { prompt, projectId } = req.body;
 
     if (!prompt) {
       return res.status(400).json({
@@ -26,7 +26,7 @@ async function generateTestCases(req, res, next) {
       });
     }
 
-    const data = await testCaseService.generateTestCases(userId, prompt);
+    const data = await testCaseService.generateTestCases(userId, prompt, projectId ?? null);
 
     res.json({
       status: "ok",

@@ -2,14 +2,14 @@
 
 const { query } = require("../../config/database");
 
-async function createProject(userId, { name, description, baseUrl }) {
+async function createProject(userId, { name, description, baseUrl, config = {} }) {
   const sql = `
-    INSERT INTO projects (user_id, name, description, base_url)
-    VALUES ($1, $2, $3, $4)
-    RETURNING id, name, description, base_url, created_at, updated_at
+    INSERT INTO projects (user_id, name, description, base_url, config)
+    VALUES ($1, $2, $3, $4, $5::jsonb)
+    RETURNING id, name, description, base_url, config, created_at, updated_at
   `;
 
-  const result = await query(sql, [userId, name, description, baseUrl]);
+  const result = await query(sql, [userId, name, description, baseUrl, JSON.stringify(config)]);
   return result.rows[0];
 }
 
