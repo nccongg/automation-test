@@ -1,22 +1,22 @@
-'use strict';
+"use strict";
 
-const projectsRepository = require('./projects.repository');
+const projectsRepository = require("./projects.repository");
 
 function assertUser(userId) {
   if (!userId) {
-    throw { status: 401, message: 'Unauthorized' };
+    throw { status: 401, message: "Unauthorized" };
   }
 }
 
 const statusMap = {
-  passing: { display: 'Passing', tone: 'passing' },
-  partial: { display: 'Partial', tone: 'pending' },
-  failing: { display: 'Failing', tone: 'failing' },
-  pending: { display: 'Pending', tone: 'pending' },
+  passing: { display: "Passing", tone: "passing" },
+  partial: { display: "Partial", tone: "pending" },
+  failing: { display: "Failing", tone: "failing" },
+  pending: { display: "Pending", tone: "pending" },
 };
 
 function formatRelativeTimeFromDb(dateValue) {
-  if (!dateValue) return 'Never';
+  if (!dateValue) return "Never";
 
   const now = new Date();
   const then = new Date(dateValue);
@@ -25,15 +25,15 @@ function formatRelativeTimeFromDb(dateValue) {
 
   if (diffHours < 1) {
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`;
+    return `${diffMinutes} minute${diffMinutes !== 1 ? "s" : ""} ago`;
   }
 
   if (diffHours < 24) {
-    return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
   }
 
   const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+  return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
 }
 
 function formatStatus(status) {
@@ -41,24 +41,36 @@ function formatStatus(status) {
 }
 
 function verdictToLastRunStatus(verdict) {
-  if (!verdict) return 'Never';
-  if (verdict === 'pass') return 'Pass';
-  if (verdict === 'fail') return 'Fail';
-  if (verdict === 'error') return 'Error';
-  if (verdict === 'partial') return 'Partial';
-  return 'Never';
+  if (!verdict) return "Never";
+  if (verdict === "pass") return "Pass";
+  if (verdict === "fail") return "Fail";
+  if (verdict === "error") return "Error";
+  if (verdict === "partial") return "Partial";
+  return "Never";
+}
+
+function isValidUrl(value) {
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol);
+  } catch {
+    return false;
+  }
 }
 
 async function createProject(userId, body) {
   assertUser(userId);
 
-  const name = (body?.name || '').trim();
-  const description = (body?.description || '').trim();
-  const baseUrl = (body?.base_url || body?.baseUrl || '').trim();
+  const name = (body?.name || "").trim();
+  const description = (body?.description || "").trim();
+  const baseUrl = (body?.base_url || body?.baseUrl || "").trim();
 
-  if (!name) throw { status: 400, message: 'Project name is required' };
-  if (!description) throw { status: 400, message: 'Project description is required' };
-  if (!baseUrl) throw { status: 400, message: 'Base URL is required' };
+  if (!name) throw { status: 400, message: "Project name is required" };
+  if (!description) throw { status: 400, message: "Project description is required" };
+  if (!baseUrl) throw { status: 400, message: "Base URL is required" };
+  if (!isValidUrl(baseUrl)) {
+    throw { status: 400, message: "Base URL must be a valid http/https URL" };
+  }
 
   const created = await projectsRepository.createProject(userId, {
     name,
@@ -66,7 +78,6 @@ async function createProject(userId, body) {
     baseUrl,
   });
 
-  // Return the full project object with proper field mapping
   return {
     id: created.id,
     name: created.name,
@@ -85,9 +96,11 @@ async function getProjects(userId, page = 1, limit = 6) {
   return {
     data: result.rows.map((p) => {
       const statusInfo = formatStatus(p.status);
-      const passRateNum = p.total_runs > 0 
-        ? Math.round((p.passed_runs / p.total_runs) * 100) 
-        : 0;
+      const totalRuns = parseInt(p.total_runs, 10) || 0;
+      const passedRuns = parseInt(p.passed_runs, 10) || 0;
+
+      const passRateNum =
+        totalRuns > 0 ? Math.round((passedRuns / totalRuns) * 100) : 0;
 
       return {
         id: p.id,
@@ -98,7 +111,12 @@ async function getProjects(userId, page = 1, limit = 6) {
         testCases: parseInt(p.total_test_cases, 10) || 0,
         passRate: `${passRateNum}%`,
         lastRun: formatRelativeTimeFromDb(p.last_run_at),
-        barTone: p.status === 'passing' ? 'green' : p.status === 'failing' ? 'red' : 'slate',
+        barTone:
+          p.status === "passing"
+            ? "green"
+            : p.status === "failing"
+              ? "red"
+              : "slate",
         projectBarWidth: passRateNum,
       };
     }),
@@ -113,17 +131,16 @@ async function getRecentProjects(userId, limit = 5) {
 
   return rows.map((p) => {
     const statusInfo = formatStatus(p.status);
-
     const passRateNum = parseFloat(p.pass_rate || 0);
     const projectBarWidth = Math.round(passRateNum);
 
     const barTone =
-      p.status === 'passing' ? 'green' : p.status === 'failing' ? 'red' : 'slate';
+      p.status === "passing" ? "green" : p.status === "failing" ? "red" : "slate";
 
     return {
       id: p.id,
       title: p.name,
-      description: p.description || 'No description available',
+      description: p.description || "No description available",
       status: statusInfo.display,
       statusTone: statusInfo.tone,
       testCases: parseInt(p.total_test_cases, 10) || 0,
@@ -139,7 +156,7 @@ async function getProjectById(userId, projectId) {
   assertUser(userId);
 
   const project = await projectsRepository.getProjectById(userId, projectId);
-  if (!project) throw { status: 404, message: 'Project not found' };
+  if (!project) throw { status: 404, message: "Project not found" };
 
   const statusInfo = formatStatus(project.status);
   const lastRunStatus = verdictToLastRunStatus(project.latest_verdict);
@@ -147,15 +164,13 @@ async function getProjectById(userId, projectId) {
   return {
     id: project.id,
     title: project.name,
-    description: project.description || '',
+    description: project.description || "",
     baseUrl: project.base_url,
     status: statusInfo.display,
     statusTone: statusInfo.tone,
-
     totalTests: parseInt(project.total_test_cases, 10) || 0,
     lastRunStatus,
     totalRuns: parseInt(project.total_runs, 10) || 0,
-
     recentActivity: (project.recent_activity || []).map((a) => ({
       id: a.run_id,
       runId: a.run_id,
@@ -169,12 +184,20 @@ async function getProjectById(userId, projectId) {
 async function updateProject(userId, projectId, body) {
   assertUser(userId);
 
-  const name = body?.name ? String(body.name).trim() : undefined;
-  const description = body?.description ? String(body.description).trim() : undefined;
-  const baseUrl = body?.base_url || body?.baseUrl ? String(body?.base_url || body?.baseUrl).trim() : undefined;
+  const name = body?.name !== undefined ? String(body.name).trim() : undefined;
+  const description =
+    body?.description !== undefined ? String(body.description).trim() : undefined;
+  const baseUrl =
+    body?.base_url !== undefined || body?.baseUrl !== undefined
+      ? String(body?.base_url || body?.baseUrl).trim()
+      : undefined;
 
   if (name !== undefined && name.length === 0) {
-    throw { status: 400, message: 'Project name cannot be empty' };
+    throw { status: 400, message: "Project name cannot be empty" };
+  }
+
+  if (baseUrl !== undefined && !isValidUrl(baseUrl)) {
+    throw { status: 400, message: "Base URL must be a valid http/https URL" };
   }
 
   const updated = await projectsRepository.updateProject(userId, projectId, {
@@ -195,8 +218,7 @@ async function updateProject(userId, projectId, body) {
 
 async function deleteProject(userId, projectId) {
   assertUser(userId);
-
-  return await projectsRepository.deleteProject(userId, projectId);
+  return projectsRepository.deleteProject(userId, projectId);
 }
 
 module.exports = {
@@ -207,4 +229,3 @@ module.exports = {
   updateProject,
   deleteProject,
 };
-

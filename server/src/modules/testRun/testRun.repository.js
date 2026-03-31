@@ -1,8 +1,8 @@
-'use strict';
+"use strict";
 
-const db = require('../../config/database');
+const db = require("../../config/database");
 
-async function getTestCaseExecutionContext(testCaseId, userId) {
+async function getTestCaseExecutionContext(testCaseId, userId, testCaseVersionId = null) {
   const query = `
     SELECT
       tc.id AS test_case_id,
@@ -11,10 +11,13 @@ async function getTestCaseExecutionContext(testCaseId, userId) {
       tc.project_id,
       tc.current_version_id,
       p.base_url,
+
+      tcv.id AS resolved_test_case_version_id,
       tcv.prompt_text,
       tcv.plan_snapshot,
       tcv.execution_mode,
       tcv.runtime_config_id,
+
       arc.id AS runtime_id,
       arc.llm_provider,
       arc.llm_model,
@@ -25,15 +28,21 @@ async function getTestCaseExecutionContext(testCaseId, userId) {
       arc.browser_type,
       arc.allowed_domains,
       arc.viewport_json,
+      arc.locale,
+      arc.timezone,
+      arc.extra_config_json,
+
       bp.id AS browser_profile_id,
       bp.provider AS browser_provider,
       bp.profile_type,
-      bp.profile_ref
+      bp.profile_ref,
+      bp.profile_data
     FROM test_cases tc
     JOIN projects p
       ON p.id = tc.project_id
     LEFT JOIN test_case_versions tcv
-      ON tcv.id = tc.current_version_id
+      ON tcv.test_case_id = tc.id
+     AND tcv.id = COALESCE($3::bigint, tc.current_version_id)
     LEFT JOIN agent_runtime_configs arc
       ON arc.id = tcv.runtime_config_id
     LEFT JOIN LATERAL (
@@ -51,7 +60,7 @@ async function getTestCaseExecutionContext(testCaseId, userId) {
     LIMIT 1
   `;
 
-  const result = await db.query(query, [testCaseId, userId]);
+  const result = await db.query(query, [testCaseId, userId, testCaseVersionId]);
   return result.rows[0] || null;
 }
 
@@ -77,7 +86,7 @@ async function createRunAttempt({
   agentPrompt,
   runtimeConfigSnapshot,
   browserProfileSnapshot,
-  triggerType = 'initial',
+  triggerType = "initial",
 }) {
   const nextAttemptQuery = `
     SELECT COALESCE(MAX(attempt_no), 0) + 1 AS next_attempt_no

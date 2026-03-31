@@ -1,26 +1,33 @@
-'use strict';
+"use strict";
 
-const testRunService = require('./testRun.service');
+const testRunService = require("./testRun.service");
+
+function toPositiveNumber(value) {
+  const num = Number(value);
+  return Number.isInteger(num) && num > 0 ? num : null;
+}
 
 async function createTestRun(req, res, next) {
   try {
-    const { testCaseId, promptText } = req.body;
     const userId = req.user?.userId;
+    const testCaseId = toPositiveNumber(req.body?.testCaseId);
+    const promptText =
+      typeof req.body?.promptText === "string" ? req.body.promptText.trim() : null;
 
     if (!testCaseId) {
-      return res.status(400).json({ message: 'testCaseId is required' });
+      return res.status(400).json({
+        success: false,
+        message: "testCaseId must be a positive integer",
+      });
     }
 
-    const normalizedPromptText =
-      typeof promptText === 'string' ? promptText.trim() : null;
-
     const result = await testRunService.startTestRun({
-      testCaseId: Number(testCaseId),
-      promptText: normalizedPromptText || null,
+      testCaseId,
+      promptText: promptText || null,
       triggeredBy: userId,
     });
 
-    return res.status(201).json({
+    return res.status(202).json({
       success: true,
       data: result,
     });
@@ -32,12 +39,15 @@ async function createTestRun(req, res, next) {
 async function getRecentTestRuns(req, res, next) {
   try {
     const userId = req.user?.userId;
-    const limit = req.query?.limit ? parseInt(req.query.limit, 10) : 20;
-    const parsedProjectId = req.query?.projectId
+    const rawLimit = req.query?.limit ? parseInt(req.query.limit, 10) : 20;
+    const rawProjectId = req.query?.projectId
       ? parseInt(req.query.projectId, 10)
       : null;
 
-    const projectId = Number.isNaN(parsedProjectId) ? null : parsedProjectId;
+    const limit =
+      Number.isInteger(rawLimit) && rawLimit > 0 ? rawLimit : 20;
+    const projectId =
+      Number.isInteger(rawProjectId) && rawProjectId > 0 ? rawProjectId : null;
 
     const data = await testRunService.listRecentTestRuns({
       userId,
@@ -57,9 +67,16 @@ async function getRecentTestRuns(req, res, next) {
 async function getTestRunDetail(req, res, next) {
   try {
     const userId = req.user?.userId;
-    const { id } = req.params;
+    const id = toPositiveNumber(req.params?.id);
 
-    const data = await testRunService.getTestRunDetail(Number(id), userId);
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "id must be a positive integer",
+      });
+    }
+
+    const data = await testRunService.getTestRunDetail(id, userId);
 
     return res.status(200).json({
       success: true,
@@ -73,14 +90,21 @@ async function getTestRunDetail(req, res, next) {
 async function replayTestRun(req, res, next) {
   try {
     const userId = req.user?.userId;
-    const { id } = req.params;
+    const id = toPositiveNumber(req.params?.id);
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "id must be a positive integer",
+      });
+    }
 
     const result = await testRunService.replayTestRun({
-      sourceRunId: Number(id),
+      sourceRunId: id,
       triggeredBy: userId,
     });
 
-    return res.status(201).json({
+    return res.status(202).json({
       success: true,
       data: result,
     });

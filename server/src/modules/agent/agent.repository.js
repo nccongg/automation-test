@@ -1,10 +1,12 @@
-const database = require("../../config/database");
+'use strict';
+
+const database = require('../../config/database');
 
 function getQueryExecutor() {
-  if (database && typeof database.query === "function") return database;
-  if (database && database.pool && typeof database.pool.query === "function") return database.pool;
-  if (database && database.default && typeof database.default.query === "function") return database.default;
-  throw new Error("Cannot resolve database query executor from src/config/database.js");
+  if (database && typeof database.query === 'function') return database;
+  if (database && database.pool && typeof database.pool.query === 'function') return database.pool;
+  if (database && database.default && typeof database.default.query === 'function') return database.default;
+  throw new Error('Cannot resolve database query executor from src/config/database.js');
 }
 
 async function query(text, params = []) {
@@ -108,7 +110,7 @@ async function createTestRun({
   testCaseId,
   testCaseVersionId,
   triggeredBy = null,
-  status = "running",
+  status = 'running',
 }) {
   const sql = `
     INSERT INTO public.test_runs (
@@ -129,8 +131,8 @@ async function createTestRun({
 async function createTestRunAttempt({
   testRunId,
   attemptNo = 1,
-  status = "running",
-  triggerType = "initial",
+  status = 'running',
+  triggerType = 'initial',
   runtimeConfigSnapshot = {},
   browserProfileSnapshot = null,
   agentPrompt = null,
@@ -162,7 +164,7 @@ async function createTestRunAttempt({
   return result.rows[0];
 }
 
-async function insertRunStepLog({
+async function insertOrUpdateRunStepLog({
   testRunId,
   attemptId,
   stepNo,
@@ -203,8 +205,23 @@ async function insertRunStepLog({
       $8, $9, $10,
       $11::jsonb, $12::jsonb, $13::jsonb, $14
     )
+    ON CONFLICT (test_run_attempt_id, step_no)
+    DO UPDATE SET
+      step_title = EXCLUDED.step_title,
+      action = EXCLUDED.action,
+      status = EXCLUDED.status,
+      message = EXCLUDED.message,
+      finished_at = NOW(),
+      current_url = EXCLUDED.current_url,
+      thought_text = EXCLUDED.thought_text,
+      extracted_content = EXCLUDED.extracted_content,
+      action_input_json = EXCLUDED.action_input_json,
+      action_output_json = EXCLUDED.action_output_json,
+      model_output_json = EXCLUDED.model_output_json,
+      duration_ms = EXCLUDED.duration_ms
     RETURNING *
   `;
+
   const result = await query(sql, [
     testRunId,
     attemptId,
@@ -221,6 +238,7 @@ async function insertRunStepLog({
     modelOutputJson ? JSON.stringify(modelOutputJson) : null,
     durationMs,
   ]);
+
   return result.rows[0];
 }
 
@@ -228,7 +246,7 @@ async function insertEvidence({
   testRunId,
   attemptId,
   runStepLogId = null,
-  evidenceType = "screenshot",
+  evidenceType = 'screenshot',
   filePath = null,
   pageUrl = null,
   capturedAt = null,
@@ -381,7 +399,7 @@ module.exports = {
   findExecutionScriptById,
   createTestRun,
   createTestRunAttempt,
-  insertRunStepLog,
+  insertOrUpdateRunStepLog,
   insertEvidence,
   updateAttemptFinal,
   updateRunFinal,

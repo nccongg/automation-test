@@ -1,23 +1,38 @@
-const agentRepository = require("./agent.repository");
-const env = require("../../config/env");
+'use strict';
+
+const agentRepository = require('./agent.repository');
+const env = require('../../config/env');
 
 const AGENT_WORKER_BASE_URL = env.AGENT_WORKER_BASE_URL;
 
+const SUPPORTED_WORKER_EXECUTION_MODES = new Set([
+  'goal_based_agent',
+  'replay_script',
+]);
+
 async function postToWorkerRun(payload) {
-  const response = await fetch(`${AGENT_WORKER_BASE_URL}/run`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Worker /run failed: ${response.status} ${text}`);
+  try {
+    const response = await fetch(`${AGENT_WORKER_BASE_URL}/run`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Worker /run failed: ${response.status} ${text}`);
+    }
+
+    return response.json();
+  } finally {
+    clearTimeout(timeout);
   }
-
-  return response.json();
 }
 
 function mapRuntimeConfig(row) {
@@ -41,16 +56,72 @@ function mapRuntimeConfig(row) {
 function mapBrowserProfile(row) {
   if (!row) return null;
 
+  const profileData = row.profile_data || {};
+
   return {
     id: row.id,
     provider: row.provider,
     profileType: row.profile_type,
-    profileRef: row.profile_ref,
-    profileData: row.profile_data || {},
+    profileRef: row.profile_ref || null,
+    profileDirectory:
+      row.profile_type === 'system_chrome'
+        ? (row.profile_ref || profileData.profileDirectory || null)
+        : null,
+    profileData,
   };
 }
 
-function buildBaseRunPayload({ testRun, attempt, bundle, runtimeConfig, browserProfile }) {
+function assertSupportedExecutionMode(executionMode) {
+  if (!SUPPORTED_WORKER_EXECUTION_MODES.has(executionMode)) {
+    throw new Error(
+      `Unsupported executionMode for current Python worker: ${executionMode}. ` +
+      `Only goal_based_agent and replay_script are currently supported.`
+    );
+  }
+}
+
+function assertRuntimeConfigBelongsToProject(runtimeConfig, projectId) {
+  if (!runtimeConfig) {
+    throw new Error('Runtime config not found');
+  }
+
+  if (runtimeConfig.project_id !== projectId) {
+    throw new Error('Runtime config does not belong to the same project as the test case');
+  }
+}
+
+function assertBrowserProfileBelongsToProject(browserProfile, projectId) {
+  if (!browserProfile) return;
+
+  if (browserProfile.project_id !== projectId) {
+    throw new Error('Browser profile does not belong to the same project as the test case');
+  }
+}
+
+function assertExecutionScriptMatchesTestCase(script, bundle) {
+  if (!script) {
+    throw new Error('Execution script not found');
+  }
+
+  if (script.test_case_id !== bundle.test_case_id) {
+    throw new Error('Execution script does not belong to the provided test case');
+  }
+
+  if (
+    script.test_case_version_id &&
+    script.test_case_version_id !== bundle.test_case_version_id
+  ) {
+    throw new Error('Execution script does not belong to the provided test case version');
+  }
+}
+
+function buildBaseRunPayload({
+  testRun,
+  attempt,
+  bundle,
+  runtimeConfig,
+  browserProfile,
+}) {
   return {
     testRunId: testRun.id,
     attemptId: attempt.id,
@@ -72,6 +143,35 @@ function buildBaseRunPayload({ testRun, attempt, bundle, runtimeConfig, browserP
   };
 }
 
+async function markRunAndAttemptAsWorkerDispatchFailed({
+  testRunId,
+  attemptId,
+  error,
+}) {
+  const errorMessage = error?.message || 'Failed to dispatch run to worker';
+
+  await agentRepository.updateAttemptFinal({
+    attemptId,
+    status: 'failed',
+    verdict: 'error',
+    finalResult: null,
+    structuredOutput: null,
+    errorMessage,
+  });
+
+  await agentRepository.updateRunFinal({
+    testRunId,
+    status: 'failed',
+    verdict: 'error',
+    executionLog: {
+      mode: 'dispatch_to_worker',
+      dispatchStatus: 'failed',
+    },
+    evidenceSummary: null,
+    errorMessage,
+  });
+}
+
 async function startAgentRun({
   testCaseId,
   testCaseVersionId = null,
@@ -81,35 +181,39 @@ async function startAgentRun({
 }) {
   const bundle = await agentRepository.findTestCaseBundle(testCaseId, testCaseVersionId);
   if (!bundle) {
-    throw new Error("Test case or test case version not found");
+    throw new Error('Test case or test case version not found');
   }
+
+  assertSupportedExecutionMode(bundle.execution_mode);
 
   const resolvedRuntimeConfigId = runtimeConfigId || bundle.runtime_config_id;
   if (!resolvedRuntimeConfigId) {
-    throw new Error("runtimeConfigId is required because this test case version has no runtime_config_id");
+    throw new Error(
+      'runtimeConfigId is required because this test case version has no runtime_config_id'
+    );
   }
 
   const runtimeConfig = await agentRepository.findRuntimeConfigById(resolvedRuntimeConfigId);
-  if (!runtimeConfig) {
-    throw new Error("Runtime config not found");
-  }
+  assertRuntimeConfigBelongsToProject(runtimeConfig, bundle.project_id);
 
   const browserProfile = browserProfileId
     ? await agentRepository.findBrowserProfileById(browserProfileId)
     : null;
 
+  assertBrowserProfileBelongsToProject(browserProfile, bundle.project_id);
+
   const testRun = await agentRepository.createTestRun({
     testCaseId: bundle.test_case_id,
     testCaseVersionId: bundle.test_case_version_id,
     triggeredBy,
-    status: "running",
+    status: 'running',
   });
 
   const attempt = await agentRepository.createTestRunAttempt({
     testRunId: testRun.id,
     attemptNo: 1,
-    status: "running",
-    triggerType: "initial",
+    status: 'running',
+    triggerType: 'initial',
     runtimeConfigSnapshot: mapRuntimeConfig(runtimeConfig),
     browserProfileSnapshot: mapBrowserProfile(browserProfile),
     agentPrompt: bundle.prompt_text || bundle.goal,
@@ -123,7 +227,16 @@ async function startAgentRun({
     browserProfile,
   });
 
-  await postToWorkerRun(workerPayload);
+  try {
+    await postToWorkerRun(workerPayload);
+  } catch (error) {
+    await markRunAndAttemptAsWorkerDispatchFailed({
+      testRunId: testRun.id,
+      attemptId: attempt.id,
+      error,
+    });
+    throw error;
+  }
 
   return {
     accepted: true,
@@ -144,40 +257,38 @@ async function replayAgentRun({
 }) {
   const bundle = await agentRepository.findTestCaseBundle(testCaseId, testCaseVersionId);
   if (!bundle) {
-    throw new Error("Test case or test case version not found");
+    throw new Error('Test case or test case version not found');
   }
 
   const script = await agentRepository.findExecutionScriptById(executionScriptId);
-  if (!script) {
-    throw new Error("Execution script not found");
-  }
+  assertExecutionScriptMatchesTestCase(script, bundle);
 
   const resolvedRuntimeConfigId = runtimeConfigId || bundle.runtime_config_id;
   if (!resolvedRuntimeConfigId) {
-    throw new Error("runtimeConfigId is required for replay");
+    throw new Error('runtimeConfigId is required for replay');
   }
 
   const runtimeConfig = await agentRepository.findRuntimeConfigById(resolvedRuntimeConfigId);
-  if (!runtimeConfig) {
-    throw new Error("Runtime config not found");
-  }
+  assertRuntimeConfigBelongsToProject(runtimeConfig, bundle.project_id);
 
   const browserProfile = browserProfileId
     ? await agentRepository.findBrowserProfileById(browserProfileId)
     : null;
 
+  assertBrowserProfileBelongsToProject(browserProfile, bundle.project_id);
+
   const testRun = await agentRepository.createTestRun({
     testCaseId: bundle.test_case_id,
     testCaseVersionId: bundle.test_case_version_id,
     triggeredBy,
-    status: "running",
+    status: 'running',
   });
 
   const attempt = await agentRepository.createTestRunAttempt({
     testRunId: testRun.id,
     attemptNo: 1,
-    status: "running",
-    triggerType: "manual_replay",
+    status: 'running',
+    triggerType: 'manual_replay',
     runtimeConfigSnapshot: mapRuntimeConfig(runtimeConfig),
     browserProfileSnapshot: mapBrowserProfile(browserProfile),
     agentPrompt: `Replay execution script #${script.id}`,
@@ -191,7 +302,7 @@ async function replayAgentRun({
     browserProfile,
   });
 
-  workerPayload.testCase.executionMode = "replay_script";
+  workerPayload.testCase.executionMode = 'replay_script';
   workerPayload.testCase.replay = {
     scriptId: script.id,
     strict: true,
@@ -200,7 +311,16 @@ async function replayAgentRun({
     scriptJson: script.script_json,
   };
 
-  await postToWorkerRun(workerPayload);
+  try {
+    await postToWorkerRun(workerPayload);
+  } catch (error) {
+    await markRunAndAttemptAsWorkerDispatchFailed({
+      testRunId: testRun.id,
+      attemptId: attempt.id,
+      error,
+    });
+    throw error;
+  }
 
   return {
     accepted: true,
@@ -211,7 +331,7 @@ async function replayAgentRun({
 }
 
 async function handleStepCallback(payload) {
-  const stepLog = await agentRepository.insertRunStepLog({
+  const stepLog = await agentRepository.insertOrUpdateRunStepLog({
     testRunId: payload.testRunId,
     attemptId: payload.attemptId,
     stepNo: payload.stepNo,
@@ -233,10 +353,10 @@ async function handleStepCallback(payload) {
       testRunId: payload.testRunId,
       attemptId: payload.attemptId,
       runStepLogId: stepLog.id,
-      evidenceType: "screenshot",
+      evidenceType: 'screenshot',
       filePath: payload.screenshotPath,
       pageUrl: payload.currentUrl || null,
-      artifactGroup: "step",
+      artifactGroup: 'step',
       capturedAt: new Date(),
     });
   }
@@ -276,7 +396,7 @@ async function handleFinalCallback(payload) {
         scriptJson: payload.recordedScript.scriptJson,
         paramsSchema: payload.recordedScript.paramsSchema || {},
         metadataJson: {
-          createdFrom: "agent_final_callback",
+          createdFrom: 'agent_final_callback',
         },
       });
     }

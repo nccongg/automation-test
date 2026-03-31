@@ -1,12 +1,13 @@
-
-import { apiClient } from './client';
+import { apiClient } from "./client";
 
 export const getProjectTestCases = async (projectId) => {
-  const { data } = await client.get(`/test-cases/project/${projectId}`);
-  return data;
+  const response = await apiClient.get("/test-cases", {
+    params: { projectId },
+  });
+
+  return response.data?.data ?? response.data ?? [];
 };
 
-export const getTestCaseScripts = async (testCaseId) => {
-  const { data } = await client.get(`/test-cases/${testCaseId}/scripts`);
-  return data;
+export const getTestCaseScripts = async () => {
+  throw new Error("getTestCaseScripts is not implemented in backend yet.");
 };

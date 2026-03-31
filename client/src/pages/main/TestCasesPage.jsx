@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Search, Plus, Filter } from "lucide-react";
-import { useParams } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useTestCases } from "@/features/test-cases/hooks/useTestCases";
 import { createTestRun } from "@/features/test-results/api/testResultsApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
@@ -19,17 +19,31 @@ function StatusBadge({ status }) {
 
   return (
     <Badge className={`border ${styles[status] || styles.draft}`}>
-      {status}
+      {status || "draft"}
     </Badge>
   );
 }
 
 export default function TestCasesPage() {
   const { projectId } = useParams();
-  const { testCases, loading, error } = useTestCases(projectId);
+  const navigate = useNavigate();
+
+  const { testCases = [], loading, error } = useTestCases(projectId);
   const [searchTerm, setSearchTerm] = useState("");
   const [runningId, setRunningId] = useState(null);
   const [runError, setRunError] = useState("");
+
+  const filteredCases = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+
+    if (!keyword) return testCases;
+
+    return testCases.filter(
+      (tc) =>
+        tc.title.toLowerCase().includes(keyword) ||
+        tc.goal.toLowerCase().includes(keyword)
+    );
+  }, [testCases, searchTerm]);
 
   const handleRun = async (tc) => {
     try {
@@ -67,14 +81,6 @@ export default function TestCasesPage() {
     );
   }
 
-  const filteredCases = testCases.filter(
-    (tc) =>
-      tc.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tc.description?.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
-
-  console.log("Filtered Cases:", filteredCases);
-
   return (
     <div className="space-y-8">
       <PageHeader
@@ -107,12 +113,11 @@ export default function TestCasesPage() {
           }
         />
       ) : (
-        // <div className="rounded-xl border bg-white">cccccc</div>
         <div className="rounded-xl border bg-white">
           <div className="grid gap-px divide-y">
             {filteredCases.map((tc) => (
               <div
-                key={tc.testCaseId}
+                key={tc.id}
                 className="flex items-start justify-between gap-4 p-4 hover:bg-slate-50"
               >
                 <div className="min-w-0 flex-1 space-y-2">

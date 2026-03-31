@@ -6,9 +6,8 @@ async function getTestCases(req, res, next) {
   try {
     const userId = req.user?.userId;
     const projectId = req.query.projectId ? Number(req.query.projectId) : null;
-    console.log("[getTestCases] userId:", userId, "projectId:", projectId);
     const data = await testCaseService.getTestCases(userId, projectId);
-    console.log("[getTestCases] rows returned:", data.length, data);
+
     res.json({ status: "ok", data });
   } catch (err) {
     next(err);
@@ -29,8 +28,6 @@ async function generateTestCases(req, res, next) {
 
     const data = await testCaseService.generateTestCases(userId, prompt);
 
-    console.log("[generateTestCases] response:", JSON.stringify(data, null, 2));
-
     res.json({
       status: "ok",
       data,
@@ -47,16 +44,17 @@ async function saveTestCases(req, res, next) {
     const { projectId, promptText, testCases } = req.body;
 
     if (!projectId) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "projectId is required" });
+      return res.status(400).json({
+        status: "error",
+        message: "projectId is required",
+      });
     }
 
     const saved = await testCaseService.saveTestCases(
       userId,
       projectId,
       promptText,
-      testCases,
+      testCases
     );
 
     res.status(201).json({

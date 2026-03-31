@@ -6,6 +6,8 @@ const authMiddleware = require("../../middleware/auth.middleware");
 
 const router = Router();
 
+router.use(authMiddleware);
+
 /**
  * @swagger
  * tags:
@@ -31,28 +33,10 @@ const router = Router();
  *     responses:
  *       200:
  *         description: List of test cases
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: ok
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                       title:
- *                         type: string
- *                       description:
- *                         type: string
  *       401:
  *         description: Unauthorized
  */
+router.get("/", ctrl.getTestCases);
 
 /**
  * @swagger
@@ -81,71 +65,12 @@ const router = Router();
  *     responses:
  *       200:
  *         description: Generated test cases
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       title:
- *                         type: string
- *                       steps:
- *                         type: array
- *                         items:
- *                           type: string
- *                       expectedResult:
- *                         type: string
  *       401:
  *         description: Unauthorized
  *       422:
  *         description: Validation error
  */
-
-/**
- * @swagger
- * /test-cases/run:
- *   post:
- *     summary: Run test cases
- *     tags: [Test Cases]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - testCaseIds
- *             properties:
- *               testCaseIds:
- *                 type: array
- *                 items:
- *                   type: integer
- *                 example: [1, 2, 3]
- *     responses:
- *       200:
- *         description: Test run started
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 runId:
- *                   type: integer
- *       401:
- *         description: Unauthorized
- */
+router.post("/generate", ctrl.generateTestCases);
 
 /**
  * @swagger
@@ -189,44 +114,22 @@ const router = Router();
  *                       type: array
  *                       items:
  *                         type: string
- *                       example: ["Navigate to login page", "Enter valid email", "Enter valid password", "Click Login"]
+ *                       example:
+ *                         - Navigate to login page
+ *                         - Enter valid email
+ *                         - Enter valid password
+ *                         - Click Login
  *                     expectedResult:
  *                       type: string
  *                       example: User is redirected to dashboard
  *     responses:
  *       201:
  *         description: Test cases saved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: ok
- *                 message:
- *                   type: string
- *                   example: 3 test case(s) saved successfully
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                       title:
- *                         type: string
- *                       versionId:
- *                         type: integer
  *       400:
- *         description: Bad Request (missing projectId or testCases)
+ *         description: Bad Request
  *       401:
  *         description: Unauthorized
  */
-
-router.use(authMiddleware);
-router.get("/", ctrl.getTestCases);
-router.post("/generate", ctrl.generateTestCases);
 router.post("/save", ctrl.saveTestCases);
 
 module.exports = router;
