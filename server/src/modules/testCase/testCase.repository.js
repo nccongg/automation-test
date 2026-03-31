@@ -102,6 +102,28 @@ async function saveTestCases({
         expectedResult,
       };
 
+      // Create a default runtime config for this test case
+      const runtimeConfigResult = await client.query(
+        `
+          INSERT INTO agent_runtime_configs (
+            project_id,
+            name,
+            llm_provider,
+            llm_model,
+            max_steps,
+            timeout_seconds,
+            use_vision,
+            headless,
+            browser_type
+          )
+          VALUES ($1, $2, 'google', 'gemini-flash-latest', 20, 180, TRUE, TRUE, 'chromium')
+          RETURNING id
+        `,
+        [projectId, `default-${title}`]
+      );
+
+      const runtimeConfigId = runtimeConfigResult.rows[0].id;
+
       const versionResult = await client.query(
         `
           INSERT INTO test_case_versions (
@@ -112,9 +134,10 @@ async function saveTestCases({
             plan_snapshot,
             ai_model,
             created_by,
-            execution_mode
+            execution_mode,
+            runtime_config_id
           )
-          VALUES ($1, 1, 'ai_generated', $2, $3, $4, $5, 'goal_based_agent')
+          VALUES ($1, 1, 'ai_generated', $2, $3, $4, $5, 'goal_based_agent', $6)
           RETURNING id
         `,
         [
@@ -123,6 +146,7 @@ async function saveTestCases({
           JSON.stringify(planSnapshot),
           aiModel || "ollama",
           userId,
+          runtimeConfigId,
         ]
       );
 

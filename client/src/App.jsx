@@ -8,6 +8,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ROUTES } from "@/config/routes";
 import Layout from "@/shared/components/layout/Layout";
 import ProtectedRoute from "@/shared/components/layout/ProtectedRoute";
+import { Toaster } from "@/components/ui/sonner";
 
 // Auth pages
 import LoginPage from "@/pages/auth/LoginPage";
@@ -65,6 +66,7 @@ export default function App() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to={ROUTES.LOGIN} replace />} />
       </Routes>
+      <Toaster position="top-center" richColors />
     </BrowserRouter>
   );
 }
