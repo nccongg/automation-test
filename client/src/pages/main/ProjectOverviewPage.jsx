@@ -47,7 +47,7 @@ function mapCandidateToUi(c) {
     steps: Array.isArray(c.planSnapshot?.steps)
       ? c.planSnapshot.steps
           .map((s) =>
-            typeof s === "string" ? s : s?.text ?? s?.description ?? ""
+            typeof s === "string" ? s : (s?.text ?? s?.description ?? ""),
           )
           .filter(Boolean)
       : [],
@@ -60,12 +60,12 @@ function extractSavedTestCaseIds(result) {
   const rows = Array.isArray(result)
     ? result
     : Array.isArray(result?.data)
-    ? result.data
-    : Array.isArray(result?.items)
-    ? result.items
-    : Array.isArray(result?.savedTestCases)
-    ? result.savedTestCases
-    : [];
+      ? result.data
+      : Array.isArray(result?.items)
+        ? result.items
+        : Array.isArray(result?.savedTestCases)
+          ? result.savedTestCases
+          : [];
 
   return rows
     .map(
@@ -74,7 +74,7 @@ function extractSavedTestCaseIds(result) {
         item?.testCaseId ??
         item?.selected_test_case_id ??
         item?.selectedTestCaseId ??
-        null
+        null,
     )
     .filter(Boolean);
 }
@@ -106,9 +106,7 @@ export default function ProjectOverviewPage() {
     if (!testCases?.length) return [];
 
     if (selected.size > 0) {
-      return [...selected]
-        .map((i) => testCases[i]?.id)
-        .filter(Boolean);
+      return [...selected].map((i) => testCases[i]?.id).filter(Boolean);
     }
 
     return testCases.map((tc) => tc.id).filter(Boolean);
@@ -129,23 +127,21 @@ export default function ProjectOverviewPage() {
       throw new Error("No selected test cases to save.");
     }
 
-  saveTestCases({
-    projectId: project.id,
-    batchId,
-    candidates: selectedCandidates.map((tc) => ({
-      candidateId: tc.id,
-      title: tc.title,
-      goal: tc.expectedResult,
-      steps: tc.steps,
-      expectedResult: tc.expectedResult,
-    })),
-  })
+    const selectedCandidates = testCases.filter((tc) =>
+      candidateIds.includes(tc.id),
+    );
+
+    const result = await saveTestCases({
+      projectId: project.id,
+      batchId,
+      candidateIds: candidateIds,
+    });
 
     const savedTestCaseIds = extractSavedTestCaseIds(result);
 
     if (!savedTestCaseIds.length) {
       throw new Error(
-        "Saved successfully but API did not return saved testCaseIds."
+        "Saved successfully but API did not return saved testCaseIds.",
       );
     }
 
@@ -234,8 +230,12 @@ export default function ProjectOverviewPage() {
 
       const { savedTestCaseIds } = await saveSelectedCandidatesToDb();
 
-      setSaveMessage(`${savedTestCaseIds.length} test case(s) saved successfully.`);
-      toast.success(`${savedTestCaseIds.length} test case(s) saved successfully!`);
+      setSaveMessage(
+        `${savedTestCaseIds.length} test case(s) saved successfully.`,
+      );
+      toast.success(
+        `${savedTestCaseIds.length} test case(s) saved successfully!`,
+      );
       setShowTestCasesDialog(false);
       navigate(`/projects/${project.id}/test-cases`);
     } catch (error) {
@@ -259,11 +259,13 @@ export default function ProjectOverviewPage() {
         savedTestCaseIds.map((testCaseId) =>
           createTestRun({
             testCaseId,
-          })
-        )
+          }),
+        ),
       );
 
-      setRunResult(`${savedTestCaseIds.length} test run(s) started. Redirecting...`);
+      setRunResult(
+        `${savedTestCaseIds.length} test run(s) started. Redirecting...`,
+      );
       toast.success(`${savedTestCaseIds.length} test run(s) started.`);
       setShowTestCasesDialog(false);
 

@@ -1,14 +1,16 @@
-import { useTestResults } from '@/features/test-results/hooks/useTestResults';
-import LoadingSpinner from '@/shared/components/common/LoadingSpinner';
-import ErrorBanner from '@/shared/components/common/ErrorBanner';
-import PageHeader from '@/shared/components/common/PageHeader';
+import { useTestResults } from "@/features/test-results/hooks/useTestResults";
+import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import ErrorBanner from "@/shared/components/common/ErrorBanner";
+import PageHeader from "@/shared/components/common/PageHeader";
 
 function StatCard({ label, value, subtext }) {
   return (
     <div className="rounded-xl border bg-white p-6 shadow-sm">
       <div className="text-sm text-muted-foreground">{label}</div>
       <div className="mt-2 text-3xl font-semibold">{value}</div>
-      {subtext && <div className="mt-1 text-xs text-muted-foreground">{subtext}</div>}
+      {subtext && (
+        <div className="mt-1 text-xs text-muted-foreground">{subtext}</div>
+      )}
     </div>
   );
 }
@@ -33,7 +35,13 @@ export default function TestResultsPage() {
   }
 
   if (error) {
-    return <ErrorBanner message={error} fullWidth onRetry={() => window.location.reload()} />;
+    return (
+      <ErrorBanner
+        message={error}
+        fullWidth
+        onRetry={() => window.location.reload()}
+      />
+    );
   }
 
   const summary = results?.summary || {};
@@ -50,11 +58,11 @@ export default function TestResultsPage() {
         <StatCard
           label="Total Runs"
           value={summary.totalRuns || 0}
-          subtext={`Last run: ${summary.lastRunDate || 'N/A'}`}
+          subtext={`Last run: ${summary.lastRunDate || "N/A"}`}
         />
         <StatCard
           label="Pass Rate"
-          value={summary.passRate || '0%'}
+          value={summary.passRate || "0%"}
           subtext={`${summary.passed || 0} passed`}
         />
         <StatCard
@@ -64,7 +72,7 @@ export default function TestResultsPage() {
         />
         <StatCard
           label="Avg Duration"
-          value={summary.avgDuration || '-'}
+          value={summary.avgDuration || "-"}
           subtext="Per test run"
         />
       </div>
@@ -85,11 +93,11 @@ export default function TestResultsPage() {
                         <h3 className="font-semibold">{run.projectName}</h3>
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            run.result === 'Passed'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : run.result === 'Failed'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-blue-100 text-blue-700'
+                            run.result === "Passed"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : run.result === "Failed"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-blue-100 text-blue-700"
                           }`}
                         >
                           {run.result}
@@ -115,7 +123,9 @@ export default function TestResultsPage() {
                         onClick={() => toggleRunDetail(run.id)}
                         className="mt-3 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
                       >
-                        {expandedRunId === run.id ? 'Hide details' : 'View details'}
+                        {expandedRunId === run.id
+                          ? "Hide details"
+                          : "View details"}
                       </button>
                     </div>
                   </div>
@@ -145,19 +155,25 @@ export default function TestResultsPage() {
                               <div className="mt-3 space-y-2 text-sm">
                                 {step.action && (
                                   <div>
-                                    <span className="font-medium">Action:</span> {step.action}
+                                    <span className="font-medium">Action:</span>{" "}
+                                    {step.action}
                                   </div>
                                 )}
 
                                 {step.message && (
                                   <div>
-                                    <span className="font-medium">Message:</span> {step.message}
+                                    <span className="font-medium">
+                                      Message:
+                                    </span>{" "}
+                                    {step.message}
                                   </div>
                                 )}
 
                                 {step.currentUrl && (
                                   <div className="break-all">
-                                    <span className="font-medium">Current URL:</span>{' '}
+                                    <span className="font-medium">
+                                      Current URL:
+                                    </span>{" "}
                                     <a
                                       href={step.currentUrl}
                                       target="_blank"
@@ -171,7 +187,9 @@ export default function TestResultsPage() {
 
                                 {step.thoughtText && (
                                   <div className="rounded-lg bg-slate-50 p-3">
-                                    <div className="mb-1 font-medium">Thought</div>
+                                    <div className="mb-1 font-medium">
+                                      Thought
+                                    </div>
                                     <div className="whitespace-pre-wrap text-sm">
                                       {step.thoughtText}
                                     </div>
@@ -180,7 +198,9 @@ export default function TestResultsPage() {
 
                                 {step.extractedContent && (
                                   <div className="rounded-lg bg-slate-50 p-3">
-                                    <div className="mb-1 font-medium">Extracted content</div>
+                                    <div className="mb-1 font-medium">
+                                      Extracted content
+                                    </div>
                                     <div className="whitespace-pre-wrap text-sm">
                                       {step.extractedContent}
                                     </div>
@@ -190,7 +210,9 @@ export default function TestResultsPage() {
 
                               {step.screenshots?.length > 0 && (
                                 <div className="mt-4">
-                                  <div className="mb-2 text-sm font-medium">Screenshots</div>
+                                  <div className="mb-2 text-sm font-medium">
+                                    Screenshots
+                                  </div>
                                   <div className="space-y-2">
                                     {step.screenshots.map((shot) => (
                                       <div
@@ -201,14 +223,45 @@ export default function TestResultsPage() {
                                           {shot.filePath}
                                         </div>
 
-                                        <a
-                                          href={shot.imageUrl}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="mt-2 inline-block text-sm text-blue-600 underline"
-                                        >
-                                          Open screenshot
-                                        </a>
+                                        {(() => {
+                                          const workerUrl =
+                                            import.meta.env
+                                              .VITE_AGENT_WORKER_URL ||
+                                            "http://localhost:8001";
+
+                                          let imageHref = shot.imageUrl || "";
+                                          if (
+                                            !/^https?:\/\//i.test(imageHref)
+                                          ) {
+                                            // ensure leading slash
+                                            const pathPart =
+                                              imageHref.startsWith("/")
+                                                ? imageHref
+                                                : `/${imageHref}`;
+                                            imageHref = `${workerUrl.replace(/\/+$/, "")}${pathPart}`;
+                                          }
+
+                                          return (
+                                            <a
+                                              href={imageHref}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              onClick={(e) =>
+                                                e.stopPropagation()
+                                              }
+                                              className="mt-2 block"
+                                            >
+                                              <img
+                                                src={imageHref}
+                                                alt={`Screenshot - ${shot.filePath}`}
+                                                onClick={(e) =>
+                                                  e.stopPropagation()
+                                                }
+                                                className="max-w-full rounded border border-slate-200 hover:opacity-80 transition-opacity"
+                                              />
+                                            </a>
+                                          );
+                                        })()}
 
                                         {shot.pageUrl && (
                                           <div className="mt-2 break-all text-xs text-slate-500">

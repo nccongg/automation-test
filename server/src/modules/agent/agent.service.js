@@ -1,24 +1,25 @@
-'use strict';
+"use strict";
 
-const agentRepository = require('./agent.repository');
-const env = require('../../config/env');
+const agentRepository = require("./agent.repository");
+const env = require("../../config/env");
 
 const AGENT_WORKER_BASE_URL = env.AGENT_WORKER_BASE_URL;
 
 const SUPPORTED_WORKER_EXECUTION_MODES = new Set([
-  'goal_based_agent',
-  'replay_script',
+  "goal_based_agent",
+  "replay_script",
 ]);
 
 const INPUT_ACTIONS = new Set([
-  'input',
-  'fill',
-  'type',
-  'input_text',
-  'enter_text',
+  "input",
+  "fill",
+  "type",
+  "input_text",
+  "enter_text",
 ]);
 
-const SENSITIVE_KEY_RE = /password|passwd|pwd|secret|token|api[_-]?key|cookie|otp|username|user|email|phone|account|login/i;
+const SENSITIVE_KEY_RE =
+  /password|passwd|pwd|secret|token|api[_-]?key|cookie|otp|username|user|email|phone|account|login/i;
 
 function resolveAgentPrompt(bundle) {
   return (
@@ -34,19 +35,19 @@ function deepSanitize(value) {
     return value.map(deepSanitize);
   }
 
-  if (!value || typeof value !== 'object') {
+  if (!value || typeof value !== "object") {
     return value;
   }
 
   const result = {};
   for (const [key, val] of Object.entries(value)) {
     if (SENSITIVE_KEY_RE.test(key)) {
-      result[key] = '[REDACTED]';
+      result[key] = "[REDACTED]";
       continue;
     }
 
-    if (key === 'text' && typeof val === 'string') {
-      result[key] = '[REDACTED]';
+    if (key === "text" && typeof val === "string") {
+      result[key] = "[REDACTED]";
       continue;
     }
 
@@ -57,7 +58,9 @@ function deepSanitize(value) {
 
 function sanitizeStepJsonByAction(action, payload) {
   if (!payload) return payload;
-  const actionName = String(action || '').toLowerCase().trim();
+  const actionName = String(action || "")
+    .toLowerCase()
+    .trim();
 
   if (INPUT_ACTIONS.has(actionName)) {
     return deepSanitize(payload);
@@ -67,21 +70,27 @@ function sanitizeStepJsonByAction(action, payload) {
 }
 
 function sanitizeFreeText(text) {
-  if (typeof text !== 'string' || !text.trim()) return text;
+  if (typeof text !== "string" || !text.trim()) return text;
   return text
-    .replace(/(password|pwd)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
-    .replace(/(username|user|email|account)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]');
+    .replace(/(password|pwd)\s*[:=]\s*[^\s,;]+/gi, "$1=[REDACTED]")
+    .replace(
+      /(username|user|email|account)\s*[:=]\s*[^\s,;]+/gi,
+      "$1=[REDACTED]",
+    );
 }
 
 function sanitizeRecordedScript(scriptJson) {
-  if (!scriptJson || typeof scriptJson !== 'object') return scriptJson;
+  if (!scriptJson || typeof scriptJson !== "object") return scriptJson;
 
   return {
     ...scriptJson,
     steps: Array.isArray(scriptJson.steps)
       ? scriptJson.steps.map((step) => ({
           ...step,
-          actionInput: sanitizeStepJsonByAction(step?.actionName, step?.actionInput),
+          actionInput: sanitizeStepJsonByAction(
+            step?.actionName,
+            step?.actionInput,
+          ),
         }))
       : [],
   };
@@ -93,9 +102,9 @@ async function postToWorkerRun(payload) {
 
   try {
     const response = await fetch(`${AGENT_WORKER_BASE_URL}/run`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
       signal: controller.signal,
@@ -141,29 +150,37 @@ function mapBrowserProfile(row) {
     profileType: row.profile_type,
     profileRef: row.profile_ref || null,
     profileDirectory:
-      row.profile_type === 'system_chrome'
-        ? (row.profile_ref || profileData.profileDirectory || null)
+      row.profile_type === "system_chrome"
+        ? row.profile_ref || profileData.profileDirectory || null
         : null,
     profileData,
   };
 }
 
 function assertSupportedExecutionMode(executionMode) {
-  if (!SUPPORTED_WORKER_EXECUTION_MODES.has(executionMode)) {
+  // Normalize legacy/unsupported modes: treat `step_based` as `goal_based_agent`
+  const normalized =
+    executionMode === "step_based" ? "goal_based_agent" : executionMode;
+
+  if (!SUPPORTED_WORKER_EXECUTION_MODES.has(normalized)) {
     throw new Error(
       `Unsupported executionMode for current Python worker: ${executionMode}. ` +
-      `Only goal_based_agent and replay_script are currently supported.`
+        `Only goal_based_agent and replay_script are currently supported.`,
     );
   }
+
+  return normalized;
 }
 
 function assertRuntimeConfigBelongsToProject(runtimeConfig, projectId) {
   if (!runtimeConfig) {
-    throw new Error('Runtime config not found');
+    throw new Error("Runtime config not found");
   }
 
   if (runtimeConfig.project_id !== projectId) {
-    throw new Error('Runtime config does not belong to the same project as the test case');
+    throw new Error(
+      "Runtime config does not belong to the same project as the test case",
+    );
   }
 }
 
@@ -171,24 +188,30 @@ function assertBrowserProfileBelongsToProject(browserProfile, projectId) {
   if (!browserProfile) return;
 
   if (browserProfile.project_id !== projectId) {
-    throw new Error('Browser profile does not belong to the same project as the test case');
+    throw new Error(
+      "Browser profile does not belong to the same project as the test case",
+    );
   }
 }
 
 function assertExecutionScriptMatchesTestCase(script, bundle) {
   if (!script) {
-    throw new Error('Execution script not found');
+    throw new Error("Execution script not found");
   }
 
   if (script.test_case_id !== bundle.test_case_id) {
-    throw new Error('Execution script does not belong to the provided test case');
+    throw new Error(
+      "Execution script does not belong to the provided test case",
+    );
   }
 
   if (
     script.test_case_version_id &&
     script.test_case_version_id !== bundle.test_case_version_id
   ) {
-    throw new Error('Execution script does not belong to the provided test case version');
+    throw new Error(
+      "Execution script does not belong to the provided test case version",
+    );
   }
 }
 
@@ -200,6 +223,9 @@ function buildBaseRunPayload({
   browserProfile,
 }) {
   const agentPrompt = resolveAgentPrompt(bundle);
+  const normalizedExecutionMode = assertSupportedExecutionMode(
+    bundle.execution_mode,
+  );
 
   return {
     testRunId: testRun.id,
@@ -213,7 +239,7 @@ function buildBaseRunPayload({
       id: bundle.test_case_id,
       title: bundle.title,
       goal: bundle.goal,
-      executionMode: bundle.execution_mode,
+      executionMode: normalizedExecutionMode,
       promptText: agentPrompt,
       planSnapshot: bundle.plan_snapshot,
     },
@@ -227,12 +253,12 @@ async function markRunAndAttemptAsWorkerDispatchFailed({
   attemptId,
   error,
 }) {
-  const errorMessage = error?.message || 'Failed to dispatch run to worker';
+  const errorMessage = error?.message || "Failed to dispatch run to worker";
 
   await agentRepository.updateAttemptFinal({
     attemptId,
-    status: 'failed',
-    verdict: 'error',
+    status: "failed",
+    verdict: "error",
     finalResult: null,
     structuredOutput: null,
     errorMessage,
@@ -240,11 +266,11 @@ async function markRunAndAttemptAsWorkerDispatchFailed({
 
   await agentRepository.updateRunFinal({
     testRunId,
-    status: 'failed',
-    verdict: 'error',
+    status: "failed",
+    verdict: "error",
     executionLog: {
-      mode: 'dispatch_to_worker',
-      dispatchStatus: 'failed',
+      mode: "dispatch_to_worker",
+      dispatchStatus: "failed",
     },
     evidenceSummary: null,
     errorMessage,
@@ -258,9 +284,12 @@ async function startAgentRun({
   browserProfileId = null,
   triggeredBy = null,
 }) {
-  const bundle = await agentRepository.findTestCaseBundle(testCaseId, testCaseVersionId);
+  const bundle = await agentRepository.findTestCaseBundle(
+    testCaseId,
+    testCaseVersionId,
+  );
   if (!bundle) {
-    throw new Error('Test case or test case version not found');
+    throw new Error("Test case or test case version not found");
   }
 
   assertSupportedExecutionMode(bundle.execution_mode);
@@ -268,11 +297,13 @@ async function startAgentRun({
   const resolvedRuntimeConfigId = runtimeConfigId || bundle.runtime_config_id;
   if (!resolvedRuntimeConfigId) {
     throw new Error(
-      'runtimeConfigId is required because this test case version has no runtime_config_id'
+      "runtimeConfigId is required because this test case version has no runtime_config_id",
     );
   }
 
-  const runtimeConfig = await agentRepository.findRuntimeConfigById(resolvedRuntimeConfigId);
+  const runtimeConfig = await agentRepository.findRuntimeConfigById(
+    resolvedRuntimeConfigId,
+  );
   assertRuntimeConfigBelongsToProject(runtimeConfig, bundle.project_id);
 
   const browserProfile = browserProfileId
@@ -285,14 +316,14 @@ async function startAgentRun({
     testCaseId: bundle.test_case_id,
     testCaseVersionId: bundle.test_case_version_id,
     triggeredBy,
-    status: 'running',
+    status: "running",
   });
 
   const attempt = await agentRepository.createTestRunAttempt({
     testRunId: testRun.id,
     attemptNo: 1,
-    status: 'running',
-    triggerType: 'initial',
+    status: "running",
+    triggerType: "initial",
     runtimeConfigSnapshot: mapRuntimeConfig(runtimeConfig),
     browserProfileSnapshot: mapBrowserProfile(browserProfile),
     agentPrompt: resolveAgentPrompt(bundle),
@@ -334,20 +365,26 @@ async function replayAgentRun({
   params = {},
   triggeredBy = null,
 }) {
-  const bundle = await agentRepository.findTestCaseBundle(testCaseId, testCaseVersionId);
+  const bundle = await agentRepository.findTestCaseBundle(
+    testCaseId,
+    testCaseVersionId,
+  );
   if (!bundle) {
-    throw new Error('Test case or test case version not found');
+    throw new Error("Test case or test case version not found");
   }
 
-  const script = await agentRepository.findExecutionScriptById(executionScriptId);
+  const script =
+    await agentRepository.findExecutionScriptById(executionScriptId);
   assertExecutionScriptMatchesTestCase(script, bundle);
 
   const resolvedRuntimeConfigId = runtimeConfigId || bundle.runtime_config_id;
   if (!resolvedRuntimeConfigId) {
-    throw new Error('runtimeConfigId is required for replay');
+    throw new Error("runtimeConfigId is required for replay");
   }
 
-  const runtimeConfig = await agentRepository.findRuntimeConfigById(resolvedRuntimeConfigId);
+  const runtimeConfig = await agentRepository.findRuntimeConfigById(
+    resolvedRuntimeConfigId,
+  );
   assertRuntimeConfigBelongsToProject(runtimeConfig, bundle.project_id);
 
   const browserProfile = browserProfileId
@@ -360,14 +397,14 @@ async function replayAgentRun({
     testCaseId: bundle.test_case_id,
     testCaseVersionId: bundle.test_case_version_id,
     triggeredBy,
-    status: 'running',
+    status: "running",
   });
 
   const attempt = await agentRepository.createTestRunAttempt({
     testRunId: testRun.id,
     attemptNo: 1,
-    status: 'running',
-    triggerType: 'manual_replay',
+    status: "running",
+    triggerType: "manual_replay",
     runtimeConfigSnapshot: mapRuntimeConfig(runtimeConfig),
     browserProfileSnapshot: mapBrowserProfile(browserProfile),
     agentPrompt: `Replay execution script #${script.id}`,
@@ -381,7 +418,7 @@ async function replayAgentRun({
     browserProfile,
   });
 
-  workerPayload.testCase.executionMode = 'replay_script';
+  workerPayload.testCase.executionMode = "replay_script";
   workerPayload.testCase.replay = {
     scriptId: script.id,
     strict: true,
@@ -423,9 +460,18 @@ async function handleStepCallback(payload) {
     currentUrl: payload.currentUrl || null,
     thoughtText: null, // không cần lưu thought vào DB
     extractedContent: sanitizeFreeText(payload.extractedContent || null),
-    actionInputJson: sanitizeStepJsonByAction(sanitizedAction, payload.actionInputJson || null),
-    actionOutputJson: sanitizeStepJsonByAction(sanitizedAction, payload.actionOutputJson || null),
-    modelOutputJson: sanitizeStepJsonByAction(sanitizedAction, payload.modelOutputJson || null),
+    actionInputJson: sanitizeStepJsonByAction(
+      sanitizedAction,
+      payload.actionInputJson || null,
+    ),
+    actionOutputJson: sanitizeStepJsonByAction(
+      sanitizedAction,
+      payload.actionOutputJson || null,
+    ),
+    modelOutputJson: sanitizeStepJsonByAction(
+      sanitizedAction,
+      payload.modelOutputJson || null,
+    ),
     durationMs: payload.durationMs || null,
   });
 
@@ -434,10 +480,10 @@ async function handleStepCallback(payload) {
       testRunId: payload.testRunId,
       attemptId: payload.attemptId,
       runStepLogId: stepLog.id,
-      evidenceType: 'screenshot',
+      evidenceType: "screenshot",
       filePath: payload.screenshotPath,
       pageUrl: payload.currentUrl || null,
-      artifactGroup: 'step',
+      artifactGroup: "step",
       capturedAt: new Date(),
     });
   }
@@ -477,7 +523,7 @@ async function handleFinalCallback(payload) {
         scriptJson: sanitizeRecordedScript(payload.recordedScript.scriptJson),
         paramsSchema: payload.recordedScript.paramsSchema || {},
         metadataJson: {
-          createdFrom: 'agent_final_callback',
+          createdFrom: "agent_final_callback",
           sanitized: true,
         },
       });

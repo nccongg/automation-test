@@ -57,7 +57,7 @@ export default function TestCasesPage() {
         promptText: tc.promptText || "",
       });
 
-      navigate("/test-results");
+      navigate(`/projects/${projectId}/test-runs`);
     } catch (e) {
       setRunError(e?.message || "Failed to start test run.");
     } finally {

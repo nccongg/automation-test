@@ -91,12 +91,20 @@ function normalizeApiPayload(response) {
 function normalizeScreenshotUrl(filePath) {
   if (!filePath) return "";
 
-  if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
+  if (/^https?:\/\//i.test(filePath)) {
     return filePath;
   }
 
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
-  return `${baseUrl}/${filePath.replace(/^\/+/, "")}`;
+  // Convert Windows backslashes to forward slashes
+  const normalizedPath = filePath.replace(/\\/g, "/");
+  const fileName = normalizedPath.split("/").pop();
+
+  // Ensure worker URL is present and has no trailing slash
+  const workerUrlRaw =
+    import.meta.env.VITE_AGENT_WORKER_URL || "http://localhost:8001";
+  const workerUrl = workerUrlRaw.replace(/\/+$/, "");
+
+  return `${workerUrl}/screenshots/${encodeURIComponent(fileName)}`;
 }
 
 export async function getTestResults() {
@@ -145,6 +153,7 @@ export async function getTestRunDetail(runId) {
         .map((evidence) => ({
           id: evidence.id,
           filePath: evidence.file_path,
+          fileName: (evidence.file_path || "").split(/[\\/]/).pop(),
           imageUrl: normalizeScreenshotUrl(evidence.file_path),
           pageUrl: evidence.page_url || "",
           capturedAt: formatDateTime(evidence.captured_at),

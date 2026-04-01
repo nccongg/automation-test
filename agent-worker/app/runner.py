@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import logging
 import re
 import time
@@ -202,6 +203,15 @@ async def publish_llm_steps(run_req: RunRequest, history: Any) -> None:
         action_output = action_results[i] if i < len(action_results) else None
         model_output = model_outputs[i] if i < len(model_outputs) else None
 
+        # Log screenshot path reported by the browser-use history for debugging
+        logger.info("LLM step %s screenshotPath=%s", i + 1, str(screenshot_path))
+        if screenshot_path:
+            try:
+                exists = Path(screenshot_path).exists()
+            except Exception:
+                exists = False
+            logger.info("LLM step %s screenshot exists=%s", i + 1, exists)
+
         await post_step_event(
             {
                 "testRunId": run_req.testRunId,
@@ -373,7 +383,7 @@ async def resolve_locator(page: Page, action_input: Dict[str, Any]) -> Locator:
     raise ValueError(f"Unable to resolve locator from action input: {action_input}")
 
 
-async def execute_replay_step(page: Page, step: ReplayStepPayload, params: Dict[str, Any], artifacts_dir: Path) -> StepResult:
+async def execute_replay_step(page: Page, step: ReplayStepPayload, params: Dict[str, Any], artifacts_dir: Path, screenshots_dir: Path) -> StepResult:
     started_at = time.perf_counter()
     action_input = render_template(step.actionInput, params)
     action_name = step.actionName.lower().strip()
@@ -478,9 +488,13 @@ async def execute_replay_step(page: Page, step: ReplayStepPayload, params: Dict[
 
         elif action_name in {"screenshot"}:
             file_name = action_input.get("fileName") or f"replay_step_{step.stepNo}.png"
-            file_path = artifacts_dir / file_name
+            # Save screenshots into a central screenshots directory (per-run subfolder)
+            file_path = screenshots_dir / file_name
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            logger.info("Saving screenshot to %s", str(file_path.resolve()))
             await page.screenshot(path=str(file_path), full_page=bool(action_input.get("fullPage", False)))
-            screenshot_path = str(file_path)
+            # Use absolute path so the server/frontend can resolve it reliably
+            screenshot_path = str(file_path.resolve())
             message = "Screenshot captured"
             output = {"path": screenshot_path}
 
@@ -491,9 +505,12 @@ async def execute_replay_step(page: Page, step: ReplayStepPayload, params: Dict[
             raise AssertionError(f"Expected URL to contain '{step.expectedUrl}', actual '{page.url}'")
 
         if step.captureScreenshot and screenshot_path is None:
-            file_path = artifacts_dir / f"replay_step_{step.stepNo}.png"
+            file_name = f"replay_step_{step.stepNo}.png"
+            file_path = screenshots_dir / file_name
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            logger.info("Saving screenshot to %s", str(file_path.resolve()))
             await page.screenshot(path=str(file_path), full_page=False)
-            screenshot_path = str(file_path)
+            screenshot_path = str(file_path.resolve())
 
         duration_ms = int((time.perf_counter() - started_at) * 1000)
         return StepResult(
@@ -509,9 +526,12 @@ async def execute_replay_step(page: Page, step: ReplayStepPayload, params: Dict[
         duration_ms = int((time.perf_counter() - started_at) * 1000)
         if step.captureScreenshot:
             try:
-                file_path = artifacts_dir / f"replay_step_{step.stepNo}_error.png"
+                file_name = f"replay_step_{step.stepNo}_error.png"
+                file_path = screenshots_dir / file_name
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                logger.info("Saving screenshot to %s", str(file_path.resolve()))
                 await page.screenshot(path=str(file_path), full_page=False)
-                screenshot_path = str(file_path)
+                screenshot_path = str(file_path.resolve())
             except Exception:
                 screenshot_path = None
         return StepResult(
@@ -545,6 +565,11 @@ async def execute_replay_run(run_req: RunRequest) -> None:
     artifacts_dir = Path("artifacts") / f"run_{run_req.testRunId}_attempt_{run_req.attemptId}"
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
+    # Central screenshots directory configurable via SCREENSHOTS_DIR env var
+    screenshots_base = Path(os.getenv("SCREENSHOTS_DIR", "screenshots"))
+    screenshots_dir = screenshots_base / f"run_{run_req.testRunId}_attempt_{run_req.attemptId}"
+    screenshots_dir.mkdir(parents=True, exist_ok=True)
+
     try:
         script = parse_inline_script(run_req)
         params = run_req.testCase.replay.params if run_req.testCase.replay else {}
@@ -555,7 +580,7 @@ async def execute_replay_run(run_req: RunRequest) -> None:
         last_extracted: Optional[str] = None
 
         for step in script.steps:
-            result = await execute_replay_step(page, step, params, artifacts_dir)
+            result = await execute_replay_step(page, step, params, artifacts_dir, screenshots_dir)
             if result.screenshot_path:
                 screenshots_count += 1
             if result.extracted_content:

@@ -13,7 +13,9 @@ load_dotenv(BASE_DIR / ".env")
 import os
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from .runner import execute_run
 from .schemas import RunRequest, CrawlRequest
 from .crawler import SiteCrawler
@@ -27,6 +29,15 @@ logging.basicConfig(
 )
 
 app = FastAPI(title="Browser Use Agent Worker V2")
+
+# Allow cross-origin image requests from the dev frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 # scanId → asyncio.Task  (so we can cancel mid-crawl)
 _crawl_tasks: dict[int, asyncio.Task] = {}
@@ -46,6 +57,86 @@ async def run_task(run_req: RunRequest) -> dict:
         "attemptId": run_req.attemptId,
         "executionMode": run_req.testCase.executionMode,
     }
+
+
+@app.get("/screenshots")
+async def serve_screenshot(path: str):
+    """Serve a screenshot file from the filesystem.
+
+    Behavior:
+    - If `path` is absolute and the file exists, return it.
+    - If `path` is relative, resolve against the configured `SCREENSHOTS_DIR`
+      (or `BASE_DIR/screenshots` by default) and return the file if inside.
+    - Return proper HTTP errors for not found / unsupported types / invalid paths.
+    """
+    screenshots_dir_env = os.getenv("SCREENSHOTS_DIR")
+    default_dir = BASE_DIR / "screenshots"
+    screenshots_dir = Path(screenshots_dir_env) if screenshots_dir_env else default_dir
+
+    try:
+        # If client passed an absolute path, use it as-is; otherwise treat as relative
+        requested = Path(path)
+        if requested.is_absolute():
+            file_path = requested
+        else:
+            file_path = (screenshots_dir / path)
+
+        file_path = file_path.resolve()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # If we resolved a relative path, ensure it remains inside the screenshots directory
+    if not Path(path).is_absolute():
+        try:
+            screenshots_dir_resolved = screenshots_dir.resolve()
+            if screenshots_dir_resolved != file_path and screenshots_dir_resolved not in file_path.parents:
+                raise HTTPException(status_code=403, detail="Access denied")
+        except Exception:
+            # fallback: deny
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    suffix = file_path.suffix.lower().lstrip(".")
+    if suffix not in {"png", "jpg", "jpeg", "gif", "webp", "bmp"}:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+
+    return FileResponse(str(file_path), media_type=f"image/{suffix}")
+
+
+@app.get("/screenshots/{file_path:path}")
+async def serve_screenshot_by_name(file_path: str):
+    """Serve a screenshot by relative path under the screenshots directory.
+
+    Example: GET /screenshots/run_1/step_1.png
+    """
+    screenshots_dir_env = os.getenv("SCREENSHOTS_DIR")
+    default_dir = BASE_DIR / "screenshots"
+    screenshots_dir = Path(screenshots_dir_env) if screenshots_dir_env else default_dir
+
+    try:
+        requested = (screenshots_dir / file_path).resolve()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    try:
+        screenshots_dir_resolved = screenshots_dir.resolve()
+    except Exception:
+        raise HTTPException(status_code=500, detail="Server configuration error")
+
+    # Prevent directory traversal
+    if screenshots_dir_resolved != requested and screenshots_dir_resolved not in requested.parents:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if not requested.exists() or not requested.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    suffix = requested.suffix.lower().lstrip(".")
+    if suffix not in {"png", "jpg", "jpeg", "gif", "webp", "bmp"}:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+
+    return FileResponse(str(requested), media_type=f"image/{suffix}")
 
 
 @app.post("/crawl")
