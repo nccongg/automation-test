@@ -309,29 +309,63 @@ async function updateTestRunFinal({
   return result.rows[0];
 }
 
-async function getRecentTestRuns({ userId, projectId = null, limit = 20 }) {
-  const query = `
-    SELECT
-      tr.id,
-      tr.status,
-      tr.verdict,
-      tr.error_message,
-      tr.created_at,
-      tr.started_at,
-      tr.finished_at,
-      tc.title AS test_case_title
-    FROM test_runs tr
-    JOIN test_cases tc
-      ON tc.id = tr.test_case_id
-    JOIN projects p
-      ON p.id = tc.project_id
-    WHERE p.user_id = $1
-      AND ($2::bigint IS NULL OR tc.project_id = $2)
-    ORDER BY tr.id DESC
-    LIMIT $3
-  `;
+async function getRecentTestRuns({
+  userId,
+  projectId = null,
+  limit = 20,
+  latestPerProject = false,
+}) {
+  let query;
 
-  const result = await db.query(query, [userId, projectId, limit]);
+  if (latestPerProject) {
+    query = `
+      SELECT DISTINCT ON (tc.project_id)
+        tr.id,
+        tr.status,
+        tr.verdict,
+        tr.error_message,
+        tr.created_at,
+        tr.started_at,
+        tr.finished_at,
+        tc.title AS test_case_title,
+        tc.project_id,
+        p.name AS project_name
+      FROM test_runs tr
+      JOIN test_cases tc
+        ON tc.id = tr.test_case_id
+      JOIN projects p
+        ON p.id = tc.project_id
+      WHERE p.user_id = $1
+        AND ($2::bigint IS NULL OR tc.project_id = $2)
+      ORDER BY tc.project_id, tr.id DESC
+    `;
+  } else {
+    query = `
+      SELECT
+        tr.id,
+        tr.status,
+        tr.verdict,
+        tr.error_message,
+        tr.created_at,
+        tr.started_at,
+        tr.finished_at,
+        tc.title AS test_case_title
+      FROM test_runs tr
+      JOIN test_cases tc
+        ON tc.id = tr.test_case_id
+      JOIN projects p
+        ON p.id = tc.project_id
+      WHERE p.user_id = $1
+        AND ($2::bigint IS NULL OR tc.project_id = $2)
+      ORDER BY tr.id DESC
+      LIMIT $3
+    `;
+  }
+
+  const params = latestPerProject
+    ? [userId, projectId]
+    : [userId, projectId, limit];
+  const result = await db.query(query, params);
   return result.rows;
 }
 

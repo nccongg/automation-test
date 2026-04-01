@@ -191,13 +191,19 @@ async function startTestRun({ testCaseId, promptText, triggeredBy }) {
   };
 }
 
-async function listRecentTestRuns({ userId, projectId = null, limit = 20 }) {
+async function listRecentTestRuns({
+  userId,
+  projectId = null,
+  limit = 20,
+  latestPerProject = false,
+}) {
   assertUser(userId);
 
   return testRunRepository.getRecentTestRuns({
     userId,
     projectId,
     limit,
+    latestPerProject,
   });
 }
 

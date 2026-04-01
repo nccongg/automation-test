@@ -41,7 +41,7 @@ export default function TestCasesPage() {
     return testCases.filter(
       (tc) =>
         tc.title.toLowerCase().includes(keyword) ||
-        tc.goal.toLowerCase().includes(keyword)
+        tc.goal.toLowerCase().includes(keyword),
     );
   }, [testCases, searchTerm]);
 
@@ -55,7 +55,7 @@ export default function TestCasesPage() {
         promptText: tc.promptText || "",
       });
 
-      navigate("/test-results");
+      navigate(`/projects/${projectId}/test-runs`);
     } catch (e) {
       setRunError(e?.message || "Failed to start test run.");
     } finally {

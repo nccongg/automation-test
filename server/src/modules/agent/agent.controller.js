@@ -8,10 +8,22 @@ function getUserId(req) {
 
 function verifyCallbackSecret(req) {
   const expected = process.env.AGENT_CALLBACK_SECRET || "";
-  if (!expected) return true;
+  if (!expected) {
+    console.log("[AgentController] No AGENT_CALLBACK_SECRET configured, allowing callback");
+    return true;
+  }
 
   const actual = req.headers["x-agent-callback-secret"];
-  return actual === expected;
+  if (actual === expected) {
+    console.log("[AgentController] Callback secret verified OK");
+    return true;
+  }
+
+  console.warn(
+    `[AgentController] Callback secret mismatch. headerPresent=${Boolean(actual)}, expectedLen=${expected.length}, actualLen=${actual ? actual.length : 0}`,
+  );
+
+  return false;
 }
 
 function toNullableNumber(value) {
@@ -113,14 +125,19 @@ async function replayRun(req, res) {
 
 async function handleStepCallback(req, res) {
   try {
+    console.log("[AgentController.handleStepCallback] Received step callback | runId=%s attemptId=%s",
+      req.body?.runId, req.body?.attemptId);
+
     if (!verifyCallbackSecret(req)) {
-      return res.status(401).json({
+      console.warn("[AgentController.handleStepCallback] 403 - secret mismatch");
+      return res.status(403).json({
         status: "error",
         message: "Invalid callback secret",
       });
     }
 
     await agentService.handleStepCallback(req.body);
+    console.log("[AgentController.handleStepCallback] Processed OK");
 
     return res.json({
       status: "ok",
@@ -134,14 +151,19 @@ async function handleStepCallback(req, res) {
 
 async function handleFinalCallback(req, res) {
   try {
+    console.log("[AgentController.handleFinalCallback] Received final callback | runId=%s attemptId=%s status=%s verdict=%s",
+      req.body?.runId, req.body?.attemptId, req.body?.status, req.body?.verdict);
+
     if (!verifyCallbackSecret(req)) {
-      return res.status(401).json({
+      console.warn("[AgentController.handleFinalCallback] 403 - secret mismatch");
+      return res.status(403).json({
         status: "error",
         message: "Invalid callback secret",
       });
     }
 
     await agentService.handleFinalCallback(req.body);
+    console.log("[AgentController.handleFinalCallback] Processed OK | DB updated for runId=%s", req.body?.runId);
 
     return res.json({
       status: "ok",

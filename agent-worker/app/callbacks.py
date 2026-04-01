@@ -27,12 +27,14 @@ def _headers() -> Dict[str, str]:
 
 
 async def _post(path: str, payload: Dict[str, Any]) -> None:
+    url = f"{_base_url()}{path}"
+    headers = _headers()
+    logger.info("[Callback] POST %s | secret_present=%s | payload_keys=%s",
+                url, bool(headers.get("x-agent-callback-secret")), list(payload.keys()))
     async with httpx.AsyncClient(timeout=_timeout_seconds()) as client:
-        response = await client.post(
-            f"{_base_url()}{path}",
-            json=payload,
-            headers=_headers(),
-        )
+        response = await client.post(url, json=payload, headers=headers)
+        logger.info("[Callback] Response %s %s | status=%d",
+                    path, response.reason_phrase, response.status_code)
         response.raise_for_status()
 
 

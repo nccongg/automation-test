@@ -48,11 +48,13 @@ async function getRecentTestRuns(req, res, next) {
       Number.isInteger(rawLimit) && rawLimit > 0 ? rawLimit : 20;
     const projectId =
       Number.isInteger(rawProjectId) && rawProjectId > 0 ? rawProjectId : null;
+    const latestPerProject = req.query?.latestPerProject === "true";
 
     const data = await testRunService.listRecentTestRuns({
       userId,
       projectId,
       limit,
+      latestPerProject,
     });
 
     return res.status(200).json({

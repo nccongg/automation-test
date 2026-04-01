@@ -32,10 +32,11 @@ function formatStepStatus(status) {
 
 function mapVerdictToResult(verdict, status) {
   if (verdict === "pass") return "Passed";
-  if (verdict === "fail") return "Failed";
+  if (verdict === "fail" || verdict === "error") return "Failed";
 
   if (status === "queued" || status === "running") return "Running";
   if (status === "completed") return "Completed";
+  if (status === "failed" || status === "cancelled") return "Failed";
 
   return "Pending";
 }
@@ -100,7 +101,9 @@ function normalizeScreenshotUrl(filePath) {
 }
 
 export async function getTestResults() {
-  const response = await apiClient.get("/test-runs");
+  const response = await apiClient.get("/test-runs", {
+    params: { latestPerProject: "true" },
+  });
   const payload = normalizeApiPayload(response);
   const rawRuns = Array.isArray(payload) ? payload : [];
 
@@ -109,7 +112,7 @@ export async function getTestResults() {
 
     return {
       id: run.id,
-      projectName: run.test_case_title || `Run #${run.id}`,
+      projectName: run.project_name || run.test_case_title || `Run #${run.id}`,
       status: run.status || "unknown",
       result,
       totalTests: 1,
