@@ -27,6 +27,9 @@ import ProjectOverviewPage from "@/pages/main/ProjectOverviewPage";
 import TestCasesPage from "@/pages/main/TestCasesPage";
 import TestResultsPage from "@/pages/main/TestResultsPage";
 import SettingsPage from "@/pages/main/SettingsPage";
+import TestCollectionPage from "@/pages/main/TestCollectionPage";
+import TestSheetDetailPage from "@/pages/main/TestSheetDetailPage";
+import TestSheetRunDetailPage from "@/pages/main/TestSheetRunDetailPage";
 
 export default function App() {
   return (
@@ -57,6 +60,9 @@ export default function App() {
               <Route path="overview" element={<ProjectOverviewPage />} />
               <Route path="test-cases" element={<TestCasesPage />} />
               <Route path="test-runs" element={<TestResultsPage />} />
+              <Route path="collections" element={<TestCollectionPage />} />
+              <Route path="collections/:sheetId" element={<TestSheetDetailPage />} />
+              <Route path="collections/:sheetId/runs/:runId" element={<TestSheetRunDetailPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route path="settings" element={<SettingsPage />} />

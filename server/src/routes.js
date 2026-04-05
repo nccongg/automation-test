@@ -34,5 +34,7 @@ router.use("/agent", require("./modules/agent/agent.routes"));
 router.use("/dashboard", require("./modules/dashboard/dashboard.router"));
 router.use("/projects", require("./modules/projects/projects.router"));
 router.use("/scans", require("./modules/scan/scan.routes"));
+router.use("/test-sheets", require("./modules/testSheet/testSheet.routes"));
+router.use("/test-sheet-runs", require("./modules/testSheet/testSheetRun.routes"));
 
 module.exports = router;

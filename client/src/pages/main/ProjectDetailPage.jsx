@@ -15,6 +15,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  FolderOpen,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -135,6 +136,22 @@ export default function ProjectDetailPage() {
           >
             <BarChart3 className="size-5 shrink-0" />
             {!isSidebarCollapsed && "Test Runs"}
+          </NavLink>
+
+          <NavLink
+            to="collections"
+            className={({ isActive }) =>
+              [
+                "flex items-center gap-3 rounded-xl px-3 py-4 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
+                  : "text-muted-foreground hover:bg-muted",
+                isSidebarCollapsed ? "justify-center px-2" : "",
+              ].join(" ")
+            }
+          >
+            <FolderOpen className="size-5 shrink-0" />
+            {!isSidebarCollapsed && "Collections"}
           </NavLink>
 
           <NavLink
