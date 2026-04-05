@@ -5,6 +5,7 @@ import os
 import logging
 import re
 import time
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -179,7 +180,7 @@ def build_recorded_script(run_req: RunRequest, history: Any) -> Dict[str, Any]:
     }
 
 
-async def publish_llm_steps(run_req: RunRequest, history: Any) -> None:
+async def publish_llm_steps(run_req: RunRequest, history: Any, screenshots_dir: Path) -> None:
     urls = safe_to_jsonable(history.urls() or [])
     actions = safe_to_jsonable(history.action_names() or [])
     errors = safe_to_jsonable(history.errors() or [])
@@ -202,6 +203,22 @@ async def publish_llm_steps(run_req: RunRequest, history: Any) -> None:
         action_input = model_actions[i] if i < len(model_actions) else None
         action_output = action_results[i] if i < len(action_results) else None
         model_output = model_outputs[i] if i < len(model_outputs) else None
+
+        # Logic to move screenshot from browser-use temp folder to persistent screenshots_dir
+        if screenshot_path and Path(screenshot_path).exists():
+            try:
+                # Create a unique filename in our persistent directory
+                temp_p = Path(screenshot_path)
+                persistent_name = f"llm_step_{i + 1}{temp_p.suffix or '.png'}"
+                persistent_path = screenshots_dir / persistent_name
+                
+                # Copy to persistent location
+                shutil.copy2(screenshot_path, str(persistent_path))
+                
+                # Use the new absolute path for the callback
+                screenshot_path = str(persistent_path.resolve())
+            except Exception:
+                logger.warning("Failed to copy LLM screenshot from %s to %s", screenshot_path, str(screenshots_dir), exc_info=True)
 
         # Log screenshot path reported by the browser-use history for debugging
         logger.info("LLM step %s screenshotPath=%s", i + 1, str(screenshot_path))
@@ -235,6 +252,11 @@ async def publish_llm_steps(run_req: RunRequest, history: Any) -> None:
 
 async def execute_llm_run(run_req: RunRequest) -> None:
     browser = None
+    # Central screenshots directory configurable via SCREENSHOTS_DIR env var
+    screenshots_base = Path(os.getenv("SCREENSHOTS_DIR", "screenshots"))
+    screenshots_dir = screenshots_base / f"run_{run_req.testRunId}_attempt_{run_req.attemptId}"
+    screenshots_dir.mkdir(parents=True, exist_ok=True)
+
     try:
         llm = build_llm(run_req)
         browser = build_browser(run_req)
@@ -246,7 +268,7 @@ async def execute_llm_run(run_req: RunRequest) -> None:
         agent = Agent(task=task_text, browser=browser, llm=llm)
         history = await agent.run(max_steps=run_req.runtimeConfig.maxSteps)
 
-        await publish_llm_steps(run_req, history)
+        await publish_llm_steps(run_req, history, screenshots_dir)
 
         verdict = "pass" if history.is_successful() else "fail"
         recorded_script = build_recorded_script(run_req, history)

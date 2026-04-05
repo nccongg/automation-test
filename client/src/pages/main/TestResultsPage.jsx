@@ -133,7 +133,8 @@ export default function TestResultsPage() {
                   {expandedRunId === run.id && (
                     <div className="bg-slate-50 p-4">
                       {detailLoadingId === run.id ? (
-                        <div className="text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <LoadingSpinner size="sm" />
                           Loading step details...
                         </div>
                       ) : detail?.steps?.length ? (
@@ -219,31 +220,10 @@ export default function TestResultsPage() {
                                         key={shot.id}
                                         className="rounded-lg border border-slate-200 bg-slate-50 p-3"
                                       >
-                                        <div className="break-all text-xs text-slate-600">
-                                          {shot.filePath}
-                                        </div>
 
-                                        {(() => {
-                                          const workerUrl =
-                                            import.meta.env
-                                              .VITE_AGENT_WORKER_URL ||
-                                            "http://localhost:8001";
-
-                                          let imageHref = shot.imageUrl || "";
-                                          if (
-                                            !/^https?:\/\//i.test(imageHref)
-                                          ) {
-                                            // ensure leading slash
-                                            const pathPart =
-                                              imageHref.startsWith("/")
-                                                ? imageHref
-                                                : `/${imageHref}`;
-                                            imageHref = `${workerUrl.replace(/\/+$/, "")}${pathPart}`;
-                                          }
-
-                                          return (
+                                          {shot.imageUrl ? (
                                             <a
-                                              href={imageHref}
+                                              href={shot.imageUrl}
                                               target="_blank"
                                               rel="noopener noreferrer"
                                               onClick={(e) =>
@@ -252,16 +232,15 @@ export default function TestResultsPage() {
                                               className="mt-2 block"
                                             >
                                               <img
-                                                src={imageHref}
-                                                alt={`Screenshot - ${shot.filePath}`}
+                                                src={shot.imageUrl}
+                                                alt={`Screenshot Step ${step.stepNo || ""}`}
                                                 onClick={(e) =>
                                                   e.stopPropagation()
                                                 }
                                                 className="max-w-full rounded border border-slate-200 hover:opacity-80 transition-opacity"
                                               />
                                             </a>
-                                          );
-                                        })()}
+                                          ) : null}
 
                                         {shot.pageUrl && (
                                           <div className="mt-2 break-all text-xs text-slate-500">
@@ -279,6 +258,18 @@ export default function TestResultsPage() {
                               )}
                             </div>
                           ))}
+
+                          {(run.status === "running" || run.status === "queued") && (
+                            <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700">
+                              <LoadingSpinner size="sm" />
+                              Test is running... Steps will appear as they complete.
+                            </div>
+                          )}
+                        </div>
+                      ) : (run.status === "running" || run.status === "queued") ? (
+                        <div className="flex items-center gap-2 text-sm text-blue-700">
+                          <LoadingSpinner size="sm" />
+                          Test is running... Waiting for steps...
                         </div>
                       ) : (
                         <div className="text-sm text-muted-foreground">

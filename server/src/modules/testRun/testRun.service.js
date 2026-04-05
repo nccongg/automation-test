@@ -121,11 +121,42 @@ async function getTestRunDetail(runId, userId) {
     [id],
   );
 
+  const mappedEvidences = (evidences.rows || []).map((ev) => {
+    let imageUrl = null;
+    if (ev.evidence_type === "screenshot" && ev.file_path) {
+      const filePathStr = String(ev.file_path);
+      // Tìm vị trí của chuỗi "screenshots"
+      const marker = "screenshots";
+      const parts = filePathStr.split(/[\\/]screenshots[\\/]/);
+      if (parts.length > 1) {
+        // Lấy phần sau /screenshots/ cuối cùng
+        const pathAfter = parts[parts.length - 1];
+        imageUrl = `/screenshots/${pathAfter.replace(/\\/g, "/")}`;
+      } else if (filePathStr.includes(marker)) {
+        // Fallback cho các trường hợp khác
+        const index = filePathStr.indexOf(marker);
+        let pathAfter = filePathStr.substring(index + marker.length);
+        if (pathAfter.startsWith("/") || pathAfter.startsWith("\\")) {
+          pathAfter = pathAfter.substring(1);
+        }
+        imageUrl = `/screenshots/${pathAfter.replace(/\\/g, "/")}`;
+      }
+      console.log(`[DEBUG] Mapping evidence ${ev.id}: ${ev.file_path} -> ${imageUrl}`);
+    }
+    return { ...ev, imageUrl };
+  });
+
+  // Nhóm evidences theo run_step_log_id và gắn vào steps
+  const stepsWithScreenshots = (steps.rows || []).map((step) => ({
+    ...step,
+    screenshots: mappedEvidences.filter((ev) => String(ev.run_step_log_id) === String(step.id)),
+  }));
+
   return {
     run,
     attempts: attempts.rows || [],
-    steps: steps.rows || [],
-    evidences: evidences.rows || [],
+    steps: stepsWithScreenshots,
+    evidences: mappedEvidences,
   };
 }
 

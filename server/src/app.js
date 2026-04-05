@@ -16,12 +16,19 @@ const routes = require('./routes');
 const app = express();
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({ 
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" } 
+}));
 app.use(cors());
 app.use(morgan(env.NODE_ENV === 'development' ? 'dev' : 'combined'));
 
 app.use(express.json({ limit: env.BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: env.BODY_LIMIT }));
+
+// ─── Static Files ─────────────────────────────────────────────────────────────
+const path = require('path');
+app.use('/screenshots', express.static(path.join(__dirname, '../screenshots')));
 
 // ─── Swagger UI ───────────────────────────────────────────────────────────────
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));

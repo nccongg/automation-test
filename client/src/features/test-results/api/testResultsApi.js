@@ -95,16 +95,28 @@ function normalizeScreenshotUrl(filePath) {
     return filePath;
   }
 
-  // Convert Windows backslashes to forward slashes
+  // Chuyển đổi đường dẫn tuyệt đối thành URL tương đối phục vụ bởi Backend (3001)
+  const marker = "screenshots";
   const normalizedPath = filePath.replace(/\\/g, "/");
-  const fileName = normalizedPath.split("/").pop();
+  const index = normalizedPath.indexOf(marker);
+  
+  if (index !== -1) {
+    let pathAfter = normalizedPath.substring(index + marker.length);
+    if (pathAfter.startsWith("/")) {
+      pathAfter = pathAfter.substring(1);
+    }
+    
+    // Sử dụng port 3001 (Backend) thay vì 8001 (Worker)
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+    let baseUrl = apiUrl.replace(/\/api\/?$/, "");
+    if (baseUrl.includes(":8001")) {
+      baseUrl = baseUrl.replace(":8001", ":3001");
+    }
+    
+    return `${baseUrl}/screenshots/${pathAfter}`;
+  }
 
-  // Ensure worker URL is present and has no trailing slash
-  const workerUrlRaw =
-    import.meta.env.VITE_AGENT_WORKER_URL || "http://localhost:8001";
-  const workerUrl = workerUrlRaw.replace(/\/+$/, "");
-
-  return `${workerUrl}/screenshots/${encodeURIComponent(fileName)}`;
+  return "";
 }
 
 export async function getTestResults() {
