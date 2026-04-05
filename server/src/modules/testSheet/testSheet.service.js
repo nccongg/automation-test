@@ -99,6 +99,7 @@ async function runSheet(sheetId, userId) {
   for (let i = 0; i < items.length; i += 1) {
     const item = items[i];
     let testRunId = null;
+    let dispatchFailed = false;
 
     try {
       const runResult = await agentService.startAgentRun({
@@ -107,8 +108,8 @@ async function runSheet(sheetId, userId) {
       });
       testRunId = runResult.testRunId;
     } catch (err) {
-      // Record the failure in the run item but continue with remaining test cases
-      console.error(`[testSheet] Failed to start run for testCase ${item.testCaseId}:`, err.message);
+      dispatchFailed = true;
+      console.error(`[testSheet] Failed to dispatch testCase ${item.testCaseId}:`, err.message);
     }
 
     const runItem = await repo.createSheetRunItem({
@@ -116,10 +117,16 @@ async function runSheet(sheetId, userId) {
       testCaseId: item.testCaseId,
       testRunId,
       itemOrder: i + 1,
+      // Mark immediately as failed so pending_count stays accurate
+      initialStatus: dispatchFailed ? 'failed' : 'queued',
     });
 
     runItems.push(runItem);
   }
+
+  // Recalc once after all dispatches — covers the edge case where every
+  // item failed to dispatch (no agent callbacks will ever fire for them).
+  await repo.recalcSheetRunSummary(sheetRun.id);
 
   return { sheetRun, runItems };
 }
@@ -144,6 +151,9 @@ async function onTestRunCompleted(testRunId, verdict, status) {
   const item = await repo.findSheetRunItemByTestRunId(testRunId);
   if (!item) return; // this run is not part of any sheet run
 
+  // Map test_run.status → sheet run item status
+  // 'completed' covers pass/fail/error/partial verdicts — the SQL recalc uses verdict for bucketing
+  // 'failed'/'cancelled' covers worker-level failures
   const itemStatus = status === "completed" ? "completed" : "failed";
   await repo.updateSheetRunItemStatus(item.id, itemStatus);
   await repo.recalcSheetRunSummary(item.testSheetRunId);

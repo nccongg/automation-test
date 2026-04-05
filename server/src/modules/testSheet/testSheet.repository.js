@@ -186,12 +186,12 @@ async function createSheetRun({ testSheetId, triggeredBy, totalCases }) {
   return result.rows[0];
 }
 
-async function createSheetRunItem({ testSheetRunId, testCaseId, testRunId, itemOrder }) {
+async function createSheetRunItem({ testSheetRunId, testCaseId, testRunId, itemOrder, initialStatus = 'queued' }) {
   const result = await pool.query(
     `INSERT INTO test_sheet_run_items (test_sheet_run_id, test_case_id, test_run_id, item_order, status)
-     VALUES ($1, $2, $3, $4, 'queued')
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING id, test_case_id AS "testCaseId", test_run_id AS "testRunId", item_order AS "itemOrder", status`,
-    [testSheetRunId, testCaseId, testRunId || null, itemOrder]
+    [testSheetRunId, testCaseId, testRunId || null, itemOrder, initialStatus]
   );
   return result.rows[0];
 }
@@ -285,7 +285,6 @@ async function updateSheetRunItemStatus(itemId, status) {
 }
 
 async function recalcSheetRunSummary(testSheetRunId) {
-  // Recalculate counters and check if all items are done
   const result = await pool.query(
     `UPDATE test_sheet_runs tsr
      SET
@@ -298,13 +297,21 @@ async function recalcSheetRunSummary(testSheetRunId) {
                  END,
        completed_at = CASE
                         WHEN sub.pending_count = 0 THEN NOW()
-                        ELSE NULL
+                        ELSE tsr.completed_at
                       END
      FROM (
        SELECT
-         SUM(CASE WHEN tsri.status = 'completed' AND tr.verdict = 'pass'  THEN 1 ELSE 0 END) AS passed,
-         SUM(CASE WHEN tsri.status = 'completed' AND tr.verdict = 'fail'  THEN 1 ELSE 0 END) AS failed,
-         SUM(CASE WHEN tsri.status IN ('failed','cancelled') OR tr.verdict = 'error' THEN 1 ELSE 0 END) AS errored,
+         -- passed: run finished cleanly with pass verdict
+         SUM(CASE WHEN tsri.status = 'completed' AND tr.verdict = 'pass' THEN 1 ELSE 0 END) AS passed,
+         -- failed: run finished with fail or partial verdict
+         SUM(CASE WHEN tsri.status = 'completed' AND tr.verdict IN ('fail','partial') THEN 1 ELSE 0 END) AS failed,
+         -- errored: run finished with error verdict OR item never dispatched (test_run_id IS NULL)
+         SUM(CASE
+               WHEN tsri.status = 'completed' AND tr.verdict = 'error' THEN 1
+               WHEN tsri.status IN ('failed','cancelled') THEN 1
+               ELSE 0
+             END) AS errored,
+         -- pending: still in-flight
          SUM(CASE WHEN tsri.status IN ('pending','queued','running') THEN 1 ELSE 0 END) AS pending_count
        FROM test_sheet_run_items tsri
        LEFT JOIN test_runs tr ON tr.id = tsri.test_run_id
