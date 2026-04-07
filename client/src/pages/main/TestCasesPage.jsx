@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useTestCases } from "@/features/test-cases/hooks/useTestCases";
 import { createTestRun } from "@/features/test-results/api/testResultsApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorBanner from "@/shared/components/common/ErrorBanner";
+import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import EmptyState from "@/shared/components/common/EmptyState";
 import PageHeader from "@/shared/components/common/PageHeader";
 import { Input } from "@/components/ui/input";
@@ -75,9 +75,9 @@ export default function TestCasesPage() {
 
   if (error) {
     return (
-      <ErrorBanner
-        message={error}
-        fullWidth
+      <ErrorPopup
+        open={true}
+        onClose={() => window.location.reload()}
         onRetry={() => window.location.reload()}
       />
     );
@@ -90,7 +90,7 @@ export default function TestCasesPage() {
         description="Test cases loaded from database"
       />
 
-      {runError && <ErrorBanner message={runError} fullWidth />}
+      <ErrorPopup open={!!runError} onClose={() => setRunError("")} />
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1">

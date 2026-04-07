@@ -61,7 +61,7 @@ async function listRecentTestRuns({ userId, projectId = null, limit = 20 }) {
 
   if (projectId) {
     params.push(projectId);
-    where += ` AND tr.project_id = $${params.length}`;
+    where += ` AND p.id = $${params.length}`;
   }
 
   params.push(limit);
@@ -69,19 +69,22 @@ async function listRecentTestRuns({ userId, projectId = null, limit = 20 }) {
   const sql = `
     SELECT
       tr.id,
-      tr.test_case_id AS "testCaseId",
+      tr.test_case_id       AS "testCaseId",
       tr.status,
       tr.verdict,
-      tr.started_at AS "startedAt",
-      tr.finished_at AS "finishedAt",
-      tc.title AS "testCaseTitle",
-      p.id AS "projectId",
-      p.name AS "projectName"
+      tr.started_at         AS "startedAt",
+      tr.finished_at        AS "finishedAt",
+      tr.created_at         AS "createdAt",
+      tc.title              AS "testCaseTitle",
+      p.id                  AS "projectId",
+      p.name                AS "projectName",
+      (tsri.id IS NOT NULL) AS "fromSheet"
     FROM public.test_runs tr
     JOIN public.test_cases tc ON tc.id = tr.test_case_id
     JOIN public.projects p ON p.id = tc.project_id
+    LEFT JOIN public.test_sheet_run_items tsri ON tsri.test_run_id = tr.id
     WHERE ${where}
-    ORDER BY tr.started_at DESC
+    ORDER BY COALESCE(tr.started_at, tr.created_at) DESC
     LIMIT $${params.length}
   `;
 

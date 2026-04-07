@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import {
-  CheckCircle2,
-  XCircle,
   Sparkles,
   Pencil,
   Play,
   Save,
+  FolderPlus,
+  Plus,
 } from "lucide-react";
 import ProjectHeader from "@/features/projects/components/ProjectHeader";
 import ProjectStats from "@/features/projects/components/ProjectStats";
@@ -15,6 +15,11 @@ import {
   generateTestCase,
   saveTestCases,
 } from "@/features/test-cases/api/testCasesApi";
+import {
+  getTestSheets,
+  createTestSheet,
+  addSheetItems,
+} from "@/features/test-collection/api/testSheetApi";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -27,8 +32,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import EmptyState from "@/shared/components/common/EmptyState";
-import { formatRelativeTime } from "@/shared/utils";
 
 const TEST_CASE_TYPES = [
   "functional",
@@ -83,66 +86,96 @@ export default function ProjectOverviewPage() {
   const { project, onProjectUpdated } = useOutletContext();
   const navigate = useNavigate();
 
+  const sessionKey = project?.id ? `gen_testcases_${project.id}` : null;
+
   const [prompt, setPrompt] = useState("");
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState("");
-  const [testCases, setTestCases] = useState([]);
-  const [batchId, setBatchId] = useState(null);
+  const [testCases, setTestCases] = useState(() => {
+    if (!project?.id) return [];
+    try {
+      const saved = sessionStorage.getItem(`gen_testcases_${project.id}`);
+      return saved ? JSON.parse(saved).testCases : [];
+    } catch {
+      return [];
+    }
+  });
+  const [batchId, setBatchId] = useState(() => {
+    if (!project?.id) return null;
+    try {
+      const saved = sessionStorage.getItem(`gen_testcases_${project.id}`);
+      return saved ? JSON.parse(saved).batchId : null;
+    } catch {
+      return null;
+    }
+  });
 
   const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState("");
-
   const [selected, setSelected] = useState(new Set());
-
   const [editIndex, setEditIndex] = useState(null);
   const [editForm, setEditForm] = useState(null);
-
-  const [showTestCasesDialog, setShowTestCasesDialog] = useState(false);
-
   const [runningSelected, setRunningSelected] = useState(false);
   const [runResult, setRunResult] = useState("");
 
+  // Add to sheet state
+  const [showSheetDialog, setShowSheetDialog] = useState(false);
+  const [sheetMode, setSheetMode] = useState("existing"); // "existing" | "new"
+  const [sheets, setSheets] = useState([]);
+  const [loadingSheets, setLoadingSheets] = useState(false);
+  const [selectedSheetId, setSelectedSheetId] = useState("");
+  const [newSheetName, setNewSheetName] = useState("");
+  const [addingToSheet, setAddingToSheet] = useState(false);
+
+  useEffect(() => {
+    if (!sessionKey) return;
+    if (testCases.length > 0) {
+      sessionStorage.setItem(sessionKey, JSON.stringify({ testCases, batchId }));
+    } else {
+      sessionStorage.removeItem(sessionKey);
+    }
+  }, [testCases, batchId, sessionKey]);
+
+  // Load sheets when dialog opens
+  useEffect(() => {
+    if (!showSheetDialog || !project?.id) return;
+    setLoadingSheets(true);
+    getTestSheets(project.id)
+      .then((list) => {
+        setSheets(list);
+        setSelectedSheetId(list[0]?.id ? String(list[0].id) : "");
+        if (list.length === 0) setSheetMode("new");
+      })
+      .catch(() => {
+        setSheets([]);
+        setSheetMode("new");
+      })
+      .finally(() => setLoadingSheets(false));
+  }, [showSheetDialog, project?.id]);
+
   const getSelectedCandidateIds = () => {
     if (!testCases?.length) return [];
-
     if (selected.size > 0) {
       return [...selected].map((i) => testCases[i]?.id).filter(Boolean);
     }
-
     return testCases.map((tc) => tc.id).filter(Boolean);
   };
 
   const saveSelectedCandidatesToDb = async () => {
-    if (!project?.id) {
-      throw new Error("Missing project id.");
-    }
-
-    if (!batchId) {
-      throw new Error("Missing batchId. Please generate test cases again.");
-    }
+    if (!project?.id) throw new Error("Missing project id.");
+    if (!batchId) throw new Error("Missing batchId. Please generate test cases again.");
 
     const candidateIds = getSelectedCandidateIds();
-
-    if (!candidateIds.length) {
-      throw new Error("No selected test cases to save.");
-    }
-
-    const selectedCandidates = testCases.filter((tc) =>
-      candidateIds.includes(tc.id),
-    );
+    if (!candidateIds.length) throw new Error("No selected test cases to save.");
 
     const result = await saveTestCases({
       projectId: project.id,
       batchId,
-      candidateIds: candidateIds,
+      candidateIds,
     });
 
     const savedTestCaseIds = extractSavedTestCaseIds(result);
-
     if (!savedTestCaseIds.length) {
-      throw new Error(
-        "Saved successfully but API did not return saved testCaseIds.",
-      );
+      throw new Error("Saved successfully but API did not return saved testCaseIds.");
     }
 
     return { result, savedTestCaseIds };
@@ -155,9 +188,9 @@ export default function ProjectOverviewPage() {
       setRunning(true);
       setRunError("");
       setRunResult("");
-      setSaveMessage("");
       setSelected(new Set());
       setBatchId(null);
+      setTestCases([]);
 
       const result = await generateTestCase(prompt.trim(), project.id);
 
@@ -166,7 +199,6 @@ export default function ProjectOverviewPage() {
 
       setBatchId(batch?.id ?? null);
       setTestCases(candidates.map(mapCandidateToUi));
-      setShowTestCasesDialog(true);
     } catch (error) {
       setRunError(error?.message || "Failed to generate test cases.");
       setTestCases([]);
@@ -194,10 +226,7 @@ export default function ProjectOverviewPage() {
 
   const openEdit = (i) => {
     setEditIndex(i);
-    setEditForm({
-      ...testCases[i],
-      stepsText: testCases[i].steps.join("\n"),
-    });
+    setEditForm({ ...testCases[i], stepsText: testCases[i].steps.join("\n") });
   };
 
   const closeEdit = () => {
@@ -211,10 +240,7 @@ export default function ProjectOverviewPage() {
       ...updated[editIndex],
       title: editForm.title,
       type: editForm.type,
-      steps: editForm.stepsText
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean),
+      steps: editForm.stepsText.split("\n").map((s) => s.trim()).filter(Boolean),
       expectedResult: editForm.expectedResult,
     };
     setTestCases(updated);
@@ -223,20 +249,11 @@ export default function ProjectOverviewPage() {
 
   const handleSaveTestCases = async () => {
     if (!testCases?.length) return;
-
     try {
       setSaving(true);
-      setSaveMessage("");
-
       const { savedTestCaseIds } = await saveSelectedCandidatesToDb();
-
-      setSaveMessage(
-        `${savedTestCaseIds.length} test case(s) saved successfully.`,
-      );
-      toast.success(
-        `${savedTestCaseIds.length} test case(s) saved successfully!`,
-      );
-      setShowTestCasesDialog(false);
+      toast.success(`${savedTestCaseIds.length} test case(s) saved successfully!`);
+      setTestCases([]);
       navigate(`/projects/${project.id}/test-cases`);
     } catch (error) {
       toast.error(error?.message || "Failed to save test cases.");
@@ -247,7 +264,6 @@ export default function ProjectOverviewPage() {
 
   const handleRunSelected = async () => {
     if (selected.size === 0) return;
-
     try {
       setRunningSelected(true);
       setRunError("");
@@ -256,18 +272,12 @@ export default function ProjectOverviewPage() {
       const { savedTestCaseIds } = await saveSelectedCandidatesToDb();
 
       await Promise.all(
-        savedTestCaseIds.map((testCaseId) =>
-          createTestRun({
-            testCaseId,
-          }),
-        ),
+        savedTestCaseIds.map((testCaseId) => createTestRun({ testCaseId })),
       );
 
-      setRunResult(
-        `${savedTestCaseIds.length} test run(s) started. Redirecting...`,
-      );
+      setRunResult(`${savedTestCaseIds.length} test run(s) started. Redirecting...`);
       toast.success(`${savedTestCaseIds.length} test run(s) started.`);
-      setShowTestCasesDialog(false);
+      setTestCases([]);
 
       setTimeout(() => {
         navigate(`/projects/${project.id}/test-runs`);
@@ -277,6 +287,47 @@ export default function ProjectOverviewPage() {
       toast.error(error?.message || "Failed to save and start test runs.");
     } finally {
       setRunningSelected(false);
+    }
+  };
+
+  const openSheetDialog = () => {
+    setSheetMode("existing");
+    setNewSheetName("");
+    setShowSheetDialog(true);
+  };
+
+  const handleAddToSheet = async () => {
+    try {
+      setAddingToSheet(true);
+
+      const { savedTestCaseIds } = await saveSelectedCandidatesToDb();
+
+      let sheetId;
+
+      if (sheetMode === "new") {
+        if (!newSheetName.trim()) throw new Error("Please enter a sheet name.");
+        const sheet = await createTestSheet({
+          projectId: project.id,
+          name: newSheetName.trim(),
+        });
+        sheetId = sheet?.id ?? sheet?.data?.id;
+      } else {
+        if (!selectedSheetId) throw new Error("Please select a sheet.");
+        sheetId = selectedSheetId;
+      }
+
+      await addSheetItems(sheetId, savedTestCaseIds);
+
+      toast.success(
+        `${savedTestCaseIds.length} test case(s) added to "${sheetMode === "new" ? newSheetName.trim() : sheets.find((s) => String(s.id) === String(sheetId))?.name ?? "sheet"}".`,
+      );
+      setShowSheetDialog(false);
+      setTestCases([]);
+      navigate(`/projects/${project.id}/collections`);
+    } catch (error) {
+      toast.error(error?.message || "Failed to add to sheet.");
+    } finally {
+      setAddingToSheet(false);
     }
   };
 
@@ -338,142 +389,85 @@ export default function ProjectOverviewPage() {
             {runResult}
           </div>
         )}
-        {saveMessage && (
-          <div className="rounded-lg bg-blue-50 p-4 text-sm text-blue-700">
-            {saveMessage}
-          </div>
-        )}
 
         {testCases?.length > 0 && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowTestCasesDialog(true)}
-            className="flex items-center gap-1.5"
-          >
-            <Sparkles className="size-3.5" />
-            View Generated Test Cases ({testCases.length})
-          </Button>
-        )}
-      </section>
-
-      <ProjectStats project={project} />
-
-      <section className="space-y-4">
-        <h3 className="text-lg font-semibold tracking-tight">
-          Recent Activity
-        </h3>
-        {project.recentActivity?.length ? (
-          <div className="rounded-xl border bg-white">
-            <div className="divide-y">
-              {project.recentActivity.map((a) => {
-                const isPass = a.verdict === "pass";
-                const Icon = isPass ? CheckCircle2 : XCircle;
-                const tone = isPass ? "text-emerald-600" : "text-red-600";
-                return (
-                  <div
-                    key={a.id}
-                    className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-slate-50"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Icon className={`size-4 ${tone}`} />
-                        <div className="truncate text-sm font-medium">
-                          {a.testTitle}
-                        </div>
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Verdict: {a.verdict}
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-xs text-muted-foreground">
-                      {formatRelativeTime(a.createdAt)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <EmptyState
-            compact
-            title="No activity yet"
-            description="Run your first test case to populate the project history."
-          />
-        )}
-      </section>
-
-      <Dialog open={showTestCasesDialog} onOpenChange={setShowTestCasesDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>
-              Generated Test Cases ({testCases?.length ?? 0})
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="flex items-center justify-between py-2 border-b">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={
-                  testCases?.length > 0 && selected.size === testCases.length
-                }
-                onCheckedChange={toggleSelectAll}
-              />
-              <span className="text-sm text-muted-foreground">Select all</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleSaveTestCases}
-                disabled={saving || !testCases?.length}
-                className="flex items-center gap-1.5"
-              >
-                {saving ? (
-                  <LoadingSpinner size="sm" label="Saving..." />
-                ) : (
-                  <>
-                    <Save className="size-3.5" />
-                    Save
-                  </>
+          <div className="border-t pt-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={
+                    testCases.length > 0 && selected.size === testCases.length
+                  }
+                  onCheckedChange={toggleSelectAll}
+                />
+                <span className="text-sm font-medium">
+                  Generated Test Cases ({testCases.length})
+                </span>
+                {selected.size > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    — {selected.size} selected
+                  </span>
                 )}
-              </Button>
+              </div>
 
-              {selected.size > 0 && (
+              <div className="flex items-center gap-2">
                 <Button
                   size="sm"
-                  onClick={handleRunSelected}
-                  disabled={runningSelected}
-                  className="bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)] flex items-center gap-1.5"
+                  variant="outline"
+                  onClick={handleSaveTestCases}
+                  disabled={saving || !testCases?.length}
+                  className="flex items-center gap-1.5"
                 >
-                  {runningSelected ? (
-                    <LoadingSpinner size="sm" label="Running..." />
+                  {saving ? (
+                    <LoadingSpinner size="sm" label="Saving..." />
                   ) : (
                     <>
-                      <Play className="size-3.5" />
-                      Run Selected ({selected.size})
+                      <Save className="size-3.5" />
+                      Save
                     </>
                   )}
                 </Button>
-              )}
-            </div>
-          </div>
 
-          <div className="overflow-y-auto flex-1 space-y-3 pr-1">
-            {testCases?.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                No test cases returned.
-              </p>
-            ) : (
-              testCases.map((tc, i) => (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={openSheetDialog}
+                  disabled={saving || !testCases?.length}
+                  className="flex items-center gap-1.5"
+                >
+                  <FolderPlus className="size-3.5" />
+                  Add to Sheet
+                </Button>
+
+                {selected.size > 0 && (
+                  <Button
+                    size="sm"
+                    onClick={handleRunSelected}
+                    disabled={runningSelected}
+                    className="bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)] flex items-center gap-1.5"
+                  >
+                    {runningSelected ? (
+                      <LoadingSpinner size="sm" label="Running..." />
+                    ) : (
+                      <>
+                        <Play className="size-3.5" />
+                        Run Selected ({selected.size})
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {testCases.map((tc, i) => (
                 <div
                   key={tc.id ?? i}
                   onClick={() => toggleSelect(i)}
                   className={`rounded-lg border p-4 space-y-2 transition-colors cursor-pointer ${
                     selected.has(i)
                       ? "bg-blue-50 border-blue-200"
-                      : "bg-slate-50"
+                      : "bg-slate-50 hover:bg-slate-100"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -517,12 +511,130 @@ export default function ProjectOverviewPage() {
                     Expected: {tc.expectedResult}
                   </p>
                 </div>
-              ))
-            )}
+              ))}
+            </div>
           </div>
+        )}
+      </section>
+
+      <ProjectStats project={project} />
+
+      {/* Add to Sheet dialog */}
+      <Dialog open={showSheetDialog} onOpenChange={setShowSheetDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add to Test Sheet</DialogTitle>
+          </DialogHeader>
+
+          {loadingSheets ? (
+            <div className="py-6 flex justify-center">
+              <LoadingSpinner size="sm" label="Loading sheets..." />
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              {/* Mode toggle */}
+              <div className="flex rounded-lg border overflow-hidden">
+                <button
+                  onClick={() => setSheetMode("existing")}
+                  disabled={sheets.length === 0}
+                  className={`flex-1 px-4 py-2 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                    sheetMode === "existing"
+                      ? "bg-[var(--brand-primary)] text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  Existing Sheet
+                </button>
+                <button
+                  onClick={() => setSheetMode("new")}
+                  className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                    sheetMode === "new"
+                      ? "bg-[var(--brand-primary)] text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="flex items-center justify-center gap-1.5">
+                    <Plus className="size-3.5" />
+                    New Sheet
+                  </span>
+                </button>
+              </div>
+
+              {sheetMode === "existing" ? (
+                <div className="space-y-1.5">
+                  <Label>Select Sheet</Label>
+                  {sheets.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No sheets found. Create a new one.
+                    </p>
+                  ) : (
+                    <select
+                      className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring"
+                      value={selectedSheetId}
+                      onChange={(e) => setSelectedSheetId(e.target.value)}
+                    >
+                      {sheets.map((s) => (
+                        <option key={s.id} value={String(s.id)}>
+                          {s.name}
+                          {s.itemCount != null ? ` (${s.itemCount} cases)` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label>Sheet Name</Label>
+                  <input
+                    autoFocus
+                    className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    placeholder="e.g. Login flow"
+                    value={newSheetName}
+                    onChange={(e) => setNewSheetName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newSheetName.trim()) handleAddToSheet();
+                    }}
+                  />
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                {selected.size > 0
+                  ? `${selected.size} selected test case(s) will be added.`
+                  : `All ${testCases.length} test case(s) will be added.`}
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowSheetDialog(false)}
+              disabled={addingToSheet}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddToSheet}
+              disabled={
+                addingToSheet ||
+                loadingSheets ||
+                (sheetMode === "existing" && !selectedSheetId) ||
+                (sheetMode === "new" && !newSheetName.trim())
+              }
+              className="bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)]"
+            >
+              {addingToSheet ? (
+                <LoadingSpinner size="sm" label="Adding..." />
+              ) : (
+                "Add to Sheet"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Edit test case dialog */}
       {editForm && (
         <Dialog open={editIndex !== null} onOpenChange={closeEdit}>
           <DialogContent className="max-w-lg">

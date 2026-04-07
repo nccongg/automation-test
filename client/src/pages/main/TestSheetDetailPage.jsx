@@ -21,7 +21,7 @@ import { getTestCases } from "@/features/test-cases/api/testCasesApi";
 import { getSheetRuns } from "@/features/test-collection/api/testSheetApi";
 import PageHeader from "@/shared/components/common/PageHeader";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorBanner from "@/shared/components/common/ErrorBanner";
+import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import EmptyState from "@/shared/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -196,7 +196,7 @@ export default function TestSheetDetailPage() {
   }
 
   if (error) {
-    return <ErrorBanner message={error} fullWidth onRetry={load} />;
+    return <ErrorPopup open={true} onClose={load} onRetry={load} />;
   }
 
   const existingIds = new Set(items.map((i) => i.testCaseId));

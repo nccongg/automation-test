@@ -4,7 +4,7 @@
  * Provides sidebar navigation and main content area
  */
 
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Activity,
   LayoutDashboard,
@@ -33,6 +33,7 @@ const navItems = [
 export default function Layout() {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -149,8 +150,11 @@ export default function Layout() {
         {/* Header with Logo and Collapse Toggle */}
         <div
           className={`flex items-center justify-between ${showExpanded ? "px-6 py-6" : "px-2 py-6"}`}
+          onClick={() => navigate("/")}
+          style={{ cursor: "pointer" }}
         >
           {showExpanded && (
+            // click -> navigate to home
             <div className="flex items-center gap-3">
               <div className="grid h-9 w-9 place-items-center rounded-lg bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow)]">
                 <Activity className="size-5" />

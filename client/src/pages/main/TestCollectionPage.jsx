@@ -5,7 +5,7 @@ import { useTestSheets } from "@/features/test-collection/hooks/useTestSheets";
 import { createTestSheet, deleteTestSheet } from "@/features/test-collection/api/testSheetApi";
 import PageHeader from "@/shared/components/common/PageHeader";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorBanner from "@/shared/components/common/ErrorBanner";
+import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import EmptyState from "@/shared/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
 import {
@@ -110,7 +110,7 @@ export default function TestCollectionPage() {
   }
 
   if (error) {
-    return <ErrorBanner message={error} fullWidth onRetry={refetch} />;
+    return <ErrorPopup open={true} onClose={refetch} onRetry={refetch} />;
   }
 
   return (

@@ -7,7 +7,7 @@
 import { NavLink, Outlet, useParams } from "react-router-dom";
 import { useProject } from "@/features/projects/hooks/useProject";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorBanner from "@/shared/components/common/ErrorBanner";
+import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import {
   BarChart3,
   FileText,
@@ -43,9 +43,9 @@ export default function ProjectDetailPage() {
 
   if (error) {
     return (
-      <ErrorBanner
-        message={error}
-        fullWidth
+      <ErrorPopup
+        open={true}
+        onClose={() => window.location.reload()}
         onRetry={() => window.location.reload()}
       />
     );
@@ -53,10 +53,9 @@ export default function ProjectDetailPage() {
 
   if (!data) {
     return (
-      <ErrorBanner
-        message="Project not found"
-        fullWidth
-        onRetry={() => window.history.back()}
+      <ErrorPopup
+        open={true}
+        onClose={() => window.history.back()}
       />
     );
   }
@@ -121,22 +120,7 @@ export default function ProjectDetailPage() {
             <PlayCircle className="size-5 shrink-0" />
             {!isSidebarCollapsed && "Test Cases"}
           </NavLink>
-
-          <NavLink
-            to="test-runs"
-            className={({ isActive }) =>
-              [
-                "flex items-center gap-3 rounded-xl px-3 py-4 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
-                  : "text-muted-foreground hover:bg-muted",
-                isSidebarCollapsed ? "justify-center px-2" : "",
-              ].join(" ")
-            }
-          >
-            <BarChart3 className="size-5 shrink-0" />
-            {!isSidebarCollapsed && "Test Runs"}
-          </NavLink>
+          
 
           <NavLink
             to="collections"
@@ -152,6 +136,22 @@ export default function ProjectDetailPage() {
           >
             <FolderOpen className="size-5 shrink-0" />
             {!isSidebarCollapsed && "Collections"}
+          </NavLink>
+
+          <NavLink
+            to="test-runs"
+            className={({ isActive }) =>
+              [
+                "flex items-center gap-3 rounded-xl px-3 py-4 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
+                  : "text-muted-foreground hover:bg-muted",
+                isSidebarCollapsed ? "justify-center px-2" : "",
+              ].join(" ")
+            }
+          >
+            <BarChart3 className="size-5 shrink-0" />
+            {!isSidebarCollapsed && "Test Runs"}
           </NavLink>
 
           <NavLink
