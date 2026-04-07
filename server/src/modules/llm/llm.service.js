@@ -1,33 +1,49 @@
 "use strict";
 
-const { cleanJSON } = require("./utils");
+const { cleanJSON, withRetry } = require("./utils");
 
-const GENERATION_PROVIDER =
-  process.env.GENERATION_LLM_PROVIDER ||
-  process.env.LLM_PROVIDER ||
-  "ollama";
+const DEFAULT_PROVIDER = process.env.GENERATION_LLM_PROVIDER || process.env.LLM_PROVIDER || "ollama";
+const DEFAULT_MODEL = process.env.GENERATION_LLM_MODEL || process.env.LLM_MODEL || "gemma3:4b";
 
-const GENERATION_MODEL =
-  process.env.GENERATION_LLM_MODEL ||
-  process.env.LLM_MODEL ||
-  "gemma3:4b";
+/**
+ * Call the configured (or overridden) LLM provider.
+ *
+ * @param {Array<{ role: "system"|"user"|"assistant", content: string }>} messages
+ * @param {{ provider?: string, model?: string, maxOutputTokens?: number, temperature?: number }} [opts]
+ * @returns {Promise<string>}
+ */
+async function generateFromLLM(messages, opts = {}) {
+  const provider = opts.provider || DEFAULT_PROVIDER;
+  const callOpts = {
+    model: opts.model || DEFAULT_MODEL,
+    maxOutputTokens: opts.maxOutputTokens,
+    maxTokens: opts.maxOutputTokens,
+    temperature: opts.temperature,
+  };
 
-async function generateFromLLM(messages) {
-  switch (GENERATION_PROVIDER) {
+  switch (provider) {
     case "gemini":
-      return require("./providers/gemini").generateFromGemini(messages);
+      return withRetry(() =>
+        require("./providers/gemini").generateFromGemini(messages, callOpts)
+      );
 
     case "ollama":
-      return require("./providers/ollama").generateFromOllama(messages);
+      return withRetry(() =>
+        require("./providers/ollama").generateFromOllama(messages, callOpts)
+      );
+
+    case "openai":
+      return withRetry(() =>
+        require("./providers/openai").generateFromOpenAI(messages, callOpts)
+      );
 
     default:
-      return require("./providers/openai").generateFromOpenAI(messages);
+      throw new Error(`[llm] Unknown provider: "${provider}". Use "gemini", "ollama", or "openai".`);
   }
 }
 
 /**
  * Build a concise website context block from a completed scan.
- * Truncated to avoid bloating the prompt.
  */
 function _buildScanContext(scan) {
   if (!scan) return "";
@@ -38,10 +54,7 @@ function _buildScanContext(scan) {
   }));
 
   const interactions = {};
-  for (const [url, data] of Object.entries(scan.interaction_map || {}).slice(
-    0,
-    10
-  )) {
+  for (const [url, data] of Object.entries(scan.interaction_map || {}).slice(0, 10)) {
     interactions[url] = {
       forms: (data.forms || []).slice(0, 5),
       buttons: (data.buttons || []).slice(0, 10),
@@ -131,27 +144,22 @@ Return ONLY JSON.
     },
   ];
 
-  try {
-    const raw = await generateFromLLM(messages);
-    const cleaned = cleanJSON(raw);
+  const provider = DEFAULT_PROVIDER;
+  const raw = await generateFromLLM(messages);
+  const parsed = cleanJSON(raw);
 
-    return {
-      ...cleaned,
-      llmProvider: GENERATION_PROVIDER,
-      llmModel: GENERATION_MODEL,
-    };
-  } catch (err) {
-    console.error("Error generating test cases:", err);
-
+  if (!parsed) {
     throw {
-      status: err?.status || err?.response?.status || 500,
-      message:
-        err?.response?.data?.error ||
-        err?.response?.data?.message ||
-        err?.message ||
-        "Failed to generate test cases",
+      status: 502,
+      message: "LLM returned invalid JSON. Check server logs for the raw output.",
     };
   }
+
+  return {
+    ...parsed,
+    llmProvider: provider,
+    llmModel: DEFAULT_MODEL,
+  };
 }
 
 module.exports = {

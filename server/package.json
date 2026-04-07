@@ -20,12 +20,13 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
+    "openai": "^6.33.0",
     "pg": "^8.19.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "axios": "^1.13.6"
+    "axios": "^1.14.0"
   }
 }
