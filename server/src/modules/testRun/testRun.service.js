@@ -3,6 +3,7 @@
 const { query } = require("../../config/database");
 const agentService = require("../agent/agent.service");
 const agentRepository = require("../agent/agent.repository");
+const { generateRunAnalysis } = require("../llm/llm.service");
 
 function toPositiveNumber(value) {
   const num = Number(value);
@@ -163,9 +164,31 @@ async function getTestRunDetail(runId, userId) {
   };
 }
 
+async function analyzeTestRun(runId, userId) {
+  const detail = await getTestRunDetail(runId, userId);
+  if (!detail) return null;
+
+  const run = detail.run;
+  const steps = detail.steps ?? [];
+
+  // Fetch test case goal
+  const tcResult = await query(
+    `SELECT tc.goal, tc.title FROM public.test_cases tc WHERE tc.id = $1 LIMIT 1`,
+    [run.test_case_id],
+  );
+  const tc = tcResult.rows[0] || {};
+
+  return generateRunAnalysis({
+    goal: tc.goal || tc.title || "Unknown",
+    verdict: run.verdict || run.status,
+    steps,
+  });
+}
+
 module.exports = {
   startTestRun,
   listRecentTestRuns,
   getTestRunDetail,
   replayTestRun,
+  analyzeTestRun,
 };

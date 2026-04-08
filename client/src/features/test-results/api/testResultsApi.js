@@ -133,6 +133,7 @@ export async function getTestResults(projectId) {
       projectName: run.testCaseTitle || `Run #${run.id}`,
       status: run.status || "unknown",
       result,
+      fromSheet: !!run.fromSheet,
       totalTests: 1,
       passed: result === "Passed" ? 1 : 0,
       failed: result === "Failed" ? 1 : 0,
@@ -172,11 +173,16 @@ export async function getTestRunDetail(runId) {
           capturedAt: formatDateTime(evidence.captured_at),
         }));
 
+      const isUnknown = (v) => !v || v.toLowerCase() === "unknown";
       return {
         id: step.id,
         stepNo: step.step_no,
-        title: step.step_title || step.action || `Step ${step.step_no}`,
-        action: step.action || "",
+        title: !isUnknown(step.step_title)
+          ? step.step_title
+          : !isUnknown(step.action)
+            ? step.action
+            : `Step ${step.step_no}`,
+        action: isUnknown(step.action) ? "" : step.action,
         status: formatStepStatus(step.status),
         message: step.message || "",
         currentUrl: step.current_url || "",
@@ -195,6 +201,16 @@ export async function createTestRun({ testCaseId, promptText }) {
     promptText,
   });
 
+  return normalizeApiPayload(response);
+}
+
+export async function analyzeTestRun(runId) {
+  const response = await apiClient.post(`/test-runs/${runId}/analyze`);
+  return normalizeApiPayload(response);
+}
+
+export async function analyzeSheetRun(runId) {
+  const response = await apiClient.post(`/test-sheet-runs/${runId}/analyze`);
   return normalizeApiPayload(response);
 }
 

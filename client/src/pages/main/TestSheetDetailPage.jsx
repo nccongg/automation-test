@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -10,16 +10,19 @@ import {
   Clock,
   AlertCircle,
   History,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import {
   getTestSheet,
   addSheetItems,
   removeSheetItem,
   runTestSheet,
+  updateTestSheet,
 } from "@/features/test-collection/api/testSheetApi";
 import { getTestCases } from "@/features/test-cases/api/testCasesApi";
 import { getSheetRuns } from "@/features/test-collection/api/testSheetApi";
-import PageHeader from "@/shared/components/common/PageHeader";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import EmptyState from "@/shared/components/common/EmptyState";
@@ -133,6 +136,15 @@ export default function TestSheetDetailPage() {
   const [running, setRunning] = useState(false);
   const [removingId, setRemovingId] = useState(null);
 
+  // inline editing
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftDesc, setDraftDesc] = useState("");
+  const [saving, setSaving] = useState(false);
+  const titleInputRef = useRef(null);
+  const descInputRef = useRef(null);
+
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -156,6 +168,48 @@ export default function TestSheetDetailPage() {
   }, [sheetId, projectId]);
 
   useEffect(() => { load(); }, [load]);
+
+  function startEditTitle() {
+    setDraftTitle(sheet?.name ?? "");
+    setEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.focus(), 0);
+  }
+
+  function startEditDesc() {
+    setDraftDesc(sheet?.description ?? "");
+    setEditingDesc(true);
+    setTimeout(() => descInputRef.current?.focus(), 0);
+  }
+
+  async function saveTitle() {
+    if (!draftTitle.trim() || draftTitle === sheet?.name) {
+      setEditingTitle(false);
+      return;
+    }
+    try {
+      setSaving(true);
+      await updateTestSheet(sheetId, { name: draftTitle.trim(), description: sheet?.description });
+      setSheet((prev) => ({ ...prev, name: draftTitle.trim() }));
+    } finally {
+      setSaving(false);
+      setEditingTitle(false);
+    }
+  }
+
+  async function saveDesc() {
+    if (draftDesc === (sheet?.description ?? "")) {
+      setEditingDesc(false);
+      return;
+    }
+    try {
+      setSaving(true);
+      await updateTestSheet(sheetId, { name: sheet?.name, description: draftDesc.trim() || null });
+      setSheet((prev) => ({ ...prev, description: draftDesc.trim() || null }));
+    } finally {
+      setSaving(false);
+      setEditingDesc(false);
+    }
+  }
 
   async function handleAddItems(testCaseIds) {
     await addSheetItems(sheetId, testCaseIds);
@@ -212,26 +266,93 @@ export default function TestSheetDetailPage() {
           All Sheets
         </button>
 
-        <PageHeader
-          title={sheet?.name ?? "Test Sheet"}
-          description={sheet?.description || `${items.length} test case${items.length !== 1 ? "s" : ""}`}
-          action={
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowAddDialog(true)} className="gap-2">
-                <Plus className="size-4" />
-                Add Cases
-              </Button>
-              <Button
-                onClick={handleRun}
-                disabled={running || items.length === 0}
-                className="gap-2"
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1 space-y-1">
+            {/* Editable Title */}
+            {editingTitle ? (
+              <div className="flex items-center gap-2">
+                <input
+                  ref={titleInputRef}
+                  value={draftTitle}
+                  onChange={(e) => setDraftTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveTitle();
+                    if (e.key === "Escape") setEditingTitle(false);
+                  }}
+                  onBlur={saveTitle}
+                  className="text-2xl font-bold tracking-tight border-b-2 border-indigo-500 bg-transparent outline-none w-full min-w-0"
+                  disabled={saving}
+                />
+                <button onClick={saveTitle} className="shrink-0 text-indigo-600 hover:text-indigo-800">
+                  <Check className="size-4" />
+                </button>
+                <button onClick={() => setEditingTitle(false)} className="shrink-0 text-slate-400 hover:text-slate-600">
+                  <X className="size-4" />
+                </button>
+              </div>
+            ) : (
+              <div
+                className="group flex items-center gap-2 cursor-pointer"
+                onClick={startEditTitle}
               >
-                <Play className="size-4" />
-                {running ? "Starting..." : "Run Sheet"}
-              </Button>
-            </div>
-          }
-        />
+                <h1 className="text-2xl font-bold tracking-tight truncate">
+                  {sheet?.name ?? "Test Sheet"}
+                </h1>
+                <Pencil className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            )}
+
+            {/* Editable Description */}
+            {editingDesc ? (
+              <div className="flex items-center gap-2">
+                <input
+                  ref={descInputRef}
+                  value={draftDesc}
+                  onChange={(e) => setDraftDesc(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveDesc();
+                    if (e.key === "Escape") setEditingDesc(false);
+                  }}
+                  onBlur={saveDesc}
+                  placeholder="Add a description..."
+                  className="text-sm text-muted-foreground border-b border-indigo-400 bg-transparent outline-none w-full min-w-0"
+                  disabled={saving}
+                />
+                <button onClick={saveDesc} className="shrink-0 text-indigo-600 hover:text-indigo-800">
+                  <Check className="size-3.5" />
+                </button>
+                <button onClick={() => setEditingDesc(false)} className="shrink-0 text-slate-400 hover:text-slate-600">
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div
+                className="group flex items-center gap-1.5 cursor-pointer"
+                onClick={startEditDesc}
+              >
+                <p className="text-sm text-muted-foreground truncate">
+                  {sheet?.description || `${items.length} test case${items.length !== 1 ? "s" : ""}`}
+                </p>
+                <Pencil className="size-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex shrink-0 gap-2">
+            <Button variant="outline" onClick={() => setShowAddDialog(true)} className="gap-2">
+              <Plus className="size-4" />
+              Add Cases
+            </Button>
+            <Button
+              onClick={handleRun}
+              disabled={running || items.length === 0}
+              className="gap-2"
+            >
+              <Play className="size-4" />
+              {running ? "Starting..." : "Run Sheet"}
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Test Cases in Sheet */}

@@ -2,6 +2,7 @@
 
 const repo = require("./testSheet.repository");
 const agentService = require("../agent/agent.service");
+const { generateSheetRunAnalysis } = require("../llm/llm.service");
 
 function toInt(value) {
   const n = Number(value);
@@ -159,6 +160,42 @@ async function onTestRunCompleted(testRunId, verdict, status) {
   await repo.recalcSheetRunSummary(item.testSheetRunId);
 }
 
+async function analyzeSheetRun(runId) {
+  const { query } = require("../../config/database");
+  const detail = await getSheetRunDetail(runId);
+  const run = detail.run;
+  const items = detail.items ?? [];
+
+  // Fetch steps for each item that has a test run
+  const itemsWithSteps = await Promise.all(
+    items.map(async (item) => {
+      if (!item.testRunId) return item;
+      try {
+        const result = await query(
+          `SELECT step_no, step_title, action, status, message, thought_text, extracted_content
+           FROM public.run_step_logs
+           WHERE test_run_id = $1
+           ORDER BY step_no ASC
+           LIMIT 15`,
+          [item.testRunId]
+        );
+        return { ...item, steps: result.rows };
+      } catch {
+        return item;
+      }
+    })
+  );
+
+  return generateSheetRunAnalysis({
+    sheetName: run.sheetName || "Test Sheet",
+    totalCases: run.totalCases || 0,
+    passed: run.passed || 0,
+    failed: run.failed || 0,
+    errored: run.errored || 0,
+    items: itemsWithSteps,
+  });
+}
+
 module.exports = {
   createSheet,
   listSheets,
@@ -172,4 +209,5 @@ module.exports = {
   listSheetRuns,
   getSheetRunDetail,
   onTestRunCompleted,
+  analyzeSheetRun,
 };

@@ -165,4 +165,26 @@ router.get("/", ctrl.listSheetRuns);
  */
 router.get("/:runId", ctrl.getSheetRunDetail);
 
+/**
+ * @swagger
+ * /test-sheet-runs/{runId}/analyze:
+ *   post:
+ *     summary: Generate LLM conclusion and suggestions for a test sheet run
+ *     tags: [Test Sheet Runs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: runId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: AI-generated conclusion and suggestions
+ *       404:
+ *         description: Test sheet run not found
+ */
+router.post("/:runId/analyze", ctrl.analyzeSheetRun);
+
 module.exports = router;

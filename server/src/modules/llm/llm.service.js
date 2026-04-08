@@ -162,8 +162,151 @@ Return ONLY JSON.
   };
 }
 
+/**
+ * Generate an LLM conclusion + suggestions for a completed test run.
+ *
+ * @param {{ goal: string, verdict: string, steps: Array }} runData
+ * @returns {Promise<{ conclusion: string, suggestions: string[] }>}
+ */
+async function generateRunAnalysis({ goal, verdict, steps = [] }) {
+  const stepSummary = steps
+    .slice(0, 40)
+    .map((s, i) => {
+      const status = s.status || "unknown";
+      const title = s.step_title || s.title || `Step ${i + 1}`;
+      const parts = [`${i + 1}. [${status.toUpperCase()}] ${title}`];
+      if (s.message) parts.push(`  Error: ${String(s.message).slice(0, 300)}`);
+      if (s.thought_text) parts.push(`  Thought: ${String(s.thought_text).slice(0, 200)}`);
+      if (s.extracted_content) parts.push(`  Extracted: ${String(s.extracted_content).slice(0, 200)}`);
+      return parts.join("\n");
+    })
+    .join("\n");
+
+  const messages = [
+    {
+      role: "system",
+      content: `You are a senior QA engineer reviewing automated browser test results.
+Given the test goal, final verdict, and detailed step log (including error messages, agent thoughts, and extracted content), produce a concise analysis.
+
+Return ONLY valid JSON in this exact shape — no markdown, no explanation:
+{
+  "conclusion": "1-3 sentence summary of what happened and the overall result",
+  "suggestions": ["actionable suggestion 1", "actionable suggestion 2", "actionable suggestion 3"]
+}
+
+Rules:
+- conclusion must mention the verdict (pass/fail/error) and reference specific failure reasons from the step log.
+- suggestions must be specific and actionable based on the actual errors seen (max 5 items).
+- Do NOT wrap the JSON in code fences.`,
+    },
+    {
+      role: "user",
+      content: `Test Goal: ${goal || "Not specified"}
+Verdict: ${verdict || "unknown"}
+
+Step Log:
+${stepSummary || "No steps recorded."}
+
+Analyze the run and return JSON.`,
+    },
+  ];
+
+  const raw = await generateFromLLM(messages, { maxOutputTokens: 512 });
+  const parsed = cleanJSON(raw);
+
+  if (!parsed || typeof parsed.conclusion !== "string") {
+    return {
+      conclusion: "Analysis could not be generated — the LLM returned an unexpected response.",
+      suggestions: [],
+    };
+  }
+
+  return {
+    conclusion: parsed.conclusion,
+    suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 5) : [],
+  };
+}
+
+/**
+ * Generate an LLM conclusion + suggestions for a completed test sheet run.
+ *
+ * @param {{ sheetName: string, totalCases: number, passed: number, failed: number, errored: number, items: Array }} sheetRunData
+ * @returns {Promise<{ conclusion: string, suggestions: string[] }>}
+ */
+async function generateSheetRunAnalysis({ sheetName, totalCases, passed, failed, errored = 0, items = [] }) {
+  const caseSummary = items
+    .slice(0, 20)
+    .map((item, i) => {
+      const verdict = item.verdict || item.status || "unknown";
+      const title = item.title || `Case ${i + 1}`;
+      const goal = item.goal ? ` — Goal: ${String(item.goal).slice(0, 100)}` : "";
+      const lines = [`${i + 1}. [${verdict.toUpperCase()}] ${title}${goal}`];
+
+      const steps = Array.isArray(item.steps) ? item.steps : [];
+      steps.slice(0, 10).forEach((s, si) => {
+        const stepStatus = s.status || "unknown";
+        const stepTitle = s.step_title || `Step ${si + 1}`;
+        const stepLine = [`  ${si + 1}. [${stepStatus.toUpperCase()}] ${stepTitle}`];
+        if (s.message) stepLine.push(`Error: ${String(s.message).slice(0, 250)}`);
+        if (s.thought_text) stepLine.push(`Thought: ${String(s.thought_text).slice(0, 150)}`);
+        lines.push(stepLine.join(" | "));
+      });
+
+      return lines.join("\n");
+    })
+    .join("\n\n");
+
+  const passRate = totalCases > 0 ? Math.round((passed / totalCases) * 100) : 0;
+
+  const messages = [
+    {
+      role: "system",
+      content: `You are a senior QA engineer reviewing batch test sheet results.
+Given the sheet summary, per-case verdicts, and the step-level details (including error messages and agent thoughts) for each test case, produce a concise analysis.
+
+Return ONLY valid JSON in this exact shape — no markdown, no explanation:
+{
+  "conclusion": "1-3 sentence summary covering overall quality and key findings",
+  "suggestions": ["actionable suggestion 1", "actionable suggestion 2", "actionable suggestion 3"]
+}
+
+Rules:
+- conclusion must mention pass rate and highlight specific failure reasons seen in the step logs.
+- suggestions must be specific and actionable based on the actual errors (max 5 items).
+- Do NOT wrap the JSON in code fences.`,
+    },
+    {
+      role: "user",
+      content: `Sheet: ${sheetName || "Test Sheet"}
+Total: ${totalCases} | Passed: ${passed} | Failed: ${failed} | Errored: ${errored} | Pass Rate: ${passRate}%
+
+Test Case Results with Steps:
+${caseSummary || "No cases recorded."}
+
+Analyze the sheet run and return JSON.`,
+    },
+  ];
+
+  const raw = await generateFromLLM(messages, { maxOutputTokens: 512 });
+  const parsed = cleanJSON(raw);
+
+  if (!parsed || typeof parsed.conclusion !== "string") {
+    return {
+      conclusion: "Analysis could not be generated — the LLM returned an unexpected response.",
+      suggestions: [],
+    };
+  }
+
+  return {
+    conclusion: parsed.conclusion,
+    suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 5) : [],
+  };
+}
+
 module.exports = {
   generateTestCases,
   generateFromLLM,
   _buildScanContext,
+  generateRunAnalysis,
+  generateSheetRunAnalysis,
 };

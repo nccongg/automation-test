@@ -144,4 +144,26 @@ router.post("/", testRunController.createTestRun);
  */
 router.post("/:id/replay", testRunController.replayTestRun);
 
+/**
+ * @swagger
+ * /test-runs/{id}/analyze:
+ *   post:
+ *     summary: Generate LLM conclusion and suggestions for a test run
+ *     tags: [Test Runs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: AI-generated conclusion and suggestions
+ *       404:
+ *         description: Test run not found
+ */
+router.post("/:id/analyze", testRunController.analyzeTestRun);
+
 module.exports = router;

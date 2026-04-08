@@ -7,9 +7,12 @@ import {
   AlertTriangle,
   Clock,
   ChevronDown,
+  Sparkles,
+  Lightbulb,
 } from "lucide-react";
 import { useTestSheetRun } from "@/features/test-collection/hooks/useTestSheetRun";
-import { getTestRunDetail } from "@/features/test-results/api/testResultsApi";
+import { getTestRunDetail, analyzeSheetRun } from "@/features/test-results/api/testResultsApi";
+import { parseAgentError } from "@/shared/utils/parseAgentError";
 import PageHeader from "@/shared/components/common/PageHeader";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
@@ -37,6 +40,40 @@ function getStepStyle(status) {
   return { node: "bg-slate-300 ring-slate-100", tag: "bg-slate-100 text-slate-500" };
 }
 
+/* ─── Step Error Message ──────────────────────────────────────────────────── */
+
+const ERROR_CATEGORY_STYLE = {
+  "Invalid API Key":       "bg-red-50 border-red-200 text-red-700",
+  "Rate Limit Exceeded":   "bg-orange-50 border-orange-200 text-orange-700",
+  "Authentication Failed": "bg-red-50 border-red-200 text-red-700",
+  "Permission Denied":     "bg-yellow-50 border-yellow-200 text-yellow-700",
+  "Not Found":             "bg-slate-50 border-slate-200 text-slate-600",
+  "Invalid Request":       "bg-orange-50 border-orange-200 text-orange-700",
+  "Server Error":          "bg-red-50 border-red-200 text-red-700",
+  "Timeout":               "bg-yellow-50 border-yellow-200 text-yellow-700",
+  "Connection Error":      "bg-yellow-50 border-yellow-200 text-yellow-700",
+  "Element Not Found":     "bg-orange-50 border-orange-200 text-orange-700",
+  "Navigation Failed":     "bg-orange-50 border-orange-200 text-orange-700",
+};
+
+function StepErrorMessage({ raw }) {
+  const parsed = parseAgentError(raw);
+  if (parsed) {
+    const style = ERROR_CATEGORY_STYLE[parsed.category] ?? "bg-slate-50 border-slate-200 text-slate-600";
+    return (
+      <div className={`flex flex-col gap-1 rounded-lg border px-3 py-2 text-xs ${style}`}>
+        <span className="font-semibold">{parsed.category}</span>
+        <span className="text-slate-600">{parsed.brief}</span>
+      </div>
+    );
+  }
+  return (
+    <p className="text-xs text-slate-500 break-all">
+      <span className="text-slate-400">Message: </span>{raw}
+    </p>
+  );
+}
+
 /* ─── Step Item ───────────────────────────────────────────────────────────── */
 
 function StepItem({ step, stepIndex, isLast }) {
@@ -59,7 +96,7 @@ function StepItem({ step, stepIndex, isLast }) {
         {(step.action || step.message || step.currentUrl) && (
           <div className="mt-2 space-y-1.5 text-sm text-slate-600">
             {step.action && <p><span className="text-slate-400">Action: </span>{step.action}</p>}
-            {step.message && <p><span className="text-slate-400">Message: </span>{step.message}</p>}
+            {step.message && <StepErrorMessage raw={step.message} />}
             {step.currentUrl && (
               <p>
                 <span className="text-slate-400">URL: </span>
@@ -205,6 +242,107 @@ function TestCaseItem({ item, idx, isExpanded, onToggle, stepData }) {
   );
 }
 
+/* ─── AI Analysis ─────────────────────────────────────────────────────────── */
+
+function AiAnalysisSection({ runId, isLive }) {
+  const [analysis, setAnalysis] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState("");
+
+  async function handleAnalyze() {
+    setAnalyzing(true);
+    setAnalysisError("");
+    try {
+      const result = await analyzeSheetRun(runId);
+      setAnalysis(result);
+    } catch (e) {
+      setAnalysisError(e?.message || "Failed to generate analysis.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border bg-white shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <Sparkles className="size-4 text-violet-500" />
+          <h2 className="text-sm font-semibold text-slate-700">AI Analysis</h2>
+        </div>
+        {!analysis && (
+          <button
+            onClick={handleAnalyze}
+            disabled={analyzing || isLive}
+            className="flex items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {analyzing ? (
+              <>
+                <span className="size-3 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
+                Analyzing…
+              </>
+            ) : (
+              <>
+                <Sparkles className="size-3" />
+                {isLive ? "Run must complete first" : "Generate Analysis"}
+              </>
+            )}
+          </button>
+        )}
+        {analysis && (
+          <button
+            onClick={() => { setAnalysis(null); setAnalysisError(""); }}
+            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            Regenerate
+          </button>
+        )}
+      </div>
+
+      <div className="px-5 py-4">
+        {!analysis && !analyzing && !analysisError && (
+          <p className="text-sm text-muted-foreground">
+            {isLive
+              ? "Analysis will be available once the sheet run completes."
+              : "Click \"Generate Analysis\" to get an AI-powered conclusion and actionable suggestions based on all test case results."}
+          </p>
+        )}
+
+        {analysisError && (
+          <p className="text-sm text-red-500">{analysisError}</p>
+        )}
+
+        {analysis && (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-violet-50 border border-violet-100 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-violet-400 mb-1.5">Conclusion</p>
+              <p className="text-sm text-slate-700 leading-relaxed">{analysis.conclusion}</p>
+            </div>
+
+            {analysis.suggestions?.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Lightbulb className="size-3.5 text-amber-500" />
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Suggestions</p>
+                </div>
+                <ul className="space-y-2">
+                  {analysis.suggestions.map((s, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-sm text-slate-600">
+                      <span className="mt-0.5 flex-shrink-0 size-5 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-[10px] font-bold text-amber-600">
+                        {i + 1}
+                      </span>
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 /* ─── Page ────────────────────────────────────────────────────────────────── */
 
 export default function TestSheetRunDetailPage() {
@@ -341,6 +479,9 @@ export default function TestSheetRunDetailPage() {
           />
         </div>
       </div>
+
+      {/* AI Analysis */}
+      <AiAnalysisSection runId={runId} isLive={isLive} />
 
       {/* Test Case Items */}
       <section>

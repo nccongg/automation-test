@@ -4,6 +4,7 @@ import { LayoutList, Sheet, ChevronDown, CheckCircle2, XCircle, Clock } from "lu
 import { useTestResults } from "@/features/test-results/hooks/useTestResults";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
+import { parseAgentError } from "@/shared/utils/parseAgentError";
 
 /* ─── Helpers ─────────────────────────────────────────────────────────── */
 
@@ -49,6 +50,38 @@ function getStepStyle(status) {
 
 /* ─── Step Item ───────────────────────────────────────────────────────── */
 
+const ERROR_CATEGORY_STYLE = {
+  "Invalid API Key":       "bg-red-50 border-red-200 text-red-700",
+  "Rate Limit Exceeded":   "bg-orange-50 border-orange-200 text-orange-700",
+  "Authentication Failed": "bg-red-50 border-red-200 text-red-700",
+  "Permission Denied":     "bg-yellow-50 border-yellow-200 text-yellow-700",
+  "Not Found":             "bg-slate-50 border-slate-200 text-slate-600",
+  "Invalid Request":       "bg-orange-50 border-orange-200 text-orange-700",
+  "Server Error":          "bg-red-50 border-red-200 text-red-700",
+  "Timeout":               "bg-yellow-50 border-yellow-200 text-yellow-700",
+  "Connection Error":      "bg-yellow-50 border-yellow-200 text-yellow-700",
+  "Element Not Found":     "bg-orange-50 border-orange-200 text-orange-700",
+  "Navigation Failed":     "bg-orange-50 border-orange-200 text-orange-700",
+};
+
+function StepErrorMessage({ raw }) {
+  const parsed = parseAgentError(raw);
+  if (parsed) {
+    const style = ERROR_CATEGORY_STYLE[parsed.category] ?? "bg-slate-50 border-slate-200 text-slate-600";
+    return (
+      <div className={`flex flex-col gap-1 rounded-lg border px-3 py-2 text-xs ${style}`}>
+        <span className="font-semibold">{parsed.category}</span>
+        <span className="text-slate-600">{parsed.brief}</span>
+      </div>
+    );
+  }
+  return (
+    <p className="text-xs text-slate-500 break-all">
+      <span className="text-slate-400">Message: </span>{raw}
+    </p>
+  );
+}
+
 function StepItem({ step, stepIndex, isLast }) {
   const style = getStepStyle(step.status);
   return (
@@ -69,7 +102,7 @@ function StepItem({ step, stepIndex, isLast }) {
         {(step.action || step.message || step.currentUrl) && (
           <div className="mt-2 space-y-1.5 text-sm text-slate-600">
             {step.action && <p><span className="text-slate-400">Action: </span>{step.action}</p>}
-            {step.message && <p><span className="text-slate-400">Message: </span>{step.message}</p>}
+            {step.message && <StepErrorMessage raw={step.message} />}
             {step.currentUrl && (
               <p>
                 <span className="text-slate-400">URL: </span>

@@ -35,7 +35,8 @@ export function useTestResults(projectId) {
         if (!mounted) return;
 
         if (runsResult.status === 'fulfilled') {
-          setIndividualRuns(runsResult.value?.recentRuns ?? []);
+          const allRuns = runsResult.value?.recentRuns ?? [];
+          setIndividualRuns(allRuns.filter((r) => !r.fromSheet));
           setError('');
         } else {
           console.error('[useTestResults] individual runs fetch failed:', runsResult.reason);

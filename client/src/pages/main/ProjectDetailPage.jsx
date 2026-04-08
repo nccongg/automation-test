@@ -61,7 +61,7 @@ export default function ProjectDetailPage() {
   }
 
   return (
-    <div className="flex gap-6 max-h-screen overflow-hidden">
+    <div className="flex gap-6">
       <aside
         className={`sticky top-0 self-start shrink-0 rounded-xl border bg-white p-2 transition-all duration-300 ease-in-out overflow-y-auto ${
           isSidebarCollapsed ? "w-16" : "w-64"
@@ -172,7 +172,7 @@ export default function ProjectDetailPage() {
         </nav>
       </aside>
 
-      <main className="min-w-0 flex-1 overflow-y-auto">
+      <main className="min-w-0 flex-1">
         <Outlet
           context={{
             project: data,

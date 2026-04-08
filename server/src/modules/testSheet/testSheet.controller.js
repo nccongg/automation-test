@@ -177,6 +177,19 @@ async function getSheetRunDetail(req, res, next) {
   }
 }
 
+async function analyzeSheetRun(req, res, next) {
+  try {
+    const runId = toInt(req.params?.runId);
+    if (!runId) {
+      return res.status(400).json({ success: false, message: "runId must be a positive integer" });
+    }
+    const data = await service.analyzeSheetRun(runId);
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listSheets,
   createSheet,
@@ -189,4 +202,5 @@ module.exports = {
   runSheet,
   listSheetRuns,
   getSheetRunDetail,
+  analyzeSheetRun,
 };
