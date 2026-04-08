@@ -536,9 +536,37 @@ async function saveCandidatesAsTestCases({
   }
 }
 
+async function updateTestCase(userId, testCaseId, { title, goal, status }) {
+  const result = await pool.query(
+    `
+      UPDATE test_cases tc
+      SET
+        title      = COALESCE($3, title),
+        goal       = COALESCE($4, goal),
+        status     = COALESCE($5, status),
+        updated_at = NOW()
+      FROM projects p
+      WHERE tc.id = $1
+        AND tc.project_id = p.id
+        AND p.user_id = $2
+        AND tc.deleted_at IS NULL
+      RETURNING
+        tc.id,
+        tc.title,
+        tc.goal,
+        tc.status,
+        tc.updated_at AS "updatedAt"
+    `,
+    [testCaseId, userId, title ?? null, goal ?? null, status ?? null]
+  );
+
+  return result.rows[0] || null;
+}
+
 module.exports = {
   findOwnedProjectById,
   getTestCases,
   createGenerationBatchWithCandidates,
   saveCandidatesAsTestCases,
+  updateTestCase,
 };

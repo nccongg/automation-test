@@ -30,6 +30,15 @@ export async function generateTestCase(promptText, projectId) {
   return response?.data ?? response;
 }
 
+export async function updateTestCase(testCaseId, { title, goal, status }) {
+  const response = await apiClient.put(`/test-cases/${testCaseId}`, {
+    title,
+    goal,
+    status,
+  });
+  return response?.data ?? response;
+}
+
 export async function saveTestCases({
   projectId,
   batchId,

@@ -324,7 +324,7 @@ export default function TestSheetRunDetailPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Total" value={run.totalCases} color="bg-white" />
         <StatCard label="Passed" value={run.passed} color="bg-emerald-50 border-emerald-200" />
-        <StatCard label="Failed" value={run.failed} color="bg-red-50 border-red-200" />
+        <StatCard label="Failed" value={(run.failed ?? 0) + (run.errored ?? 0)} color="bg-red-50 border-red-200" />
         <StatCard label="Pass Rate" value={`${passRate}%`} color="bg-indigo-50 border-indigo-200" />
       </div>
 

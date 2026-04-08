@@ -227,8 +227,44 @@ async function saveTestCases(
   });
 }
 
+const ALLOWED_STATUSES = new Set(["draft", "ready", "archived"]);
+
+async function updateTestCase(userId, testCaseId, { title, goal, status }) {
+  assertUser(userId);
+
+  const id = toPositiveInt(testCaseId, "testCaseId");
+
+  const trimmedTitle = title !== undefined ? String(title).trim() : undefined;
+  const trimmedGoal = goal !== undefined ? String(goal).trim() : undefined;
+
+  if (trimmedTitle !== undefined && !trimmedTitle) {
+    throw { status: 400, message: "title cannot be empty" };
+  }
+
+  if (trimmedGoal !== undefined && !trimmedGoal) {
+    throw { status: 400, message: "goal cannot be empty" };
+  }
+
+  if (status !== undefined && !ALLOWED_STATUSES.has(status)) {
+    throw { status: 400, message: "status must be draft, ready, or archived" };
+  }
+
+  const updated = await testCaseRepository.updateTestCase(userId, id, {
+    title: trimmedTitle,
+    goal: trimmedGoal,
+    status,
+  });
+
+  if (!updated) {
+    throw { status: 404, message: "Test case not found or access denied" };
+  }
+
+  return updated;
+}
+
 module.exports = {
   getTestCases,
   generateTestCases,
   saveTestCases,
+  updateTestCase,
 };

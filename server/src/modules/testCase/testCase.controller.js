@@ -107,8 +107,27 @@ async function saveTestCases(req, res, next) {
   }
 }
 
+async function updateTestCase(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const testCaseId = Number(req.params.id);
+    const { title, goal, status } = req.body;
+
+    const updated = await testCaseService.updateTestCase(userId, testCaseId, {
+      title,
+      goal,
+      status,
+    });
+
+    res.json({ status: "ok", data: updated });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getTestCases,
   generateTestCases,
   saveTestCases,
+  updateTestCase,
 };
