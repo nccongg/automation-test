@@ -211,7 +211,7 @@ export async function analyzeTestRun(runId) {
 }
 
 export async function analyzeSheetRun(runId) {
-  const response = await apiClient.post(`/test-sheet-runs/${runId}/analyze`);
+  const response = await apiClient.post(`/test-suite-runs/${runId}/analyze`);
   return normalizeApiPayload(response);
 }
 
