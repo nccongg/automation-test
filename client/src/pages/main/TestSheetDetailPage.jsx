@@ -18,6 +18,7 @@ import {
   getTestSheet,
   addSheetItems,
   removeSheetItem,
+  reorderSheetItems,
   runTestSheet,
   updateTestSheet,
 } from "@/features/test-collection/api/testSheetApi";
@@ -137,6 +138,10 @@ export default function TestSuiteDetailPage() {
   const [runningCaseId, setRunningCaseId] = useState(null);
   const [removingId, setRemovingId] = useState(null);
 
+  // drag-and-drop reorder
+  const dragIndexRef = useRef(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+
   // inline editing
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
@@ -224,6 +229,42 @@ export default function TestSuiteDetailPage() {
       load();
     } finally {
       setRemovingId(null);
+    }
+  }
+
+  function handleDragStart(index) {
+    dragIndexRef.current = index;
+  }
+
+  function handleDragOver(e, index) {
+    e.preventDefault();
+    setDragOverIndex(index);
+  }
+
+  function handleDragLeave() {
+    setDragOverIndex(null);
+  }
+
+  async function handleDrop(e, dropIndex) {
+    e.preventDefault();
+    setDragOverIndex(null);
+    const dragIndex = dragIndexRef.current;
+    if (dragIndex === null || dragIndex === dropIndex) return;
+
+    const reordered = [...items];
+    const [moved] = reordered.splice(dragIndex, 1);
+    reordered.splice(dropIndex, 0, moved);
+    setItems(reordered);
+    dragIndexRef.current = null;
+
+    try {
+      await reorderSheetItems(
+        sheetId,
+        reordered.map((item, idx) => ({ id: item.id, order: idx + 1 }))
+      );
+    } catch {
+      // revert on failure
+      load();
     }
   }
 
@@ -383,12 +424,30 @@ export default function TestSuiteDetailPage() {
           />
         ) : (
           <div className="rounded-xl border bg-white divide-y">
-            {items.map((item) => (
+            {items.map((item, index) => (
               <div
                 key={item.id}
-                className="group flex items-center gap-3 p-4 hover:bg-slate-50"
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, index)}
+                className={[
+                  "group flex items-center gap-3 p-4 transition-colors",
+                  dragOverIndex === index
+                    ? "bg-indigo-50 border-indigo-200"
+                    : "hover:bg-slate-50",
+                  dragIndexRef.current === index ? "opacity-40" : "",
+                ].join(" ")}
               >
-                <GripVertical className="size-4 shrink-0 text-muted-foreground/40" />
+                {/* Drag handle */}
+                <GripVertical className="size-4 shrink-0 text-muted-foreground/40 cursor-grab active:cursor-grabbing" />
+
+                {/* Sequence number */}
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-500 select-none">
+                  {index + 1}
+                </span>
+
                 <div
                   className="min-w-0 flex-1 cursor-pointer"
                   onClick={() => navigate(`/projects/${projectId}/test-cases/${item.testCaseId}`)}

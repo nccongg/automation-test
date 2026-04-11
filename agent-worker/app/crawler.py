@@ -105,7 +105,7 @@ class SiteCrawler:
             login_url = urljoin(self.base_url, login_url)
 
         logger.info("Form login: navigating to %s", login_url)
-        await page.goto(login_url, wait_until="networkidle", timeout=20_000)
+        await page.goto(login_url, wait_until="domcontentloaded", timeout=30_000)
         logger.info("Form login: page loaded, filling credentials")
 
         await page.fill(auth["usernameSelector"], auth["username"])
@@ -162,7 +162,7 @@ class SiteCrawler:
 
         try:
             logger.debug("Navigating to %s", normalized)
-            await page.goto(normalized, wait_until="networkidle", timeout=15_000)
+            await page.goto(normalized, wait_until="domcontentloaded", timeout=30_000)
             logger.debug("Page loaded successfully")
         except Exception as exc:
             logger.warning("Failed to load %s: %s", normalized, exc)

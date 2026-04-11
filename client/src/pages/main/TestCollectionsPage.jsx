@@ -1,8 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Plus, Tag, ChevronRight, Trash2, Hash } from "lucide-react";
+import {
+  Plus,
+  Tag,
+  ChevronDown,
+  Trash2,
+  ExternalLink,
+  Loader2,
+  FolderOpen,
+} from "lucide-react";
 import {
   getCollections,
+  getCollection,
   createCollection,
   deleteCollection,
 } from "@/features/test-collection/api/testCollectionApi";
@@ -10,6 +19,7 @@ import PageHeader from "@/shared/components/common/PageHeader";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import EmptyState from "@/shared/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -19,21 +29,27 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-// ─── Color palette for collections ───────────────────────────────────────────
+// ─── Color palette ────────────────────────────────────────────────────────────
 
 const COLOR_OPTIONS = [
-  { key: "indigo",  bg: "bg-indigo-100",  text: "text-indigo-700",  dot: "bg-indigo-500",  ring: "ring-indigo-300"  },
-  { key: "emerald", bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500", ring: "ring-emerald-300" },
-  { key: "rose",    bg: "bg-rose-100",    text: "text-rose-700",    dot: "bg-rose-500",    ring: "ring-rose-300"    },
-  { key: "amber",   bg: "bg-amber-100",   text: "text-amber-700",   dot: "bg-amber-500",   ring: "ring-amber-300"   },
-  { key: "violet",  bg: "bg-violet-100",  text: "text-violet-700",  dot: "bg-violet-500",  ring: "ring-violet-300"  },
-  { key: "cyan",    bg: "bg-cyan-100",    text: "text-cyan-700",    dot: "bg-cyan-500",    ring: "ring-cyan-300"    },
-  { key: "slate",   bg: "bg-slate-100",   text: "text-slate-700",   dot: "bg-slate-500",   ring: "ring-slate-300"   },
+  { key: "indigo",  bg: "bg-indigo-100",  text: "text-indigo-700",  dot: "bg-indigo-500",  ring: "ring-indigo-300",  border: "border-indigo-200"  },
+  { key: "emerald", bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500", ring: "ring-emerald-300", border: "border-emerald-200" },
+  { key: "rose",    bg: "bg-rose-100",    text: "text-rose-700",    dot: "bg-rose-500",    ring: "ring-rose-300",    border: "border-rose-200"    },
+  { key: "amber",   bg: "bg-amber-100",   text: "text-amber-700",   dot: "bg-amber-500",   ring: "ring-amber-300",   border: "border-amber-200"   },
+  { key: "violet",  bg: "bg-violet-100",  text: "text-violet-700",  dot: "bg-violet-500",  ring: "ring-violet-300",  border: "border-violet-200"  },
+  { key: "cyan",    bg: "bg-cyan-100",    text: "text-cyan-700",    dot: "bg-cyan-500",    ring: "ring-cyan-300",    border: "border-cyan-200"    },
+  { key: "slate",   bg: "bg-slate-100",   text: "text-slate-700",   dot: "bg-slate-500",   ring: "ring-slate-300",   border: "border-slate-200"   },
 ];
 
 function getColor(key) {
   return COLOR_OPTIONS.find((c) => c.key === key) ?? COLOR_OPTIONS[0];
 }
+
+const STATUS_BADGE = {
+  ready:    "bg-emerald-100 text-emerald-700",
+  draft:    "bg-slate-100 text-slate-600",
+  archived: "bg-amber-100 text-amber-700",
+};
 
 // ─── Create Dialog ────────────────────────────────────────────────────────────
 
@@ -71,7 +87,6 @@ function CreateCollectionDialog({ open, onClose, onCreated, projectId }) {
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           {err && <p className="text-sm text-red-600">{err}</p>}
-
           <div className="space-y-1.5">
             <Label htmlFor="col-name">Name</Label>
             <Input
@@ -82,7 +97,6 @@ function CreateCollectionDialog({ open, onClose, onCreated, projectId }) {
               required
             />
           </div>
-
           <div className="space-y-1.5">
             <Label htmlFor="col-desc">Description (optional)</Label>
             <Input
@@ -92,7 +106,6 @@ function CreateCollectionDialog({ open, onClose, onCreated, projectId }) {
               placeholder="What does this collection cover?"
             />
           </div>
-
           <div className="space-y-2">
             <Label>Color</Label>
             <div className="flex flex-wrap gap-2">
@@ -108,11 +121,8 @@ function CreateCollectionDialog({ open, onClose, onCreated, projectId }) {
               ))}
             </div>
           </div>
-
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={saving || !name.trim()}>
               {saving ? "Creating..." : "Create Collection"}
             </Button>
@@ -120,6 +130,150 @@ function CreateCollectionDialog({ open, onClose, onCreated, projectId }) {
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ─── Collection Row (collapsible) ─────────────────────────────────────────────
+
+function CollectionRow({ col, projectId, onDelete, deletingId, navigate }) {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState(null); // null = not yet loaded
+  const [loadingItems, setLoadingItems] = useState(false);
+  const c = getColor(col.color);
+
+  async function toggle() {
+    const next = !open;
+    setOpen(next);
+    if (next && items === null) {
+      try {
+        setLoadingItems(true);
+        const data = await getCollection(col.id);
+        setItems(data?.items ?? []);
+      } catch {
+        setItems([]);
+      } finally {
+        setLoadingItems(false);
+      }
+    }
+  }
+
+  return (
+    <div className={`rounded-xl border bg-white overflow-hidden transition-shadow ${open ? "shadow-sm" : ""}`}>
+      {/* Header row */}
+      <div className="group flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 transition-colors">
+        {/* Clickable toggle area */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={toggle}
+          onKeyDown={(e) => e.key === "Enter" && toggle()}
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3"
+        >
+          {/* Color dot */}
+          <span className={`size-2.5 shrink-0 rounded-full ${c.dot}`} />
+
+          {/* Name badge */}
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${c.bg} ${c.text} shrink-0`}>
+            <Tag className="size-3" />
+            {col.name}
+          </span>
+
+          {/* Description */}
+          {col.description && (
+            <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+              {col.description}
+            </span>
+          )}
+          {!col.description && <span className="flex-1" />}
+        </div>
+
+        {/* Item count */}
+        <span className="shrink-0 text-xs text-muted-foreground mr-1">
+          {col.itemCount ?? 0} case{col.itemCount !== 1 ? "s" : ""}
+        </span>
+
+        {/* Delete */}
+        <button
+          type="button"
+          onClick={(e) => onDelete(e, col.id)}
+          disabled={deletingId === col.id}
+          title="Delete collection"
+          className="shrink-0 rounded-lg p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 transition-all disabled:opacity-50"
+        >
+          <Trash2 className="size-3.5" />
+        </button>
+
+        {/* Open in detail */}
+        <button
+          type="button"
+          onClick={() => navigate(`/projects/${projectId}/collections/${col.id}`)}
+          title="Open full view"
+          className="shrink-0 rounded-lg p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-slate-100 transition-all"
+        >
+          <ExternalLink className="size-3.5" />
+        </button>
+
+        {/* Chevron toggle */}
+        <button
+          type="button"
+          onClick={toggle}
+          className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-slate-100 transition-colors"
+        >
+          <ChevronDown
+            className={`size-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
+
+      {/* Expandable content */}
+      {open && (
+        <div className={`border-t ${c.border}`}>
+          {loadingItems ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : items === null || items.length === 0 ? (
+            <div className="flex flex-col items-center gap-1 py-6 text-center">
+              <FolderOpen className="size-5 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">No test cases yet</p>
+              <button
+                onClick={() => navigate(`/projects/${projectId}/collections/${col.id}`)}
+                className={`mt-1 text-xs font-medium ${c.text} hover:underline`}
+              >
+                Add cases →
+              </button>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  className="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer"
+                  onClick={() => navigate(`/projects/${projectId}/test-cases/${item.testCaseId}`)}
+                >
+                  <div className={`h-7 w-0.5 shrink-0 rounded-full ${c.dot}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate group-hover:text-indigo-600 transition-colors">
+                      {item.title}
+                    </p>
+                    {item.goal && (
+                      <p className="text-xs text-muted-foreground truncate">{item.goal}</p>
+                    )}
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`shrink-0 capitalize text-xs ${STATUS_BADGE[item.status] ?? "bg-slate-100 text-slate-600"}`}
+                  >
+                    {item.status}
+                  </Badge>
+                  <ExternalLink className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -184,7 +338,7 @@ export default function TestCollectionsPage() {
       />
 
       {/* Info banner */}
-      <div className="flex items-start gap-3 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
+      {/* <div className="flex items-start gap-3 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
         <Hash className="mt-0.5 size-4 shrink-0" />
         <p>
           Collections are <span className="font-semibold">organize-only</span> — they group test cases like labels or folders.
@@ -196,11 +350,9 @@ export default function TestCollectionsPage() {
             Test Suites
           </button>.
         </p>
-      </div>
+      </div> */}
 
-      {error && (
-        <p className="text-sm text-red-500">{error}</p>
-      )}
+      {error && <p className="text-sm text-red-500">{error}</p>}
 
       {collections.length === 0 ? (
         <EmptyState
@@ -208,56 +360,17 @@ export default function TestCollectionsPage() {
           description="Create a collection to label and organize your test cases by feature, area, or category"
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {collections.map((col) => {
-            const c = getColor(col.color);
-            return (
-              <div
-                key={col.id}
-                onClick={() => navigate(`/projects/${projectId}/collections/${col.id}`)}
-                className="group relative flex cursor-pointer flex-col gap-3 rounded-xl border bg-white p-5 transition-all hover:shadow-md hover:-translate-y-0.5"
-              >
-                {/* Color bar */}
-                <div className={`absolute left-0 top-0 h-full w-1 rounded-l-xl ${c.dot}`} />
-
-                <div className="flex items-start justify-between gap-2 pl-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${c.bg} ${c.text}`}>
-                        <Tag className="size-3" />
-                        {col.name}
-                      </span>
-                    </div>
-                    {col.description && (
-                      <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
-                        {col.description}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      onClick={(e) => handleDelete(e, col.id)}
-                      disabled={deletingId === col.id}
-                      className="rounded-lg p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 transition-all"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                    <ChevronRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </div>
-
-                <div className="pl-2">
-                  <span className="text-sm font-semibold text-slate-700">
-                    {col.itemCount ?? 0}
-                  </span>
-                  <span className="ml-1 text-xs text-muted-foreground">
-                    test case{col.itemCount !== 1 ? "s" : ""}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+        <div className="space-y-2">
+          {collections.map((col) => (
+            <CollectionRow
+              key={col.id}
+              col={col}
+              projectId={projectId}
+              onDelete={handleDelete}
+              deletingId={deletingId}
+              navigate={navigate}
+            />
+          ))}
         </div>
       )}
 
