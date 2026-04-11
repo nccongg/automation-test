@@ -18,7 +18,28 @@ export async function getTestCases(projectId) {
 
 export async function getTestCaseById(testCaseId) {
   const response = await apiClient.get(`/test-cases/${testCaseId}`);
-  return response?.data ?? response ?? null;
+  const raw = response?.data?.data ?? response?.data ?? response ?? null;
+  return raw;
+}
+
+export async function getTestCaseRuns(testCaseId) {
+  const response = await apiClient.get(`/test-cases/${testCaseId}/runs`);
+  const raw = response?.data?.data ?? response?.data ?? response ?? null;
+  return Array.isArray(raw) ? raw : [];
+}
+
+export async function refineTestCase(testCaseId, prompt) {
+  const response = await apiClient.post(`/test-cases/${testCaseId}/refine`, { prompt });
+  const raw = response?.data?.data ?? response?.data ?? response ?? null;
+  return raw;
+}
+
+export async function applyRefinement(testCaseId, { title, goal, steps, expectedResult, promptText }) {
+  const response = await apiClient.post(`/test-cases/${testCaseId}/apply-refinement`, {
+    title, goal, steps, expectedResult, promptText,
+  });
+  const raw = response?.data?.data ?? response?.data ?? response ?? null;
+  return raw;
 }
 
 export async function generateTestCase(promptText, projectId) {

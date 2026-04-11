@@ -335,6 +335,14 @@ router.post("/save", ctrl.saveTestCases);
  *       404:
  *         description: Test case not found or access denied
  */
+router.get("/:id", ctrl.getTestCaseById);
+
+router.get("/:id/runs", ctrl.getRunsByTestCaseId);
+
+router.post("/:id/refine", ctrl.refineTestCase);
+
+router.post("/:id/apply-refinement", ctrl.applyRefinement);
+
 router.put("/:id", ctrl.updateTestCase);
 
 module.exports = router;

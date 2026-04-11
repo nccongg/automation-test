@@ -80,17 +80,26 @@ async function reorderItems(sheetId, userId, orders) {
 
 // ─── Sheet Run ────────────────────────────────────────────────────────────────
 
-async function runSheet(sheetId, userId) {
+async function runSheet(sheetId, userId, { testCaseIds } = {}) {
   const sheet = await repo.findSheetWithOwner(sheetId, userId);
   if (!sheet) throw { status: 404, message: "Test sheet not found" };
 
-  const items = await repo.findItemsBySheet(sheetId);
+  let items = await repo.findItemsBySheet(sheetId);
   if (items.length === 0) {
     throw { status: 400, message: "Test sheet has no test cases" };
   }
 
+  // Filter to specific test cases if provided
+  if (Array.isArray(testCaseIds) && testCaseIds.length > 0) {
+    const idSet = new Set(testCaseIds.map(Number));
+    items = items.filter((item) => idSet.has(item.testCaseId));
+    if (items.length === 0) {
+      throw { status: 400, message: "None of the specified test cases are in this sheet" };
+    }
+  }
+
   const sheetRun = await repo.createSheetRun({
-    testSheetId: sheetId,
+    testSuiteId: sheetId,
     triggeredBy: userId,
     totalCases: items.length,
   });
@@ -114,7 +123,7 @@ async function runSheet(sheetId, userId) {
     }
 
     const runItem = await repo.createSheetRunItem({
-      testSheetRunId: sheetRun.id,
+      testSuiteRunId: sheetRun.id,
       testCaseId: item.testCaseId,
       testRunId,
       itemOrder: i + 1,
@@ -157,7 +166,7 @@ async function onTestRunCompleted(testRunId, verdict, status) {
   // 'failed'/'cancelled' covers worker-level failures
   const itemStatus = status === "completed" ? "completed" : "failed";
   await repo.updateSheetRunItemStatus(item.id, itemStatus);
-  await repo.recalcSheetRunSummary(item.testSheetRunId);
+  await repo.recalcSheetRunSummary(item.testSuiteRunId);
 }
 
 async function analyzeSheetRun(runId) {

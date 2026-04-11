@@ -125,9 +125,61 @@ async function updateTestCase(req, res, next) {
   }
 }
 
+async function refineTestCase(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const testCaseId = Number(req.params.id);
+    const { prompt } = req.body;
+    const data = await testCaseService.refineTestCase(userId, testCaseId, prompt);
+    res.json({ status: "ok", data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function applyRefinement(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const testCaseId = Number(req.params.id);
+    const { title, goal, steps, expectedResult, promptText } = req.body;
+    const data = await testCaseService.applyRefinement(userId, testCaseId, {
+      title, goal, steps, expectedResult, promptText,
+    });
+    res.json({ status: "ok", data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getTestCaseById(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const testCaseId = Number(req.params.id);
+    const data = await testCaseService.getTestCaseById(userId, testCaseId);
+    res.json({ status: "ok", data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getRunsByTestCaseId(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const testCaseId = Number(req.params.id);
+    const data = await testCaseService.getRunsByTestCaseId(userId, testCaseId);
+    res.json({ status: "ok", data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getTestCases,
+  getTestCaseById,
+  getRunsByTestCaseId,
   generateTestCases,
   saveTestCases,
   updateTestCase,
+  refineTestCase,
+  applyRefinement,
 };

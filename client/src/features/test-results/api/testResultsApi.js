@@ -130,6 +130,7 @@ export async function getTestResults(projectId) {
 
     return {
       id: run.id,
+      testCaseId: run.testCaseId,
       projectName: run.testCaseTitle || `Run #${run.id}`,
       status: run.status || "unknown",
       result,

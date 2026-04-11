@@ -141,7 +141,8 @@ async function runSheet(req, res, next) {
     if (!sheetId) {
       return res.status(400).json({ success: false, message: "id must be a positive integer" });
     }
-    const data = await service.runSheet(sheetId, userId);
+    const testCaseIds = Array.isArray(req.body?.testCaseIds) ? req.body.testCaseIds : undefined;
+    const data = await service.runSheet(sheetId, userId, { testCaseIds });
     return res.status(202).json({ success: true, data });
   } catch (err) {
     next(err);

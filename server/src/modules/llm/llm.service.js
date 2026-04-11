@@ -303,10 +303,86 @@ Analyze the sheet run and return JSON.`,
   };
 }
 
+/**
+ * Refine an existing test case based on a user prompt.
+ *
+ * @param {{ title: string, goal: string, steps: Array }} currentCase
+ * @param {string} userPrompt
+ * @returns {Promise<{ title: string, goal: string, steps: Array, expectedResult: string }>}
+ */
+async function refineTestCase(currentCase, userPrompt) {
+  const stepsText = (currentCase.steps || [])
+    .map((s, i) => `${s.order ?? i + 1}. ${s.description || s.text || ""}`)
+    .join("\n");
+
+  const messages = [
+    {
+      role: "system",
+      content: `You are a senior QA engineer.
+The user will give you an existing test case and instructions on how to modify it.
+Your task is to revise the test case according to the instructions.
+
+Return ONLY valid JSON in this exact shape — no markdown, no code fences, no explanation:
+{
+  "title": "string",
+  "goal": "string",
+  "steps": ["step 1", "step 2", "..."],
+  "expectedResult": "string"
+}
+
+Rules:
+- Keep steps concrete, numbered, and atomic.
+- Preserve intent unless the user explicitly asks to change it.
+- Do NOT add commentary outside the JSON.`,
+    },
+    {
+      role: "user",
+      content: `## Current Test Case
+
+Title: ${currentCase.title}
+Goal: ${currentCase.goal}
+
+Steps:
+${stepsText || "(no steps)"}
+
+## User Instructions
+
+${userPrompt}
+
+Revise the test case accordingly and return JSON.`,
+    },
+  ];
+
+  const raw = await generateFromLLM(messages, { maxOutputTokens: 1024 });
+  const parsed = cleanJSON(raw);
+
+  if (!parsed || !parsed.title || !Array.isArray(parsed.steps)) {
+    throw {
+      status: 502,
+      message: "LLM returned an invalid response. Please try again.",
+    };
+  }
+
+  return {
+    title: String(parsed.title).trim(),
+    goal: String(parsed.goal || currentCase.goal).trim(),
+    steps: parsed.steps
+      .map((s, i) => ({
+        order: i + 1,
+        text: typeof s === "string" ? s.trim() : String(s?.text || s?.description || "").trim(),
+        action: "custom",
+        expectedResult: null,
+      }))
+      .filter((s) => s.text),
+    expectedResult: String(parsed.expectedResult || "").trim(),
+  };
+}
+
 module.exports = {
   generateTestCases,
   generateFromLLM,
   _buildScanContext,
   generateRunAnalysis,
   generateSheetRunAnalysis,
+  refineTestCase,
 };

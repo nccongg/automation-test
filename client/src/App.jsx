@@ -27,10 +27,13 @@ import ProjectOverviewPage from "@/pages/main/ProjectOverviewPage";
 import TestCasesPage from "@/pages/main/TestCasesPage";
 import TestResultsPage from "@/pages/main/TestResultsPage";
 import SettingsPage from "@/pages/main/SettingsPage";
-import TestCollectionPage from "@/pages/main/TestCollectionPage";
-import TestSheetDetailPage from "@/pages/main/TestSheetDetailPage";
-import TestSheetRunDetailPage from "@/pages/main/TestSheetRunDetailPage";
+import TestSuitesPage from "@/pages/main/TestCollectionPage";
+import TestSuiteDetailPage from "@/pages/main/TestSheetDetailPage";
+import TestSuiteRunDetailPage from "@/pages/main/TestSheetRunDetailPage";
+import TestCollectionsPage from "@/pages/main/TestCollectionsPage";
+import TestCollectionDetailPage from "@/pages/main/TestCollectionDetailPage";
 import TestRunDetailPage from "@/pages/main/TestRunDetailPage";
+import TestCaseDetailPage from "@/pages/main/TestCaseDetailPage";
 
 export default function App() {
   return (
@@ -60,11 +63,16 @@ export default function App() {
               <Route index element={<Navigate to="overview" replace />} />
               <Route path="overview" element={<ProjectOverviewPage />} />
               <Route path="test-cases" element={<TestCasesPage />} />
+              <Route path="test-cases/:testCaseId" element={<TestCaseDetailPage />} />
               <Route path="test-runs" element={<TestResultsPage />} />
               <Route path="test-runs/:runId" element={<TestRunDetailPage />} />
-              <Route path="collections" element={<TestCollectionPage />} />
-              <Route path="collections/:sheetId" element={<TestSheetDetailPage />} />
-              <Route path="collections/:sheetId/runs/:runId" element={<TestSheetRunDetailPage />} />
+              {/* Test Suites — execution unit with ordering and batch run */}
+              <Route path="suites" element={<TestSuitesPage />} />
+              <Route path="suites/:sheetId" element={<TestSuiteDetailPage />} />
+              <Route path="suites/:sheetId/runs/:runId" element={<TestSuiteRunDetailPage />} />
+              {/* Collections — organize-only, label/folder, no execution */}
+              <Route path="collections" element={<TestCollectionsPage />} />
+              <Route path="collections/:collectionId" element={<TestCollectionDetailPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route path="settings" element={<SettingsPage />} />

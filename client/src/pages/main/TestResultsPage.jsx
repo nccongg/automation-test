@@ -147,7 +147,8 @@ function StepItem({ step, stepIndex, isLast }) {
 
 /* ─── Run Card ────────────────────────────────────────────────────────── */
 
-function RunCard({ run, isExpanded, onToggle, detail, detailLoadingId }) {
+function RunCard({ run, isExpanded, onToggle, detail, detailLoadingId, projectId }) {
+  const navigate = useNavigate();
   const style = getRunStyle(run.result);
   const isLoading = detailLoadingId === run.id;
   const isLive = run.status === "running" || run.status === "queued";
@@ -169,7 +170,16 @@ function RunCard({ run, isExpanded, onToggle, detail, detailLoadingId }) {
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
                   </span>
                 )}
-                <p className="font-semibold text-slate-800 truncate">{run.projectName}</p>
+                {run.testCaseId && projectId ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate(`/projects/${projectId}/test-cases/${run.testCaseId}`); }}
+                    className="font-semibold text-slate-800 truncate hover:text-indigo-600 hover:underline transition-colors"
+                  >
+                    {run.projectName}
+                  </button>
+                ) : (
+                  <p className="font-semibold text-slate-800 truncate">{run.projectName}</p>
+                )}
               </div>
               <p className="text-xs text-slate-400 mt-0.5">{run.executedAt}</p>
             </div>
@@ -418,6 +428,7 @@ export default function TestResultsPage() {
                 <RunCard
                   key={`run-${run.id}`}
                   run={run}
+                  projectId={pid}
                   isExpanded={expandedRunId === run.id}
                   onToggle={toggleRunDetail}
                   detail={runDetails[run.id]}

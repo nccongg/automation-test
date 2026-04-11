@@ -123,7 +123,7 @@ function AddCasesDialog({ open, onClose, onAdded, projectId, existingIds }) {
   );
 }
 
-export default function TestSheetDetailPage() {
+export default function TestSuiteDetailPage() {
   const { projectId, sheetId } = useParams();
   const navigate = useNavigate();
 
@@ -134,6 +134,7 @@ export default function TestSheetDetailPage() {
   const [error, setError] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [running, setRunning] = useState(false);
+  const [runningCaseId, setRunningCaseId] = useState(null);
   const [removingId, setRemovingId] = useState(null);
 
   // inline editing
@@ -232,12 +233,27 @@ export default function TestSheetDetailPage() {
       const result = await runTestSheet(sheetId);
       const runId = result?.sheetRun?.id;
       if (runId) {
-        navigate(`/projects/${projectId}/collections/${sheetId}/runs/${runId}`);
+        navigate(`/projects/${projectId}/suites/${sheetId}/runs/${runId}`);
       }
     } catch (e) {
       setError(e?.message || "Failed to start sheet run.");
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function handleRunCase(testCaseId) {
+    try {
+      setRunningCaseId(testCaseId);
+      const result = await runTestSheet(sheetId, [testCaseId]);
+      const runId = result?.sheetRun?.id;
+      if (runId) {
+        navigate(`/projects/${projectId}/suites/${sheetId}/runs/${runId}`);
+      }
+    } catch (e) {
+      setError(e?.message || "Failed to start test case run.");
+    } finally {
+      setRunningCaseId(null);
     }
   }
 
@@ -259,11 +275,11 @@ export default function TestSheetDetailPage() {
     <div className="space-y-8">
       <div>
         <button
-          onClick={() => navigate(`/projects/${projectId}/collections`)}
+          onClick={() => navigate(`/projects/${projectId}/suites`)}
           className="mb-4 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="size-4" />
-          All Sheets
+          All Suites
         </button>
 
         <div className="flex items-start justify-between gap-4">
@@ -296,7 +312,7 @@ export default function TestSheetDetailPage() {
                 onClick={startEditTitle}
               >
                 <h1 className="text-2xl font-bold tracking-tight truncate">
-                  {sheet?.name ?? "Test Sheet"}
+                  {sheet?.name ?? "Test Suite"}
                 </h1>
                 <Pencil className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
@@ -349,7 +365,7 @@ export default function TestSheetDetailPage() {
               className="gap-2"
             >
               <Play className="size-4" />
-              {running ? "Starting..." : "Run Sheet"}
+              {running ? "Starting..." : "Run Suite"}
             </Button>
           </div>
         </div>
@@ -373,13 +389,28 @@ export default function TestSheetDetailPage() {
                 className="group flex items-center gap-3 p-4 hover:bg-slate-50"
               >
                 <GripVertical className="size-4 shrink-0 text-muted-foreground/40" />
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium truncate">{item.title}</p>
+                <div
+                  className="min-w-0 flex-1 cursor-pointer"
+                  onClick={() => navigate(`/projects/${projectId}/test-cases/${item.testCaseId}`)}
+                >
+                  <p className="font-medium truncate hover:text-indigo-600 transition-colors">{item.title}</p>
                   <p className="text-sm text-muted-foreground truncate">{item.goal}</p>
                 </div>
                 <Badge variant="outline" className="shrink-0 capitalize text-xs">
                   {item.status}
                 </Badge>
+                <button
+                  onClick={() => handleRunCase(item.testCaseId)}
+                  disabled={runningCaseId === item.testCaseId || running}
+                  title="Run this test case"
+                  className="shrink-0 rounded-lg p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-indigo-50 hover:text-indigo-600 transition-all disabled:opacity-50"
+                >
+                  {runningCaseId === item.testCaseId ? (
+                    <Clock className="size-4 animate-pulse" />
+                  ) : (
+                    <Play className="size-4" />
+                  )}
+                </button>
                 <button
                   onClick={() => handleRemoveItem(item.id)}
                   disabled={removingId === item.id}
@@ -401,7 +432,7 @@ export default function TestSheetDetailPage() {
               Recent Runs
             </h2>
             <button
-              onClick={() => navigate(`/projects/${projectId}/test-sheet-runs?sheetId=${sheetId}`)}
+              onClick={() => navigate(`/projects/${projectId}/test-runs`)}
               className="flex items-center gap-1 text-xs text-indigo-600 hover:underline"
             >
               <History className="size-3" />
@@ -414,7 +445,7 @@ export default function TestSheetDetailPage() {
                 key={run.id}
                 className="flex cursor-pointer items-center justify-between gap-4 p-4 hover:bg-slate-50"
                 onClick={() =>
-                  navigate(`/projects/${projectId}/collections/${sheetId}/runs/${run.id}`)
+                  navigate(`/projects/${projectId}/suites/${sheetId}/runs/${run.id}`)
                 }
               >
                 <div className="flex items-center gap-3 min-w-0">

@@ -6,7 +6,7 @@ const { pool } = require("../../config/database");
 
 async function createSheet({ projectId, name, description, createdBy }) {
   const result = await pool.query(
-    `INSERT INTO test_sheets (project_id, name, description, created_by)
+    `INSERT INTO test_suites (project_id, name, description, created_by)
      VALUES ($1, $2, $3, $4)
      RETURNING id, project_id AS "projectId", name, description, created_at AS "createdAt", updated_at AS "updatedAt"`,
     [projectId, name, description || null, createdBy]
@@ -24,8 +24,8 @@ async function findSheetsByProject(projectId) {
        ts.created_at AS "createdAt",
        ts.updated_at AS "updatedAt",
        COUNT(tsi.id)::int AS "itemCount"
-     FROM test_sheets ts
-     LEFT JOIN test_sheet_items tsi ON tsi.test_sheet_id = ts.id
+     FROM test_suites ts
+     LEFT JOIN test_suite_items tsi ON tsi.test_suite_id = ts.id
      WHERE ts.project_id = $1 AND ts.deleted_at IS NULL
      GROUP BY ts.id
      ORDER BY ts.updated_at DESC`,
@@ -43,7 +43,7 @@ async function findSheetById(sheetId) {
        ts.description,
        ts.created_at AS "createdAt",
        ts.updated_at AS "updatedAt"
-     FROM test_sheets ts
+     FROM test_suites ts
      WHERE ts.id = $1 AND ts.deleted_at IS NULL
      LIMIT 1`,
     [sheetId]
@@ -54,7 +54,7 @@ async function findSheetById(sheetId) {
 async function findSheetWithOwner(sheetId, userId) {
   const result = await pool.query(
     `SELECT ts.id, ts.project_id AS "projectId", ts.name, ts.description
-     FROM test_sheets ts
+     FROM test_suites ts
      JOIN projects p ON p.id = ts.project_id
      WHERE ts.id = $1 AND ts.deleted_at IS NULL AND p.user_id = $2
      LIMIT 1`,
@@ -65,7 +65,7 @@ async function findSheetWithOwner(sheetId, userId) {
 
 async function updateSheet(sheetId, { name, description }) {
   const result = await pool.query(
-    `UPDATE test_sheets
+    `UPDATE test_suites
      SET name = COALESCE($2, name),
          description = COALESCE($3, description),
          updated_at = NOW()
@@ -78,7 +78,7 @@ async function updateSheet(sheetId, { name, description }) {
 
 async function softDeleteSheet(sheetId) {
   await pool.query(
-    `UPDATE test_sheets SET deleted_at = NOW() WHERE id = $1`,
+    `UPDATE test_suites SET deleted_at = NOW() WHERE id = $1`,
     [sheetId]
   );
 }
@@ -89,15 +89,15 @@ async function findItemsBySheet(sheetId) {
   const result = await pool.query(
     `SELECT
        tsi.id,
-       tsi.test_sheet_id AS "testSheetId",
+       tsi.test_suite_id AS "testSuiteId",
        tsi.test_case_id AS "testCaseId",
        tsi.item_order AS "itemOrder",
        tc.title,
        tc.goal,
        tc.status
-     FROM test_sheet_items tsi
+     FROM test_suite_items tsi
      JOIN test_cases tc ON tc.id = tsi.test_case_id
-     WHERE tsi.test_sheet_id = $1 AND tc.deleted_at IS NULL
+     WHERE tsi.test_suite_id = $1 AND tc.deleted_at IS NULL
      ORDER BY tsi.item_order ASC, tsi.id ASC`,
     [sheetId]
   );
@@ -110,7 +110,7 @@ async function addItemsToSheet(sheetId, testCaseIds) {
     await client.query("BEGIN");
 
     const maxOrderResult = await client.query(
-      `SELECT COALESCE(MAX(item_order), 0) AS max_order FROM test_sheet_items WHERE test_sheet_id = $1`,
+      `SELECT COALESCE(MAX(item_order), 0) AS max_order FROM test_suite_items WHERE test_suite_id = $1`,
       [sheetId]
     );
     let nextOrder = maxOrderResult.rows[0].max_order + 1;
@@ -118,9 +118,9 @@ async function addItemsToSheet(sheetId, testCaseIds) {
     const inserted = [];
     for (const tcId of testCaseIds) {
       const r = await client.query(
-        `INSERT INTO test_sheet_items (test_sheet_id, test_case_id, item_order)
+        `INSERT INTO test_suite_items (test_suite_id, test_case_id, item_order)
          VALUES ($1, $2, $3)
-         ON CONFLICT (test_sheet_id, test_case_id) DO NOTHING
+         ON CONFLICT (test_suite_id, test_case_id) DO NOTHING
          RETURNING id, test_case_id AS "testCaseId", item_order AS "itemOrder"`,
         [sheetId, tcId, nextOrder]
       );
@@ -131,7 +131,7 @@ async function addItemsToSheet(sheetId, testCaseIds) {
     }
 
     await client.query(
-      `UPDATE test_sheets SET updated_at = NOW() WHERE id = $1`,
+      `UPDATE test_suites SET updated_at = NOW() WHERE id = $1`,
       [sheetId]
     );
 
@@ -147,7 +147,7 @@ async function addItemsToSheet(sheetId, testCaseIds) {
 
 async function removeItemFromSheet(sheetId, itemId) {
   const result = await pool.query(
-    `DELETE FROM test_sheet_items WHERE id = $1 AND test_sheet_id = $2 RETURNING id`,
+    `DELETE FROM test_suite_items WHERE id = $1 AND test_suite_id = $2 RETURNING id`,
     [itemId, sheetId]
   );
   return result.rowCount > 0;
@@ -160,7 +160,7 @@ async function reorderItems(sheetId, orders) {
     await client.query("BEGIN");
     for (const { id, order } of orders) {
       await client.query(
-        `UPDATE test_sheet_items SET item_order = $1 WHERE id = $2 AND test_sheet_id = $3`,
+        `UPDATE test_suite_items SET item_order = $1 WHERE id = $2 AND test_suite_id = $3`,
         [order, id, sheetId]
       );
     }
@@ -175,23 +175,23 @@ async function reorderItems(sheetId, orders) {
 
 // ─── Sheet Runs ───────────────────────────────────────────────────────────────
 
-async function createSheetRun({ testSheetId, triggeredBy, totalCases }) {
+async function createSheetRun({ testSuiteId, triggeredBy, totalCases }) {
   const result = await pool.query(
-    `INSERT INTO test_sheet_runs (test_sheet_id, triggered_by, total_cases, status, started_at)
+    `INSERT INTO test_suite_runs (test_suite_id, triggered_by, total_cases, status, started_at)
      VALUES ($1, $2, $3, 'running', NOW())
-     RETURNING id, test_sheet_id AS "testSheetId", status, total_cases AS "totalCases",
+     RETURNING id, test_suite_id AS "testSuiteId", status, total_cases AS "totalCases",
                passed, failed, errored, started_at AS "startedAt", created_at AS "createdAt"`,
-    [testSheetId, triggeredBy, totalCases]
+    [testSuiteId, triggeredBy, totalCases]
   );
   return result.rows[0];
 }
 
-async function createSheetRunItem({ testSheetRunId, testCaseId, testRunId, itemOrder, initialStatus = 'queued' }) {
+async function createSheetRunItem({ testSuiteRunId, testCaseId, testRunId, itemOrder, initialStatus = 'queued' }) {
   const result = await pool.query(
-    `INSERT INTO test_sheet_run_items (test_sheet_run_id, test_case_id, test_run_id, item_order, status)
+    `INSERT INTO test_suite_run_items (test_suite_run_id, test_case_id, test_run_id, item_order, status)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING id, test_case_id AS "testCaseId", test_run_id AS "testRunId", item_order AS "itemOrder", status`,
-    [testSheetRunId, testCaseId, testRunId || null, itemOrder, initialStatus]
+    [testSuiteRunId, testCaseId, testRunId || null, itemOrder, initialStatus]
   );
   return result.rows[0];
 }
@@ -200,8 +200,8 @@ async function findSheetRunsByProject(projectId, limit = 20) {
   const result = await pool.query(
     `SELECT
        tsr.id,
-       tsr.test_sheet_id AS "testSheetId",
-       ts.name AS "sheetName",
+       tsr.test_suite_id AS "testSuiteId",
+       ts.name AS "suiteName",
        tsr.status,
        tsr.total_cases AS "totalCases",
        tsr.passed,
@@ -210,8 +210,8 @@ async function findSheetRunsByProject(projectId, limit = 20) {
        tsr.started_at AS "startedAt",
        tsr.completed_at AS "completedAt",
        tsr.created_at AS "createdAt"
-     FROM test_sheet_runs tsr
-     JOIN test_sheets ts ON ts.id = tsr.test_sheet_id
+     FROM test_suite_runs tsr
+     JOIN test_suites ts ON ts.id = tsr.test_suite_id
      WHERE ts.project_id = $1
      ORDER BY tsr.created_at DESC
      LIMIT $2`,
@@ -224,8 +224,8 @@ async function findSheetRunById(runId) {
   const result = await pool.query(
     `SELECT
        tsr.id,
-       tsr.test_sheet_id AS "testSheetId",
-       ts.name AS "sheetName",
+       tsr.test_suite_id AS "testSuiteId",
+       ts.name AS "suiteName",
        tsr.status,
        tsr.total_cases AS "totalCases",
        tsr.passed,
@@ -234,8 +234,8 @@ async function findSheetRunById(runId) {
        tsr.started_at AS "startedAt",
        tsr.completed_at AS "completedAt",
        tsr.created_at AS "createdAt"
-     FROM test_sheet_runs tsr
-     JOIN test_sheets ts ON ts.id = tsr.test_sheet_id
+     FROM test_suite_runs tsr
+     JOIN test_suites ts ON ts.id = tsr.test_suite_id
      WHERE tsr.id = $1
      LIMIT 1`,
     [runId]
@@ -256,10 +256,10 @@ async function findSheetRunItems(testSheetRunId) {
        tr.verdict,
        tr.started_at AS "startedAt",
        tr.finished_at AS "finishedAt"
-     FROM test_sheet_run_items tsri
+     FROM test_suite_run_items tsri
      JOIN test_cases tc ON tc.id = tsri.test_case_id
      LEFT JOIN test_runs tr ON tr.id = tsri.test_run_id
-     WHERE tsri.test_sheet_run_id = $1
+     WHERE tsri.test_suite_run_id = $1
      ORDER BY tsri.item_order ASC, tsri.id ASC`,
     [testSheetRunId]
   );
@@ -268,8 +268,8 @@ async function findSheetRunItems(testSheetRunId) {
 
 async function findSheetRunItemByTestRunId(testRunId) {
   const result = await pool.query(
-    `SELECT id, test_sheet_run_id AS "testSheetRunId"
-     FROM test_sheet_run_items
+    `SELECT id, test_suite_run_id AS "testSuiteRunId"
+     FROM test_suite_run_items
      WHERE test_run_id = $1
      LIMIT 1`,
     [testRunId]
@@ -279,14 +279,14 @@ async function findSheetRunItemByTestRunId(testRunId) {
 
 async function updateSheetRunItemStatus(itemId, status) {
   await pool.query(
-    `UPDATE test_sheet_run_items SET status = $1 WHERE id = $2`,
+    `UPDATE test_suite_run_items SET status = $1 WHERE id = $2`,
     [status, itemId]
   );
 }
 
 async function recalcSheetRunSummary(testSheetRunId) {
   const result = await pool.query(
-    `UPDATE test_sheet_runs tsr
+    `UPDATE test_suite_runs tsr
      SET
        passed  = sub.passed,
        failed  = sub.failed,
@@ -313,9 +313,9 @@ async function recalcSheetRunSummary(testSheetRunId) {
              END) AS errored,
          -- pending: still in-flight
          SUM(CASE WHEN tsri.status IN ('pending','queued','running') THEN 1 ELSE 0 END) AS pending_count
-       FROM test_sheet_run_items tsri
+       FROM test_suite_run_items tsri
        LEFT JOIN test_runs tr ON tr.id = tsri.test_run_id
-       WHERE tsri.test_sheet_run_id = $1
+       WHERE tsri.test_suite_run_id = $1
      ) sub
      WHERE tsr.id = $1
      RETURNING tsr.id, tsr.status, tsr.passed, tsr.failed, tsr.errored`,

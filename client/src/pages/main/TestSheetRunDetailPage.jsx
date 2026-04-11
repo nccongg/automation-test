@@ -345,7 +345,7 @@ function AiAnalysisSection({ runId, isLive }) {
 
 /* ─── Page ────────────────────────────────────────────────────────────────── */
 
-export default function TestSheetRunDetailPage() {
+export default function TestSuiteRunDetailPage() {
   const { projectId, runId } = useParams();
   const navigate = useNavigate();
   const { data, loading, error } = useTestSheetRun(runId);

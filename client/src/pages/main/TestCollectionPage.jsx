@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-function CreateSheetDialog({ open, onClose, onCreated, projectId }) {
+function CreateSuiteDialog({ open, onClose, onCreated, projectId }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
@@ -35,7 +35,7 @@ function CreateSheetDialog({ open, onClose, onCreated, projectId }) {
       setDescription("");
       onClose();
     } catch (e) {
-      setErr(e?.message || "Failed to create sheet.");
+      setErr(e?.message || "Failed to create suite.");
     } finally {
       setSaving(false);
     }
@@ -45,14 +45,14 @@ function CreateSheetDialog({ open, onClose, onCreated, projectId }) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New Test Sheet</DialogTitle>
+          <DialogTitle>New Test Suite</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           {err && <p className="text-sm text-red-600">{err}</p>}
           <div className="space-y-1.5">
-            <Label htmlFor="sheet-name">Name</Label>
+            <Label htmlFor="suite-name">Name</Label>
             <Input
-              id="sheet-name"
+              id="suite-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Smoke Tests"
@@ -60,9 +60,9 @@ function CreateSheetDialog({ open, onClose, onCreated, projectId }) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="sheet-desc">Description (optional)</Label>
+            <Label htmlFor="suite-desc">Description (optional)</Label>
             <Input
-              id="sheet-desc"
+              id="suite-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief description..."
@@ -73,7 +73,7 @@ function CreateSheetDialog({ open, onClose, onCreated, projectId }) {
               Cancel
             </Button>
             <Button type="submit" disabled={saving || !name.trim()}>
-              {saving ? "Creating..." : "Create Sheet"}
+              {saving ? "Creating..." : "Create Suite"}
             </Button>
           </div>
         </form>
@@ -82,7 +82,7 @@ function CreateSheetDialog({ open, onClose, onCreated, projectId }) {
   );
 }
 
-export default function TestCollectionPage() {
+export default function TestSuitesPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { sheets, loading, error, refetch } = useTestSheets(projectId);
@@ -91,7 +91,7 @@ export default function TestCollectionPage() {
 
   async function handleDelete(e, sheetId) {
     e.stopPropagation();
-    if (!window.confirm("Delete this test sheet?")) return;
+    if (!window.confirm("Delete this test suite?")) return;
     try {
       setDeletingId(sheetId);
       await deleteTestSheet(sheetId);
@@ -116,20 +116,20 @@ export default function TestCollectionPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Test Collections"
-        description="Group test cases into sheets and run them together"
+        title="Test Suites"
+        description="Group test cases into ordered suites and run them as a batch"
         action={
           <Button onClick={() => setShowCreate(true)} className="gap-2">
             <Plus className="size-4" />
-            New Sheet
+            New Suite
           </Button>
         }
       />
 
       {sheets.length === 0 ? (
         <EmptyState
-          title="No Test Sheets"
-          description="Create a sheet to group and run test cases together"
+          title="No Test Suites"
+          description="Create a suite to group and run test cases together in order"
         />
       ) : (
         <div className="rounded-xl border bg-white divide-y">
@@ -138,7 +138,7 @@ export default function TestCollectionPage() {
               key={sheet.id}
               className="group flex items-center justify-between gap-4 p-4 hover:bg-slate-50 cursor-pointer"
               onClick={() =>
-                navigate(`/projects/${projectId}/collections/${sheet.id}`)
+                navigate(`/projects/${projectId}/suites/${sheet.id}`)
               }
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -175,7 +175,7 @@ export default function TestCollectionPage() {
         </div>
       )}
 
-      <CreateSheetDialog
+      <CreateSuiteDialog
         open={showCreate}
         onClose={() => setShowCreate(false)}
         onCreated={refetch}

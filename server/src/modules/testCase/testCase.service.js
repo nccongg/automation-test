@@ -262,9 +262,50 @@ async function updateTestCase(userId, testCaseId, { title, goal, status }) {
   return updated;
 }
 
+async function refineTestCase(userId, testCaseId, prompt) {
+  assertUser(userId);
+  const id = toPositiveInt(testCaseId, "testCaseId");
+  if (!prompt || !String(prompt).trim()) throw { status: 400, message: "prompt is required" };
+
+  const tc = await testCaseRepository.getTestCaseById(userId, id);
+  if (!tc) throw { status: 404, message: "Test case not found" };
+
+  const { refineTestCase: llmRefine } = require("../llm/llm.service");
+  return llmRefine(tc, String(prompt).trim());
+}
+
+async function applyRefinement(userId, testCaseId, { title, goal, steps, expectedResult, promptText }) {
+  assertUser(userId);
+  const id = toPositiveInt(testCaseId, "testCaseId");
+  if (!title || !goal || !Array.isArray(steps) || steps.length === 0) {
+    throw { status: 400, message: "title, goal, and steps are required" };
+  }
+  return testCaseRepository.applyRefinement(userId, id, { title, goal, steps, expectedResult, promptText });
+}
+
+async function getTestCaseById(userId, testCaseId) {
+  assertUser(userId);
+  const id = toPositiveInt(testCaseId, "testCaseId");
+  const tc = await testCaseRepository.getTestCaseById(userId, id);
+  if (!tc) throw { status: 404, message: "Test case not found" };
+  return tc;
+}
+
+async function getRunsByTestCaseId(userId, testCaseId) {
+  assertUser(userId);
+  const id = toPositiveInt(testCaseId, "testCaseId");
+  // ownership check
+  await getTestCaseById(userId, id);
+  return testCaseRepository.getRunsByTestCaseId(id, 50);
+}
+
 module.exports = {
   getTestCases,
+  getTestCaseById,
+  getRunsByTestCaseId,
   generateTestCases,
   saveTestCases,
   updateTestCase,
+  refineTestCase,
+  applyRefinement,
 };

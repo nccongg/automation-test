@@ -83,7 +83,7 @@ async function listRecentTestRuns({ userId, projectId = null, limit = 20 }) {
     FROM public.test_runs tr
     JOIN public.test_cases tc ON tc.id = tr.test_case_id
     JOIN public.projects p ON p.id = tc.project_id
-    LEFT JOIN public.test_sheet_run_items tsri ON tsri.test_run_id = tr.id
+    LEFT JOIN public.test_suite_run_items tsri ON tsri.test_run_id = tr.id
     WHERE ${where}
     ORDER BY COALESCE(tr.started_at, tr.created_at) DESC
     LIMIT $${params.length}

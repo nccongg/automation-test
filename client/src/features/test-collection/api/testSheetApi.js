@@ -7,61 +7,62 @@ function normalize(response) {
 // ─── Sheets ───────────────────────────────────────────────────────────────────
 
 export async function getTestSheets(projectId) {
-  const response = await apiClient.get("/test-sheets", { params: { projectId } });
+  const response = await apiClient.get("/test-suites", { params: { projectId } });
   const data = normalize(response);
   return Array.isArray(data) ? data : [];
 }
 
 export async function getTestSheet(sheetId) {
-  const response = await apiClient.get(`/test-sheets/${sheetId}`);
+  const response = await apiClient.get(`/test-suites/${sheetId}`);
   return normalize(response);
 }
 
 export async function createTestSheet({ projectId, name, description }) {
-  const response = await apiClient.post("/test-sheets", { projectId, name, description });
+  const response = await apiClient.post("/test-suites", { projectId, name, description });
   return normalize(response);
 }
 
 export async function updateTestSheet(sheetId, { name, description }) {
-  const response = await apiClient.put(`/test-sheets/${sheetId}`, { name, description });
+  const response = await apiClient.put(`/test-suites/${sheetId}`, { name, description });
   return normalize(response);
 }
 
 export async function deleteTestSheet(sheetId) {
-  await apiClient.delete(`/test-sheets/${sheetId}`);
+  await apiClient.delete(`/test-suites/${sheetId}`);
 }
 
 // ─── Items ────────────────────────────────────────────────────────────────────
 
 export async function addSheetItems(sheetId, testCaseIds) {
-  const response = await apiClient.post(`/test-sheets/${sheetId}/items`, { testCaseIds });
+  const response = await apiClient.post(`/test-suites/${sheetId}/items`, { testCaseIds });
   return normalize(response);
 }
 
 export async function removeSheetItem(sheetId, itemId) {
-  await apiClient.delete(`/test-sheets/${sheetId}/items/${itemId}`);
+  await apiClient.delete(`/test-suites/${sheetId}/items/${itemId}`);
 }
 
 export async function reorderSheetItems(sheetId, orders) {
-  await apiClient.put(`/test-sheets/${sheetId}/items/reorder`, { orders });
+  await apiClient.put(`/test-suites/${sheetId}/items/reorder`, { orders });
 }
 
 // ─── Run ──────────────────────────────────────────────────────────────────────
 
-export async function runTestSheet(sheetId) {
-  const response = await apiClient.post(`/test-sheets/${sheetId}/run`);
+export async function runTestSheet(sheetId, testCaseIds) {
+  const body = testCaseIds ? { testCaseIds } : {};
+  const response = await apiClient.post(`/test-suites/${sheetId}/run`, body);
   return normalize(response);
 }
 
-// ─── Sheet Runs ───────────────────────────────────────────────────────────────
+// ─── Suite Runs ───────────────────────────────────────────────────────────────
 
 export async function getSheetRuns(projectId) {
-  const response = await apiClient.get("/test-sheet-runs", { params: { projectId } });
+  const response = await apiClient.get("/test-suite-runs", { params: { projectId } });
   const data = normalize(response);
   return Array.isArray(data) ? data : [];
 }
 
 export async function getSheetRunDetail(runId) {
-  const response = await apiClient.get(`/test-sheet-runs/${runId}`);
+  const response = await apiClient.get(`/test-suite-runs/${runId}`);
   return normalize(response);
 }

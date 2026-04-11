@@ -93,4 +93,5 @@ export const apiClient = {
    * @param {Object} options - Additional options
    */
   del: (path, options) => request(path, { method: 'DELETE', ...options }),
+  delete: (path, options) => request(path, { method: 'DELETE', ...options }),
 };
