@@ -3792,7 +3792,350 @@ ALTER TABLE ONLY public.test_tree_nodes
     ADD CONSTRAINT test_tree_nodes_test_case_id_fkey FOREIGN KEY (test_case_id) REFERENCES public.test_cases(id) ON DELETE CASCADE;
 
 
--- Completed on 2026-04-01 04:44:30
+-- =========================================================
+-- Test Collections (added 2026-04-05)
+-- =========================================================
+
+--
+-- Name: test_sheets; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.test_sheets (
+    id bigint NOT NULL,
+    project_id bigint NOT NULL,
+    name character varying(255) NOT NULL,
+    description text,
+    created_by bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone
+);
+
+
+--
+-- Name: test_sheets_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.test_sheets_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: test_sheets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.test_sheets_id_seq OWNED BY public.test_sheets.id;
+
+
+--
+-- Name: test_sheets id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheets ALTER COLUMN id SET DEFAULT nextval('public.test_sheets_id_seq'::regclass);
+
+
+--
+-- Name: test_sheets test_sheets_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheets
+    ADD CONSTRAINT test_sheets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_test_sheets_project_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_test_sheets_project_id ON public.test_sheets USING btree (project_id);
+
+
+--
+-- Name: idx_test_sheets_deleted_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_test_sheets_deleted_at ON public.test_sheets USING btree (deleted_at);
+
+
+--
+-- Name: test_sheets test_sheets_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheets
+    ADD CONSTRAINT test_sheets_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: test_sheets test_sheets_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheets
+    ADD CONSTRAINT test_sheets_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: test_sheet_items; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.test_sheet_items (
+    id bigint NOT NULL,
+    test_sheet_id bigint NOT NULL,
+    test_case_id bigint NOT NULL,
+    item_order integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: test_sheet_items_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.test_sheet_items_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: test_sheet_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.test_sheet_items_id_seq OWNED BY public.test_sheet_items.id;
+
+
+--
+-- Name: test_sheet_items id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheet_items ALTER COLUMN id SET DEFAULT nextval('public.test_sheet_items_id_seq'::regclass);
+
+
+--
+-- Name: test_sheet_items test_sheet_items_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheet_items
+    ADD CONSTRAINT test_sheet_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: test_sheet_items test_sheet_items_sheet_case_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheet_items
+    ADD CONSTRAINT test_sheet_items_sheet_case_unique UNIQUE (test_sheet_id, test_case_id);
+
+
+--
+-- Name: idx_test_sheet_items_sheet_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_test_sheet_items_sheet_id ON public.test_sheet_items USING btree (test_sheet_id);
+
+
+--
+-- Name: test_sheet_items test_sheet_items_test_sheet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheet_items
+    ADD CONSTRAINT test_sheet_items_test_sheet_id_fkey FOREIGN KEY (test_sheet_id) REFERENCES public.test_sheets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: test_sheet_items test_sheet_items_test_case_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheet_items
+    ADD CONSTRAINT test_sheet_items_test_case_id_fkey FOREIGN KEY (test_case_id) REFERENCES public.test_cases(id) ON DELETE CASCADE;
+
+
+--
+-- Name: test_sheet_runs; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.test_sheet_runs (
+    id bigint NOT NULL,
+    test_sheet_id bigint NOT NULL,
+    status character varying(20) DEFAULT 'queued'::character varying NOT NULL,
+    triggered_by bigint,
+    trigger_type character varying(20) DEFAULT 'manual'::character varying NOT NULL,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    total_cases integer DEFAULT 0 NOT NULL,
+    passed integer DEFAULT 0 NOT NULL,
+    failed integer DEFAULT 0 NOT NULL,
+    errored integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT test_sheet_runs_status_check CHECK (((status)::text = ANY ((ARRAY['queued'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying])::text[]))),
+    CONSTRAINT test_sheet_runs_trigger_type_check CHECK (((trigger_type)::text = ANY ((ARRAY['manual'::character varying, 'scheduled'::character varying])::text[])))
+);
+
+
+--
+-- Name: test_sheet_runs_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.test_sheet_runs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: test_sheet_runs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.test_sheet_runs_id_seq OWNED BY public.test_sheet_runs.id;
+
+
+--
+-- Name: test_sheet_runs id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheet_runs ALTER COLUMN id SET DEFAULT nextval('public.test_sheet_runs_id_seq'::regclass);
+
+
+--
+-- Name: test_sheet_runs test_sheet_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheet_runs
+    ADD CONSTRAINT test_sheet_runs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_test_sheet_runs_sheet_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_test_sheet_runs_sheet_id ON public.test_sheet_runs USING btree (test_sheet_id);
+
+
+--
+-- Name: idx_test_sheet_runs_status; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_test_sheet_runs_status ON public.test_sheet_runs USING btree (status);
+
+
+--
+-- Name: idx_test_sheet_runs_created_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_test_sheet_runs_created_at ON public.test_sheet_runs USING btree (created_at DESC);
+
+
+--
+-- Name: test_sheet_runs test_sheet_runs_test_sheet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheet_runs
+    ADD CONSTRAINT test_sheet_runs_test_sheet_id_fkey FOREIGN KEY (test_sheet_id) REFERENCES public.test_sheets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: test_sheet_runs test_sheet_runs_triggered_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheet_runs
+    ADD CONSTRAINT test_sheet_runs_triggered_by_fkey FOREIGN KEY (triggered_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: test_sheet_run_items; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.test_sheet_run_items (
+    id bigint NOT NULL,
+    test_sheet_run_id bigint NOT NULL,
+    test_case_id bigint NOT NULL,
+    test_run_id bigint,
+    item_order integer DEFAULT 0 NOT NULL,
+    status character varying(20) DEFAULT 'pending'::character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT test_sheet_run_items_status_check CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'queued'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying])::text[])))
+);
+
+
+--
+-- Name: test_sheet_run_items_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.test_sheet_run_items_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: test_sheet_run_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.test_sheet_run_items_id_seq OWNED BY public.test_sheet_run_items.id;
+
+
+--
+-- Name: test_sheet_run_items id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheet_run_items ALTER COLUMN id SET DEFAULT nextval('public.test_sheet_run_items_id_seq'::regclass);
+
+
+--
+-- Name: test_sheet_run_items test_sheet_run_items_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheet_run_items
+    ADD CONSTRAINT test_sheet_run_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_test_sheet_run_items_run_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_test_sheet_run_items_run_id ON public.test_sheet_run_items USING btree (test_sheet_run_id);
+
+
+--
+-- Name: idx_test_sheet_run_items_test_run; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_test_sheet_run_items_test_run ON public.test_sheet_run_items USING btree (test_run_id);
+
+
+--
+-- Name: test_sheet_run_items test_sheet_run_items_test_sheet_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheet_run_items
+    ADD CONSTRAINT test_sheet_run_items_test_sheet_run_id_fkey FOREIGN KEY (test_sheet_run_id) REFERENCES public.test_sheet_runs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: test_sheet_run_items test_sheet_run_items_test_case_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheet_run_items
+    ADD CONSTRAINT test_sheet_run_items_test_case_id_fkey FOREIGN KEY (test_case_id) REFERENCES public.test_cases(id) ON DELETE CASCADE;
+
+
+--
+-- Name: test_sheet_run_items test_sheet_run_items_test_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_sheet_run_items
+    ADD CONSTRAINT test_sheet_run_items_test_run_id_fkey FOREIGN KEY (test_run_id) REFERENCES public.test_runs(id) ON DELETE SET NULL;
+
+
+-- Completed on 2026-04-05 00:00:00
 
 --
 -- PostgreSQL database dump complete

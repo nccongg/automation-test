@@ -4,21 +4,21 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useTestCases } from "@/features/test-cases/hooks/useTestCases";
 import { createTestRun } from "@/features/test-results/api/testResultsApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorBanner from "@/shared/components/common/ErrorBanner";
+import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import EmptyState from "@/shared/components/common/EmptyState";
 import PageHeader from "@/shared/components/common/PageHeader";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
-function StatusBadge({ status }) {
-  const styles = {
-    ready: "bg-emerald-100 text-emerald-700 border-emerald-500/20",
-    draft: "bg-yellow-100 text-yellow-700 border-yellow-500/20",
-    archived: "bg-slate-100 text-slate-700 border-slate-500/20",
-  };
+const STATUS_STYLES = {
+  ready:    "bg-emerald-100 text-emerald-700 border-emerald-500/20",
+  draft:    "bg-yellow-100 text-yellow-700 border-yellow-500/20",
+  archived: "bg-slate-100 text-slate-700 border-slate-500/20",
+};
 
+function StatusBadge({ status }) {
   return (
-    <Badge className={`border ${styles[status] || styles.draft}`}>
+    <Badge className={`border ${STATUS_STYLES[status] || STATUS_STYLES.draft}`}>
       {status || "draft"}
     </Badge>
   );
@@ -35,9 +35,7 @@ export default function TestCasesPage() {
 
   const filteredCases = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
-
     if (!keyword) return testCases;
-
     return testCases.filter(
       (tc) =>
         tc.title.toLowerCase().includes(keyword) ||
@@ -47,16 +45,10 @@ export default function TestCasesPage() {
 
   const handleRun = async (tc) => {
     const testCaseId = tc.testCaseId ?? tc.id;
-
     try {
       setRunError("");
       setRunningId(testCaseId);
-
-      await createTestRun({
-        testCaseId,
-        promptText: tc.promptText || "",
-      });
-
+      await createTestRun({ testCaseId, promptText: tc.promptText || "" });
       navigate(`/projects/${projectId}/test-runs`);
     } catch (e) {
       setRunError(e?.message || "Failed to start test run.");
@@ -75,9 +67,9 @@ export default function TestCasesPage() {
 
   if (error) {
     return (
-      <ErrorBanner
-        message={error}
-        fullWidth
+      <ErrorPopup
+        open={true}
+        onClose={() => window.location.reload()}
         onRetry={() => window.location.reload()}
       />
     );
@@ -85,24 +77,19 @@ export default function TestCasesPage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="Test Cases"
-        description="Test cases loaded from database"
-      />
+      <PageHeader title="Test Cases" description="Test cases loaded from database" />
 
-      {runError && <ErrorBanner message={runError} fullWidth />}
+      <ErrorPopup open={!!runError} onClose={() => setRunError("")} />
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search test cases..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="text"
+          placeholder="Search test cases..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
       {filteredCases.length === 0 ? (
@@ -115,50 +102,40 @@ export default function TestCasesPage() {
           }
         />
       ) : (
-        <div className="rounded-xl border bg-white">
-          <div className="grid gap-px divide-y">
-            {filteredCases.map((tc) => (
+        <div className="rounded-xl border bg-white divide-y">
+          {filteredCases.map((tc) => {
+            const id = tc.testCaseId ?? tc.id;
+            return (
               <div
-                key={tc.id}
-                className="flex items-start justify-between gap-4 p-4 hover:bg-slate-50"
+                key={id}
+                className="flex items-start justify-between gap-4 p-4 hover:bg-slate-50 cursor-pointer"
+                onClick={() => navigate(`/projects/${projectId}/test-cases/${id}`)}
               >
-                <div className="min-w-0 flex-1 space-y-2">
+                <div className="min-w-0 flex-1 space-y-1.5">
                   <div className="flex items-center gap-3">
                     <h3 className="font-semibold">{tc.title}</h3>
                     <StatusBadge status={tc.status} />
                   </div>
-
-                  <div className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">Goal:</span>{" "}
-                    {tc.goal}
-                  </div>
-
-                  <div className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">Prompt:</span>{" "}
-                    {tc.promptText || "No prompt text"}
-                  </div>
-
-                  <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Goal:</span> {tc.goal}
+                  </p>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span>Version: {tc.versionNo}</span>
                     <span>Mode: {tc.executionMode}</span>
-                    <span>Runtime Config: {tc.runtimeConfigId || "N/A"}</span>
+                    <span>{tc.stepCount ?? 0} steps</span>
                   </div>
                 </div>
 
-                <div className="shrink-0">
-                  <button
-                    onClick={() => handleRun(tc)}
-                    disabled={
-                      runningId === tc.testCaseId || tc.status === "archived"
-                    }
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {runningId === tc.testCaseId ? "Running..." : "Run"}
-                  </button>
-                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleRun(tc); }}
+                  disabled={runningId === id || tc.status === "archived"}
+                  className="shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {runningId === id ? "Running..." : "Run"}
+                </button>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
       )}
     </div>

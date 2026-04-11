@@ -510,6 +510,18 @@ async function handleFinalCallback(payload) {
     errorMessage: sanitizeFreeText(payload.errorMessage || null),
   });
 
+  // Update test sheet run summary if this test run belongs to one
+  try {
+    const testSheetService = require("../testSheet/testSheet.service");
+    await testSheetService.onTestRunCompleted(
+      payload.testRunId,
+      payload.verdict,
+      payload.status,
+    );
+  } catch (sheetErr) {
+    console.error("[agent] Failed to update sheet run summary:", sheetErr.message);
+  }
+
   if (payload.recordedScript && payload.recordedScript.scriptJson) {
     const run = await agentRepository.findRunById(payload.testRunId);
 

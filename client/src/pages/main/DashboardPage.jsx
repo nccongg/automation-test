@@ -12,7 +12,7 @@ import { useDashboard } from "@/features/dashboard/hooks/useDashboard";
 import KpiCard from "@/features/dashboard/components/KpiCard";
 import ProjectCard from "@/shared/components/project/ProjectCard";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorBanner from "@/shared/components/common/ErrorBanner";
+import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import PageHeader from "@/shared/components/common/PageHeader";
 import EmptyState from "@/shared/components/common/EmptyState";
 import CreateProjectDialog from "@/features/projects/components/CreateProjectDialog";
@@ -37,9 +37,9 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <ErrorBanner
-        message={error}
-        fullWidth
+      <ErrorPopup
+        open={true}
+        onClose={() => window.location.reload()}
         onRetry={() => window.location.reload()}
       />
     );

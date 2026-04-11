@@ -11,7 +11,7 @@ import { useState } from "react";
 import { useProjects } from "@/features/projects/hooks/useProjects";
 import ProjectCard from "@/shared/components/project/ProjectCard";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorBanner from "@/shared/components/common/ErrorBanner";
+import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import EmptyState from "@/shared/components/common/EmptyState";
 import PageHeader from "@/shared/components/common/PageHeader";
 import CreateProjectDialog from "@/features/projects/components/CreateProjectDialog";
@@ -36,9 +36,9 @@ export default function ProjectsPage() {
 
   if (error) {
     return (
-      <ErrorBanner
-        message={error}
-        fullWidth
+      <ErrorPopup
+        open={true}
+        onClose={() => window.location.reload()}
         onRetry={() => window.location.reload()}
       />
     );

@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { useSettings } from '@/features/settings/hooks/useSettings';
 import LoadingSpinner from '@/shared/components/common/LoadingSpinner';
-import ErrorBanner from '@/shared/components/common/ErrorBanner';
+import ErrorPopup from '@/shared/components/common/ErrorPopup';
 import PageHeader from '@/shared/components/common/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -51,7 +51,7 @@ export default function SettingsPage() {
   }
 
   if (error) {
-    return <ErrorBanner message={error} fullWidth onRetry={() => window.location.reload()} />;
+    return <ErrorPopup open={true} onClose={() => window.location.reload()} onRetry={() => window.location.reload()} />;
   }
 
   const handleSave = async () => {

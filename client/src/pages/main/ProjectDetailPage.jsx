@@ -7,7 +7,7 @@
 import { NavLink, Outlet, useParams } from "react-router-dom";
 import { useProject } from "@/features/projects/hooks/useProject";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorBanner from "@/shared/components/common/ErrorBanner";
+import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import {
   BarChart3,
   FileText,
@@ -15,6 +15,9 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  FolderOpen,
+  FlaskConical,
+  Tag,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -42,9 +45,9 @@ export default function ProjectDetailPage() {
 
   if (error) {
     return (
-      <ErrorBanner
-        message={error}
-        fullWidth
+      <ErrorPopup
+        open={true}
+        onClose={() => window.location.reload()}
         onRetry={() => window.location.reload()}
       />
     );
@@ -52,16 +55,15 @@ export default function ProjectDetailPage() {
 
   if (!data) {
     return (
-      <ErrorBanner
-        message="Project not found"
-        fullWidth
-        onRetry={() => window.history.back()}
+      <ErrorPopup
+        open={true}
+        onClose={() => window.history.back()}
       />
     );
   }
 
   return (
-    <div className="flex gap-6 max-h-screen overflow-hidden">
+    <div className="flex gap-6">
       <aside
         className={`sticky top-0 self-start shrink-0 rounded-xl border bg-white p-2 transition-all duration-300 ease-in-out overflow-y-auto ${
           isSidebarCollapsed ? "w-16" : "w-64"
@@ -120,6 +122,39 @@ export default function ProjectDetailPage() {
             <PlayCircle className="size-5 shrink-0" />
             {!isSidebarCollapsed && "Test Cases"}
           </NavLink>
+          
+
+          <NavLink
+            to="suites"
+            className={({ isActive }) =>
+              [
+                "flex items-center gap-3 rounded-xl px-3 py-4 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
+                  : "text-muted-foreground hover:bg-muted",
+                isSidebarCollapsed ? "justify-center px-2" : "",
+              ].join(" ")
+            }
+          >
+            <FlaskConical className="size-5 shrink-0" />
+            {!isSidebarCollapsed && "Test Suites"}
+          </NavLink>
+
+          <NavLink
+            to="collections"
+            className={({ isActive }) =>
+              [
+                "flex items-center gap-3 rounded-xl px-3 py-4 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
+                  : "text-muted-foreground hover:bg-muted",
+                isSidebarCollapsed ? "justify-center px-2" : "",
+              ].join(" ")
+            }
+          >
+            <Tag className="size-5 shrink-0" />
+            {!isSidebarCollapsed && "Collections"}
+          </NavLink>
 
           <NavLink
             to="test-runs"
@@ -155,7 +190,7 @@ export default function ProjectDetailPage() {
         </nav>
       </aside>
 
-      <main className="min-w-0 flex-1 overflow-y-auto">
+      <main className="min-w-0 flex-1">
         <Outlet
           context={{
             project: data,

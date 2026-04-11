@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorBanner from "@/shared/components/common/ErrorBanner";
+import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import { createProject } from "@/features/projects/api/projectsApi";
 
 const AUTH_TYPES = [
@@ -143,11 +143,7 @@ export default function CreateProjectDialog({ open, onOpenChange, onCreated }) {
         </DialogHeader>
 
         {error && (
-          <ErrorBanner
-            message={error}
-            fullWidth
-            onDismiss={() => setError("")}
-          />
+          <ErrorPopup open={!!error} onClose={() => setError("")} />
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">

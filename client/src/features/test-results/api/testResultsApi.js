@@ -119,8 +119,9 @@ function normalizeScreenshotUrl(filePath) {
   return "";
 }
 
-export async function getTestResults() {
-  const response = await apiClient.get("/test-runs");
+export async function getTestResults(projectId) {
+  const params = projectId ? { projectId } : {};
+  const response = await apiClient.get("/test-runs", { params });
   const payload = normalizeApiPayload(response);
   const rawRuns = Array.isArray(payload) ? payload : [];
 
@@ -129,17 +130,19 @@ export async function getTestResults() {
 
     return {
       id: run.id,
-      projectName: run.test_case_title || `Run #${run.id}`,
+      testCaseId: run.testCaseId,
+      projectName: run.testCaseTitle || `Run #${run.id}`,
       status: run.status || "unknown",
       result,
+      fromSheet: !!run.fromSheet,
       totalTests: 1,
       passed: result === "Passed" ? 1 : 0,
       failed: result === "Failed" ? 1 : 0,
-      duration: formatDuration(run.started_at, run.finished_at),
-      executedAt: formatDateTime(run.created_at),
+      duration: formatDuration(run.startedAt, run.finishedAt),
+      executedAt: formatDateTime(run.createdAt),
       executedBy: "System",
-      _rawStartedAt: run.started_at,
-      _rawFinishedAt: run.finished_at,
+      _rawStartedAt: run.startedAt,
+      _rawFinishedAt: run.finishedAt,
     };
   });
 
@@ -171,11 +174,16 @@ export async function getTestRunDetail(runId) {
           capturedAt: formatDateTime(evidence.captured_at),
         }));
 
+      const isUnknown = (v) => !v || v.toLowerCase() === "unknown";
       return {
         id: step.id,
         stepNo: step.step_no,
-        title: step.step_title || step.action || `Step ${step.step_no}`,
-        action: step.action || "",
+        title: !isUnknown(step.step_title)
+          ? step.step_title
+          : !isUnknown(step.action)
+            ? step.action
+            : `Step ${step.step_no}`,
+        action: isUnknown(step.action) ? "" : step.action,
         status: formatStepStatus(step.status),
         message: step.message || "",
         currentUrl: step.current_url || "",
@@ -194,6 +202,16 @@ export async function createTestRun({ testCaseId, promptText }) {
     promptText,
   });
 
+  return normalizeApiPayload(response);
+}
+
+export async function analyzeTestRun(runId) {
+  const response = await apiClient.post(`/test-runs/${runId}/analyze`);
+  return normalizeApiPayload(response);
+}
+
+export async function analyzeSheetRun(runId) {
+  const response = await apiClient.post(`/test-sheet-runs/${runId}/analyze`);
   return normalizeApiPayload(response);
 }
 

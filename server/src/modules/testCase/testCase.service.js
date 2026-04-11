@@ -227,8 +227,85 @@ async function saveTestCases(
   });
 }
 
+const ALLOWED_STATUSES = new Set(["draft", "ready", "archived"]);
+
+async function updateTestCase(userId, testCaseId, { title, goal, status }) {
+  assertUser(userId);
+
+  const id = toPositiveInt(testCaseId, "testCaseId");
+
+  const trimmedTitle = title !== undefined ? String(title).trim() : undefined;
+  const trimmedGoal = goal !== undefined ? String(goal).trim() : undefined;
+
+  if (trimmedTitle !== undefined && !trimmedTitle) {
+    throw { status: 400, message: "title cannot be empty" };
+  }
+
+  if (trimmedGoal !== undefined && !trimmedGoal) {
+    throw { status: 400, message: "goal cannot be empty" };
+  }
+
+  if (status !== undefined && !ALLOWED_STATUSES.has(status)) {
+    throw { status: 400, message: "status must be draft, ready, or archived" };
+  }
+
+  const updated = await testCaseRepository.updateTestCase(userId, id, {
+    title: trimmedTitle,
+    goal: trimmedGoal,
+    status,
+  });
+
+  if (!updated) {
+    throw { status: 404, message: "Test case not found or access denied" };
+  }
+
+  return updated;
+}
+
+async function refineTestCase(userId, testCaseId, prompt) {
+  assertUser(userId);
+  const id = toPositiveInt(testCaseId, "testCaseId");
+  if (!prompt || !String(prompt).trim()) throw { status: 400, message: "prompt is required" };
+
+  const tc = await testCaseRepository.getTestCaseById(userId, id);
+  if (!tc) throw { status: 404, message: "Test case not found" };
+
+  const { refineTestCase: llmRefine } = require("../llm/llm.service");
+  return llmRefine(tc, String(prompt).trim());
+}
+
+async function applyRefinement(userId, testCaseId, { title, goal, steps, expectedResult, promptText }) {
+  assertUser(userId);
+  const id = toPositiveInt(testCaseId, "testCaseId");
+  if (!title || !goal || !Array.isArray(steps) || steps.length === 0) {
+    throw { status: 400, message: "title, goal, and steps are required" };
+  }
+  return testCaseRepository.applyRefinement(userId, id, { title, goal, steps, expectedResult, promptText });
+}
+
+async function getTestCaseById(userId, testCaseId) {
+  assertUser(userId);
+  const id = toPositiveInt(testCaseId, "testCaseId");
+  const tc = await testCaseRepository.getTestCaseById(userId, id);
+  if (!tc) throw { status: 404, message: "Test case not found" };
+  return tc;
+}
+
+async function getRunsByTestCaseId(userId, testCaseId) {
+  assertUser(userId);
+  const id = toPositiveInt(testCaseId, "testCaseId");
+  // ownership check
+  await getTestCaseById(userId, id);
+  return testCaseRepository.getRunsByTestCaseId(id, 50);
+}
+
 module.exports = {
   getTestCases,
+  getTestCaseById,
+  getRunsByTestCaseId,
   generateTestCases,
   saveTestCases,
+  updateTestCase,
+  refineTestCase,
+  applyRefinement,
 };

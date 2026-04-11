@@ -4,7 +4,7 @@
 
 // Common components
 export { default as LoadingSpinner } from './common/LoadingSpinner';
-export { default as ErrorBanner } from './common/ErrorBanner';
+export { default as ErrorPopup } from './common/ErrorPopup';
 export { default as EmptyState } from './common/EmptyState';
 export { default as PageHeader } from './common/PageHeader';
 

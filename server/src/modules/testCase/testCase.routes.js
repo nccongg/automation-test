@@ -298,4 +298,51 @@ router.post("/generate", ctrl.generateTestCases);
  */
 router.post("/save", ctrl.saveTestCases);
 
+/**
+ * @swagger
+ * /test-cases/{id}:
+ *   put:
+ *     summary: Update a test case
+ *     tags: [Test Cases]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Test case ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               goal:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [draft, ready, archived]
+ *     responses:
+ *       200:
+ *         description: Test case updated successfully
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: Test case not found or access denied
+ */
+router.get("/:id", ctrl.getTestCaseById);
+
+router.get("/:id/runs", ctrl.getRunsByTestCaseId);
+
+router.post("/:id/refine", ctrl.refineTestCase);
+
+router.post("/:id/apply-refinement", ctrl.applyRefinement);
+
+router.put("/:id", ctrl.updateTestCase);
+
 module.exports = router;

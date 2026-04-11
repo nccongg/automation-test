@@ -110,9 +110,31 @@ async function replayTestRun(req, res, next) {
   }
 }
 
+async function analyzeTestRun(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const id = toPositiveNumber(req.params?.id);
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: "id must be a positive integer" });
+    }
+
+    const analysis = await testRunService.analyzeTestRun(id, userId);
+
+    if (!analysis) {
+      return res.status(404).json({ success: false, message: "Test run not found" });
+    }
+
+    return res.status(200).json({ success: true, data: analysis });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createTestRun,
   getRecentTestRuns,
   getTestRunDetail,
   replayTestRun,
+  analyzeTestRun,
 };
