@@ -17,20 +17,15 @@ logger = logging.getLogger(__name__)
 
 try:
     from browser_use import Agent, Browser, ChatGoogle  # type: ignore
-except Exception:
+    from browser_use.llm.ollama.chat import ChatOllama as BrowserUseChatOllama  # type: ignore
+    from browser_use.llm.openai.chat import ChatOpenAI as BrowserUseChatOpenAI  # type: ignore
+except Exception as _bu_err:
+    logger.warning("browser_use import failed: %s", _bu_err)
     Agent = None
     Browser = None
     ChatGoogle = None
-
-try:
-    from langchain_ollama import ChatOllama  # type: ignore
-except Exception:
-    ChatOllama = None
-
-try:
-    from langchain_openai import ChatOpenAI  # type: ignore
-except Exception:
-    ChatOpenAI = None
+    BrowserUseChatOllama = None
+    BrowserUseChatOpenAI = None
 
 try:
     from playwright.async_api import Browser as PWBrowser
@@ -114,39 +109,65 @@ def build_browser(run_req: RunRequest):
 
 def build_llm(run_req: RunRequest):
     provider = (run_req.runtimeConfig.llmProvider or "").lower().strip()
+    extra = run_req.runtimeConfig.extraConfig or {}
+
+    logger.info(
+        "[build_llm] provider=%s model=%s extraConfig=%s",
+        provider, run_req.runtimeConfig.llmModel, extra,
+    )
 
     if provider in {"google", "gemini"}:
         if ChatGoogle is None:
             raise RuntimeError("browser_use ChatGoogle is not installed in this environment")
-        return ChatGoogle(model=run_req.runtimeConfig.llmModel)
+        llm = ChatGoogle(model=run_req.runtimeConfig.llmModel)
+        logger.info("[build_llm] Using browser_use.ChatGoogle — class=%s", type(llm).__name__)
+        return llm
 
     if provider == "ollama":
-        if ChatOllama is None:
-            raise RuntimeError("langchain_ollama is not installed — run: pip install langchain-ollama")
+        # IMPORTANT: use browser-use's own ChatOllama, NOT langchain_ollama.ChatOllama.
+        # browser-use 0.12.x moved away from LangChain — it calls llm.ainvoke() expecting a
+        # ChatInvokeCompletion return value and passes browser_use message types, which
+        # langchain's ChatOllama does not understand. Using the wrong class causes every
+        # step to fail with a Pydantic ValidationError ("items") because response.completion
+        # is never populated correctly.
+        if BrowserUseChatOllama is None:
+            raise RuntimeError(
+                "browser_use.llm.ollama.ChatOllama is not available — "
+                "check your browser-use installation (pip install browser-use)"
+            )
         ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        _llm = ChatOllama(model=run_req.runtimeConfig.llmModel, base_url=ollama_base_url)
+        # num_ctx: default 32768 — browser-use sends full DOM snapshots per step.
+        # Ollama's default context (2048) truncates the input silently, producing
+        # malformed JSON that fails schema validation.
+        num_ctx = int(extra.get("num_ctx", 32768))
+        ollama_options: Dict[str, Any] = {"num_ctx": num_ctx}
+        # Allow passing any extra Ollama options (e.g. temperature, top_p) via extraConfig
+        for opt_key in ("temperature", "top_p", "top_k", "repeat_penalty", "seed"):
+            if opt_key in extra:
+                ollama_options[opt_key] = extra[opt_key]
 
-        # browser-use 0.12.x tries to read llm.provider and setattr(llm, 'ainvoke', ...)
-        # but ChatOllama is a strict Pydantic v2 model that rejects both.
-        # Wrap it in a plain proxy that allows arbitrary attributes.
-        class _OllamaProxy:
-            def __init__(self, inner):
-                object.__setattr__(self, '_inner', inner)
-                object.__setattr__(self, 'provider', 'ollama')
-                object.__setattr__(self, 'model_name', inner.model)
-
-            def __getattr__(self, name):
-                return getattr(object.__getattribute__(self, '_inner'), name)
-
-            def __setattr__(self, name, value):
-                object.__setattr__(self, name, value)
-
-        return _OllamaProxy(_llm)
+        logger.info(
+            "[build_llm] Using browser_use native ChatOllama host=%s model=%s ollama_options=%s",
+            ollama_base_url, run_req.runtimeConfig.llmModel, ollama_options,
+        )
+        llm = BrowserUseChatOllama(
+            model=run_req.runtimeConfig.llmModel,
+            host=ollama_base_url,
+            ollama_options=ollama_options,
+        )
+        logger.info("[build_llm] ChatOllama created — class=%s provider=%s", type(llm).__name__, llm.provider)
+        return llm
 
     if provider == "openai":
-        if ChatOpenAI is None:
-            raise RuntimeError("langchain_openai is not installed — run: pip install langchain-openai")
-        return ChatOpenAI(model=run_req.runtimeConfig.llmModel, api_key=os.getenv("OPENAI_API_KEY"))
+        if BrowserUseChatOpenAI is None:
+            raise RuntimeError(
+                "browser_use.llm.openai.ChatOpenAI is not available — "
+                "check your browser-use installation"
+            )
+        api_key = os.getenv("OPENAI_API_KEY")
+        llm = BrowserUseChatOpenAI(model=run_req.runtimeConfig.llmModel, api_key=api_key)
+        logger.info("[build_llm] Using browser_use native ChatOpenAI — class=%s", type(llm).__name__)
+        return llm
 
     raise ValueError(f"Unsupported llmProvider for this worker: {run_req.runtimeConfig.llmProvider}")
 
@@ -302,8 +323,25 @@ async def execute_llm_run(run_req: RunRequest) -> None:
         if Agent is None:
             raise RuntimeError("browser_use Agent is not installed in this environment")
 
+        logger.info(
+            "[execute_llm_run] Starting agent — testRunId=%s provider=%s model=%s maxSteps=%s task_len=%d",
+            run_req.testRunId,
+            run_req.runtimeConfig.llmProvider,
+            run_req.runtimeConfig.llmModel,
+            run_req.runtimeConfig.maxSteps,
+            len(task_text),
+        )
+        logger.debug("[execute_llm_run] Full task text:\n%s", task_text)
+
         agent = Agent(task=task_text, browser=browser, llm=llm)
+        logger.info("[execute_llm_run] Agent created — llm class=%s", type(llm).__name__)
         history = await agent.run(max_steps=run_req.runtimeConfig.maxSteps)
+        logger.info(
+            "[execute_llm_run] Agent finished — steps=%s successful=%s final_result=%r",
+            history.number_of_steps(),
+            history.is_successful(),
+            history.final_result(),
+        )
 
         await publish_llm_steps(run_req, history, screenshots_dir)
 
@@ -336,7 +374,14 @@ async def execute_llm_run(run_req: RunRequest) -> None:
             }
         )
     except Exception as exc:
-        logger.exception("LLM run failed")
+        logger.exception(
+            "[execute_llm_run] LLM run failed — testRunId=%s provider=%s model=%s error_type=%s error=%s",
+            run_req.testRunId,
+            run_req.runtimeConfig.llmProvider,
+            run_req.runtimeConfig.llmModel,
+            type(exc).__name__,
+            exc,
+        )
         await post_final_event(
             {
                 "testRunId": run_req.testRunId,
