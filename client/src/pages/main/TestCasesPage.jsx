@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, ListTodo } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTestCases } from "@/features/test-cases/hooks/useTestCases";
 import { createTestRun } from "@/features/test-results/api/testResultsApi";
@@ -7,6 +7,7 @@ import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import EmptyState from "@/shared/components/common/EmptyState";
 import PageHeader from "@/shared/components/common/PageHeader";
+import AddToSuiteDialog from "@/shared/components/common/AddToSuiteDialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
@@ -32,6 +33,7 @@ export default function TestCasesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [runningId, setRunningId] = useState(null);
   const [runError, setRunError] = useState("");
+  const [suiteDialog, setSuiteDialog] = useState(null); // { id, title }
 
   const filteredCases = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
@@ -127,6 +129,16 @@ export default function TestCasesPage() {
                 </div>
 
                 <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSuiteDialog({ id, title: tc.title });
+                  }}
+                  title="Add to test suite"
+                  className="shrink-0 rounded-lg border border-slate-200 p-2 text-muted-foreground hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                >
+                  <ListTodo className="size-4" />
+                </button>
+                <button
                   onClick={(e) => { e.stopPropagation(); handleRun(tc); }}
                   disabled={runningId === id || tc.status === "archived"}
                   className="shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
@@ -138,6 +150,14 @@ export default function TestCasesPage() {
           })}
         </div>
       )}
+
+      <AddToSuiteDialog
+        open={!!suiteDialog}
+        onClose={() => setSuiteDialog(null)}
+        testCaseId={suiteDialog?.id}
+        testCaseTitle={suiteDialog?.title}
+        projectId={projectId}
+      />
     </div>
   );
 }

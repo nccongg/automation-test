@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Loader2,
   FolderOpen,
+  ListTodo,
 } from "lucide-react";
 import {
   getCollections,
@@ -18,6 +19,7 @@ import {
 import PageHeader from "@/shared/components/common/PageHeader";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import EmptyState from "@/shared/components/common/EmptyState";
+import AddToSuiteDialog from "@/shared/components/common/AddToSuiteDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -139,6 +141,7 @@ function CollectionRow({ col, projectId, onDelete, deletingId, navigate }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState(null); // null = not yet loaded
   const [loadingItems, setLoadingItems] = useState(false);
+  const [suiteDialog, setSuiteDialog] = useState(null); // { id, title }
   const c = getColor(col.color);
 
   async function toggle() {
@@ -244,21 +247,26 @@ function CollectionRow({ col, projectId, onDelete, deletingId, navigate }) {
               </button>
             </div>
           ) : (
+            <>
             <div className="divide-y">
               {items.map((item) => (
                 <div
                   key={item.id}
-                  className="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer"
-                  onClick={() => navigate(`/projects/${projectId}/test-cases/${item.testCaseId}`)}
+                  className="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50"
                 >
-                  <div className={`h-7 w-0.5 shrink-0 rounded-full ${c.dot}`} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate group-hover:text-indigo-600 transition-colors">
-                      {item.title}
-                    </p>
-                    {item.goal && (
-                      <p className="text-xs text-muted-foreground truncate">{item.goal}</p>
-                    )}
+                  <div
+                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-3"
+                    onClick={() => navigate(`/projects/${projectId}/test-cases/${item.testCaseId}`)}
+                  >
+                    <div className={`h-7 w-0.5 shrink-0 rounded-full ${c.dot}`} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate group-hover:text-indigo-600 transition-colors">
+                        {item.title}
+                      </p>
+                      {item.goal && (
+                        <p className="text-xs text-muted-foreground truncate">{item.goal}</p>
+                      )}
+                    </div>
                   </div>
                   <Badge
                     variant="outline"
@@ -266,10 +274,33 @@ function CollectionRow({ col, projectId, onDelete, deletingId, navigate }) {
                   >
                     {item.status}
                   </Badge>
-                  <ExternalLink className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSuiteDialog({ id: item.testCaseId, title: item.title });
+                    }}
+                    title="Add to test suite"
+                    className="shrink-0 rounded-lg p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+                  >
+                    <ListTodo className="size-3.5" />
+                  </button>
+                  <ExternalLink
+                    className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    onClick={() => navigate(`/projects/${projectId}/test-cases/${item.testCaseId}`)}
+                  />
                 </div>
               ))}
             </div>
+
+            <AddToSuiteDialog
+              open={!!suiteDialog}
+              onClose={() => setSuiteDialog(null)}
+              testCaseId={suiteDialog?.id}
+              testCaseTitle={suiteDialog?.title}
+              projectId={projectId}
+            />
+            </>
           )}
         </div>
       )}
@@ -318,7 +349,7 @@ export default function TestCollectionsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
+      <div className="flex min-h-[400px] items-center justify-center">2
         <LoadingSpinner size="lg" label="Loading collections..." />
       </div>
     );
