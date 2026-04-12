@@ -66,10 +66,10 @@ export default function App() {
               <Route path="test-cases/:testCaseId" element={<TestCaseDetailPage />} />
               <Route path="test-runs" element={<TestResultsPage />} />
               <Route path="test-runs/:runId" element={<TestRunDetailPage />} />
+              <Route path="test-runs/sheet/:runId" element={<TestSuiteRunDetailPage />} />
               {/* Test Suites — execution unit with ordering and batch run */}
               <Route path="suites" element={<TestSuitesPage />} />
               <Route path="suites/:sheetId" element={<TestSuiteDetailPage />} />
-              <Route path="suites/:sheetId/runs/:runId" element={<TestSuiteRunDetailPage />} />
               {/* Collections — organize-only, label/folder, no execution */}
               <Route path="collections" element={<TestCollectionsPage />} />
               <Route path="collections/:collectionId" element={<TestCollectionDetailPage />} />

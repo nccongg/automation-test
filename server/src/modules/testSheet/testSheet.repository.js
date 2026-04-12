@@ -201,7 +201,7 @@ async function findSheetRunsByProject(projectId, limit = 20) {
     `SELECT
        tsr.id,
        tsr.test_suite_id AS "testSuiteId",
-       ts.name AS "suiteName",
+       ts.name AS "sheetName",
        tsr.status,
        tsr.total_cases AS "totalCases",
        tsr.passed,
@@ -225,7 +225,7 @@ async function findSheetRunById(runId) {
     `SELECT
        tsr.id,
        tsr.test_suite_id AS "testSuiteId",
-       ts.name AS "suiteName",
+       ts.name AS "sheetName",
        tsr.status,
        tsr.total_cases AS "totalCases",
        tsr.passed,

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-import { LayoutList, Sheet, ChevronDown, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { LayoutList, Sheet, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { useTestResults } from "@/features/test-results/hooks/useTestResults";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
@@ -147,15 +147,14 @@ function StepItem({ step, stepIndex, isLast }) {
 
 /* ─── Run Card ────────────────────────────────────────────────────────── */
 
-function RunCard({ run, isExpanded, onToggle, detail, detailLoadingId, projectId }) {
+function RunCard({ run, projectId }) {
   const navigate = useNavigate();
   const style = getRunStyle(run.result);
-  const isLoading = detailLoadingId === run.id;
   const isLive = run.status === "running" || run.status === "queued";
 
   return (
     <div className={`rounded-2xl border border-slate-200 overflow-hidden shadow-sm border-l-4 ${style.stripe} ${style.bg}`}>
-      <button onClick={() => onToggle(run.id)}
+      <button onClick={() => navigate(`/projects/${projectId}/test-runs/${run.id}`)}
         className="w-full px-5 py-4 text-left hover:bg-black/[0.02] transition-colors">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
@@ -200,41 +199,11 @@ function RunCard({ run, isExpanded, onToggle, detail, detailLoadingId, projectId
                 <Clock className="size-4 animate-pulse" /> Running
               </span>
             )}
-            <div className="flex items-center gap-1 rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600">
-              {isExpanded ? "Hide" : "Show steps"}
-              <ChevronDown className={`size-3.5 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-            </div>
+            <span className="text-xs text-slate-400">View details →</span>
           </div>
         </div>
       </button>
 
-      {isExpanded && (
-        <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-5">
-          {isLoading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
-              <LoadingSpinner size="sm" /> Loading steps…
-            </div>
-          ) : detail?.steps?.length ? (
-            <div>
-              <p className="mb-4 text-xs font-medium text-slate-400">{detail.steps.length} steps recorded</p>
-              {detail.steps.map((step, i) => (
-                <StepItem key={step.id} step={step} stepIndex={i} isLast={i === detail.steps.length - 1} />
-              ))}
-              {isLive && (
-                <div className="flex items-center gap-2 rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-600">
-                  <LoadingSpinner size="sm" /> Still running — refreshing every 3s
-                </div>
-              )}
-            </div>
-          ) : isLive ? (
-            <div className="flex items-center gap-2 text-sm text-blue-500 py-2">
-              <LoadingSpinner size="sm" /> Waiting for steps…
-            </div>
-          ) : (
-            <p className="py-2 text-sm text-slate-400">No steps recorded for this run.</p>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -329,10 +298,6 @@ export default function TestResultsPage() {
     summary = { totalRuns: 0, passed: 0, failed: 0, passRate: "0%" },
     loading,
     error,
-    expandedRunId,
-    runDetails,
-    detailLoadingId,
-    toggleRunDetail,
   } = useTestResults(projectId ?? project?.id);
 
   if (loading) {
@@ -429,10 +394,6 @@ export default function TestResultsPage() {
                   key={`run-${run.id}`}
                   run={run}
                   projectId={pid}
-                  isExpanded={expandedRunId === run.id}
-                  onToggle={toggleRunDetail}
-                  detail={runDetails[run.id]}
-                  detailLoadingId={detailLoadingId}
                 />
               ))
             )}
@@ -494,7 +455,7 @@ export default function TestResultsPage() {
                     key={`sheet-${run.id}`}
                     run={run}
                     onClick={() =>
-                      navigate(`/projects/${pid}/collections/${run.testSheetId}/runs/${run.id}`)
+                      navigate(`/projects/${pid}/test-runs/sheet/${run.id}`)
                     }
                   />
                 ))

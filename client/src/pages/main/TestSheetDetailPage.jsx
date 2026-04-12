@@ -274,7 +274,7 @@ export default function TestSuiteDetailPage() {
       const result = await runTestSheet(sheetId);
       const runId = result?.sheetRun?.id;
       if (runId) {
-        navigate(`/projects/${projectId}/suites/${sheetId}/runs/${runId}`);
+        navigate(`/projects/${projectId}/test-runs/sheet/${runId}`);
       }
     } catch (e) {
       setError(e?.message || "Failed to start sheet run.");
@@ -289,7 +289,7 @@ export default function TestSuiteDetailPage() {
       const result = await runTestSheet(sheetId, [testCaseId]);
       const runId = result?.sheetRun?.id;
       if (runId) {
-        navigate(`/projects/${projectId}/suites/${sheetId}/runs/${runId}`);
+        navigate(`/projects/${projectId}/test-runs/sheet/${runId}`);
       }
     } catch (e) {
       setError(e?.message || "Failed to start test case run.");
@@ -504,7 +504,7 @@ export default function TestSuiteDetailPage() {
                 key={run.id}
                 className="flex cursor-pointer items-center justify-between gap-4 p-4 hover:bg-slate-50"
                 onClick={() =>
-                  navigate(`/projects/${projectId}/suites/${sheetId}/runs/${run.id}`)
+                  navigate(`/projects/${projectId}/test-runs/sheet/${run.id}`)
                 }
               >
                 <div className="flex items-center gap-3 min-w-0">
