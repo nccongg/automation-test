@@ -256,23 +256,34 @@ export default function TestRunDetailPage() {
 
   useEffect(() => {
     let mounted = true;
-    setLoading(true);
+    let pollTimer = null;
 
-    getTestRunDetail(runId)
-      .then((data) => {
+    async function fetchDetail() {
+      try {
+        const data = await getTestRunDetail(runId);
         if (!mounted) return;
         setDetail(data);
-      })
-      .catch((e) => {
+        setLoading(false);
+
+        const status = data?.run?.status;
+        const stillLive = status === "queued" || status === "running";
+        if (stillLive) {
+          pollTimer = setTimeout(fetchDetail, 3000);
+        }
+      } catch (e) {
         if (!mounted) return;
         setError(e?.message || "Failed to load test run.");
-      })
-      .finally(() => {
-        if (!mounted) return;
         setLoading(false);
-      });
+      }
+    }
 
-    return () => { mounted = false; };
+    setLoading(true);
+    fetchDetail();
+
+    return () => {
+      mounted = false;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
   }, [runId]);
 
   if (loading) {

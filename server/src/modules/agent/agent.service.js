@@ -5,6 +5,25 @@ const env = require("../../config/env");
 
 const AGENT_WORKER_BASE_URL = env.AGENT_WORKER_BASE_URL;
 
+function runtimeConfigFromEnv() {
+  return {
+    id: null,
+    project_id: null,
+    llm_provider: process.env.EXECUTION_LLM_PROVIDER || "gemini",
+    llm_model: process.env.EXECUTION_LLM_MODEL || "gemini-2.5-flash",
+    max_steps: parseInt(process.env.EXECUTION_MAX_STEPS || "20", 10),
+    timeout_seconds: parseInt(process.env.EXECUTION_TIMEOUT_SECONDS || "300", 10),
+    use_vision: (process.env.EXECUTION_USE_VISION || "true") === "true",
+    headless: (process.env.EXECUTION_HEADLESS || "true") === "true",
+    browser_type: process.env.EXECUTION_BROWSER_TYPE || "chromium",
+    allowed_domains: [],
+    viewport_json: null,
+    locale: process.env.EXECUTION_LOCALE || null,
+    timezone: process.env.EXECUTION_TIMEZONE || null,
+    extra_config_json: {},
+  };
+}
+
 const SUPPORTED_WORKER_EXECUTION_MODES = new Set([
   "goal_based_agent",
   "replay_script",
@@ -294,17 +313,7 @@ async function startAgentRun({
 
   assertSupportedExecutionMode(bundle.execution_mode);
 
-  const resolvedRuntimeConfigId = runtimeConfigId || bundle.runtime_config_id;
-  if (!resolvedRuntimeConfigId) {
-    throw new Error(
-      "runtimeConfigId is required because this test case version has no runtime_config_id",
-    );
-  }
-
-  const runtimeConfig = await agentRepository.findRuntimeConfigById(
-    resolvedRuntimeConfigId,
-  );
-  assertRuntimeConfigBelongsToProject(runtimeConfig, bundle.project_id);
+  const runtimeConfig = runtimeConfigFromEnv();
 
   const browserProfile = browserProfileId
     ? await agentRepository.findBrowserProfileById(browserProfileId)
@@ -377,15 +386,7 @@ async function replayAgentRun({
     await agentRepository.findExecutionScriptById(executionScriptId);
   assertExecutionScriptMatchesTestCase(script, bundle);
 
-  const resolvedRuntimeConfigId = runtimeConfigId || bundle.runtime_config_id;
-  if (!resolvedRuntimeConfigId) {
-    throw new Error("runtimeConfigId is required for replay");
-  }
-
-  const runtimeConfig = await agentRepository.findRuntimeConfigById(
-    resolvedRuntimeConfigId,
-  );
-  assertRuntimeConfigBelongsToProject(runtimeConfig, bundle.project_id);
+  const runtimeConfig = runtimeConfigFromEnv();
 
   const browserProfile = browserProfileId
     ? await agentRepository.findBrowserProfileById(browserProfileId)

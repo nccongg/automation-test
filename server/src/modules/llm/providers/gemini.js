@@ -5,7 +5,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 const DEFAULT_MODEL = process.env.GENERATION_GEMINI_MODEL ||
   process.env.GENERATION_LLM_MODEL ||
-  "gemini-2.0-flash";
+  "gemini-2.5-flash";
 
 if (!GEMINI_API_KEY) {
   console.warn("[llm/providers/gemini] Missing GEMINI_API_KEY or GOOGLE_API_KEY");

@@ -23,6 +23,16 @@ except Exception:
     ChatGoogle = None
 
 try:
+    from langchain_ollama import ChatOllama  # type: ignore
+except Exception:
+    ChatOllama = None
+
+try:
+    from langchain_openai import ChatOpenAI  # type: ignore
+except Exception:
+    ChatOpenAI = None
+
+try:
     from playwright.async_api import Browser as PWBrowser
     from playwright.async_api import BrowserContext, Locator, Page, async_playwright
 except Exception:
@@ -105,13 +115,40 @@ def build_browser(run_req: RunRequest):
 def build_llm(run_req: RunRequest):
     provider = (run_req.runtimeConfig.llmProvider or "").lower().strip()
 
-    if provider not in {"google", "gemini"}:
-        raise ValueError(f"Unsupported llmProvider for this worker: {run_req.runtimeConfig.llmProvider}")
+    if provider in {"google", "gemini"}:
+        if ChatGoogle is None:
+            raise RuntimeError("browser_use ChatGoogle is not installed in this environment")
+        return ChatGoogle(model=run_req.runtimeConfig.llmModel)
 
-    if ChatGoogle is None:
-        raise RuntimeError("browser_use ChatGoogle is not installed in this environment")
+    if provider == "ollama":
+        if ChatOllama is None:
+            raise RuntimeError("langchain_ollama is not installed — run: pip install langchain-ollama")
+        ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        _llm = ChatOllama(model=run_req.runtimeConfig.llmModel, base_url=ollama_base_url)
 
-    return ChatGoogle(model=run_req.runtimeConfig.llmModel)
+        # browser-use 0.12.x tries to read llm.provider and setattr(llm, 'ainvoke', ...)
+        # but ChatOllama is a strict Pydantic v2 model that rejects both.
+        # Wrap it in a plain proxy that allows arbitrary attributes.
+        class _OllamaProxy:
+            def __init__(self, inner):
+                object.__setattr__(self, '_inner', inner)
+                object.__setattr__(self, 'provider', 'ollama')
+                object.__setattr__(self, 'model_name', inner.model)
+
+            def __getattr__(self, name):
+                return getattr(object.__getattribute__(self, '_inner'), name)
+
+            def __setattr__(self, name, value):
+                object.__setattr__(self, name, value)
+
+        return _OllamaProxy(_llm)
+
+    if provider == "openai":
+        if ChatOpenAI is None:
+            raise RuntimeError("langchain_openai is not installed — run: pip install langchain-openai")
+        return ChatOpenAI(model=run_req.runtimeConfig.llmModel, api_key=os.getenv("OPENAI_API_KEY"))
+
+    raise ValueError(f"Unsupported llmProvider for this worker: {run_req.runtimeConfig.llmProvider}")
 
 
 def build_task_text(run_req: RunRequest) -> str:

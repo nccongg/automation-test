@@ -170,12 +170,12 @@ function RunCard({ run, projectId }) {
                   </span>
                 )}
                 {run.testCaseId && projectId ? (
-                  <button
+                  <span
                     onClick={(e) => { e.stopPropagation(); navigate(`/projects/${projectId}/test-cases/${run.testCaseId}`); }}
-                    className="font-semibold text-slate-800 truncate hover:text-indigo-600 hover:underline transition-colors"
+                    className="font-semibold text-slate-800 truncate hover:text-indigo-600 hover:underline transition-colors cursor-pointer"
                   >
                     {run.projectName}
-                  </button>
+                  </span>
                 ) : (
                   <p className="font-semibold text-slate-800 truncate">{run.projectName}</p>
                 )}

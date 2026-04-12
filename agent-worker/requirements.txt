@@ -4,4 +4,6 @@ httpx
 python-dotenv
 pydantic
 browser-use
+langchain-ollama
+# langchain-openai  # conflicts with browser-use's openai==2.16.0 pin; re-enable when browser-use is updated
 playwright

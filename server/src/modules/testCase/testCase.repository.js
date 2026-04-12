@@ -16,7 +16,7 @@ const EXECUTION_LLM_PROVIDER =
   process.env.EXECUTION_LLM_PROVIDER || "gemini";
 
 const EXECUTION_LLM_MODEL =
-  process.env.EXECUTION_LLM_MODEL || "gemini-2.0-flash";
+  process.env.EXECUTION_LLM_MODEL || "gemini-2.5-flash";
 
 async function findOwnedProjectById(userId, projectId) {
   const result = await pool.query(

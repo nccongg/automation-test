@@ -96,7 +96,7 @@ class TestCasePayload(BaseModel):
 
 
 class RuntimeConfigPayload(BaseModel):
-    id: int
+    id: Optional[int] = None
     llmProvider: str
     llmModel: str
     maxSteps: int = 20
