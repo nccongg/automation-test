@@ -173,10 +173,22 @@ async function getRunsByTestCaseId(req, res, next) {
   }
 }
 
+async function getTestCaseScripts(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const testCaseId = Number(req.params.id);
+    const data = await testCaseService.getTestCaseScripts(userId, testCaseId);
+    res.json({ status: "ok", data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getTestCases,
   getTestCaseById,
   getRunsByTestCaseId,
+  getTestCaseScripts,
   generateTestCases,
   saveTestCases,
   updateTestCase,

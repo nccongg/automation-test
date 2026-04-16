@@ -18,9 +18,24 @@ import {
   X,
   Wand2,
   RotateCcw,
+  Database,
+  FileCode2,
+  PlayCircle,
 } from "lucide-react";
-import { getTestCaseById, getTestCaseRuns, updateTestCase, refineTestCase, applyRefinement } from "@/features/test-cases/api/testCasesApi";
-import { getTestRunDetail, analyzeTestRun } from "@/features/test-results/api/testResultsApi";
+import {
+  getTestCaseById,
+  getTestCaseRuns,
+  getTestCaseScripts,
+  updateTestCase,
+  refineTestCase,
+  applyRefinement,
+} from "@/features/test-cases/api/testCasesApi";
+import {
+  getTestRunDetail,
+  analyzeTestRun,
+  createTestRun,
+  replayTestRun,
+} from "@/features/test-results/api/testResultsApi";
 import { parseAgentError } from "@/shared/utils/parseAgentError";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
@@ -49,53 +64,106 @@ function duration(s, f) {
   return m > 0 ? `${m}m ${sec % 60}s` : `${sec}s`;
 }
 
+function toNullablePositiveInt(value) {
+  if (value === "" || value === null || value === undefined) return null;
+  const num = Number(value);
+  if (!Number.isInteger(num) || num <= 0) {
+    throw new Error("Only positive integers are allowed for dataset/runtime/script ids.");
+  }
+  return num;
+}
+
+function toNullableNonNegativeInt(value) {
+  if (value === "" || value === null || value === undefined) return null;
+  const num = Number(value);
+  if (!Number.isInteger(num) || num < 0) {
+    throw new Error("rowIndex must be a non-negative integer.");
+  }
+  return num;
+}
+
+function trimOrNull(value) {
+  const text = String(value ?? "").trim();
+  return text ? text : null;
+}
+
+function parseJsonObject(text, label) {
+  const raw = String(text ?? "").trim();
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error(`${label} must be a JSON object.`);
+    }
+    return parsed;
+  } catch (err) {
+    throw new Error(`${label} is invalid JSON.`);
+  }
+}
+
+function getCurrentVersionId(tc) {
+  return (
+    tc?.currentVersionId ??
+    tc?.current_version_id ??
+    tc?.testCaseVersionId ??
+    tc?.test_case_version_id ??
+    tc?.currentVersion?.id ??
+    null
+  );
+}
+
+function getRuntimeConfigId(tc) {
+  return tc?.runtimeConfigId ?? tc?.runtime_config_id ?? null;
+}
+
 const STATUS_STYLE = {
-  draft:    "bg-slate-100 text-slate-600",
-  ready:    "bg-emerald-100 text-emerald-700",
+  draft: "bg-slate-100 text-slate-600",
+  ready: "bg-emerald-100 text-emerald-700",
   archived: "bg-amber-100 text-amber-700",
 };
 
 const VERDICT_STRIPE = {
-  pass:  "border-l-emerald-400",
-  fail:  "border-l-red-400",
+  pass: "border-l-emerald-400",
+  fail: "border-l-red-400",
   error: "border-l-orange-400",
 };
 const VERDICT_BG = {
-  pass:  "bg-emerald-50/40",
-  fail:  "bg-red-50/40",
+  pass: "bg-emerald-50/40",
+  fail: "bg-red-50/40",
   error: "bg-orange-50/20",
 };
 const VERDICT_BADGE = {
-  pass:  "bg-emerald-100 text-emerald-700 border-emerald-200",
-  fail:  "bg-red-100 text-red-700 border-red-200",
+  pass: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  fail: "bg-red-100 text-red-700 border-red-200",
   error: "bg-orange-100 text-orange-700 border-orange-200",
 };
 const VERDICT_ICON = {
-  pass:  <CheckCircle2 className="size-4 text-emerald-500" />,
-  fail:  <XCircle className="size-4 text-red-500" />,
+  pass: <CheckCircle2 className="size-4 text-emerald-500" />,
+  fail: <XCircle className="size-4 text-red-500" />,
   error: <AlertTriangle className="size-4 text-orange-500" />,
 };
 
 /* ─── Step ────────────────────────────────────────────────────────────── */
 
 const ERROR_STYLE = {
-  "Invalid API Key":       "bg-red-50 border-red-200 text-red-700",
-  "Rate Limit Exceeded":   "bg-orange-50 border-orange-200 text-orange-700",
+  "Invalid API Key": "bg-red-50 border-red-200 text-red-700",
+  "Rate Limit Exceeded": "bg-orange-50 border-orange-200 text-orange-700",
   "Authentication Failed": "bg-red-50 border-red-200 text-red-700",
-  "Permission Denied":     "bg-yellow-50 border-yellow-200 text-yellow-700",
-  "Not Found":             "bg-slate-50 border-slate-200 text-slate-600",
-  "Invalid Request":       "bg-orange-50 border-orange-200 text-orange-700",
-  "Server Error":          "bg-red-50 border-red-200 text-red-700",
-  "Timeout":               "bg-yellow-50 border-yellow-200 text-yellow-700",
-  "Connection Error":      "bg-yellow-50 border-yellow-200 text-yellow-700",
-  "Element Not Found":     "bg-orange-50 border-orange-200 text-orange-700",
-  "Navigation Failed":     "bg-orange-50 border-orange-200 text-orange-700",
+  "Permission Denied": "bg-yellow-50 border-yellow-200 text-yellow-700",
+  "Not Found": "bg-slate-50 border-slate-200 text-slate-600",
+  "Invalid Request": "bg-orange-50 border-orange-200 text-orange-700",
+  "Server Error": "bg-red-50 border-red-200 text-red-700",
+  Timeout: "bg-yellow-50 border-yellow-200 text-yellow-700",
+  "Connection Error": "bg-yellow-50 border-yellow-200 text-yellow-700",
+  "Element Not Found": "bg-orange-50 border-orange-200 text-orange-700",
+  "Navigation Failed": "bg-orange-50 border-orange-200 text-orange-700",
 };
 
 function StepErrorMessage({ raw }) {
   const parsed = parseAgentError(raw);
   if (parsed) {
-    const cls = ERROR_STYLE[parsed.category] ?? "bg-slate-50 border-slate-200 text-slate-600";
+    const cls =
+      ERROR_STYLE[parsed.category] ?? "bg-slate-50 border-slate-200 text-slate-600";
     return (
       <div className={`flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-xs ${cls}`}>
         <span className="font-semibold">{parsed.category}</span>
@@ -103,19 +171,29 @@ function StepErrorMessage({ raw }) {
       </div>
     );
   }
-  return <p className="text-xs text-slate-500 break-all"><span className="text-slate-400">Message: </span>{raw}</p>;
+  return (
+    <p className="text-xs text-slate-500 break-all">
+      <span className="text-slate-400">Message: </span>
+      {raw}
+    </p>
+  );
 }
 
 function getStepNodeStyle(status) {
   const s = (status || "").toLowerCase();
-  if (s === "passed" || s === "success" || s === "completed") return "bg-emerald-500 ring-emerald-200";
+  if (s === "passed" || s === "success" || s === "completed") {
+    return "bg-emerald-500 ring-emerald-200";
+  }
   if (s === "failed" || s === "error") return "bg-red-500 ring-red-200";
   if (s === "running") return "bg-blue-500 ring-blue-200";
   return "bg-slate-300 ring-slate-100";
 }
+
 function getStepTagStyle(status) {
   const s = (status || "").toLowerCase();
-  if (s === "passed" || s === "success" || s === "completed") return "bg-emerald-100 text-emerald-700";
+  if (s === "passed" || s === "success" || s === "completed") {
+    return "bg-emerald-100 text-emerald-700";
+  }
   if (s === "failed" || s === "error") return "bg-red-100 text-red-700";
   if (s === "running") return "bg-blue-100 text-blue-700";
   return "bg-slate-100 text-slate-500";
@@ -126,8 +204,12 @@ function StepItem({ step, stepIndex, isLast }) {
     <div className="relative flex gap-3">
       {!isLast && <div className="absolute left-[13px] top-7 h-full w-0.5 bg-slate-100" />}
       <div className="relative z-10 mt-0.5 shrink-0">
-        <div className={`size-7 rounded-full ring-4 ${getStepNodeStyle(step.status)} flex items-center justify-center`}>
-          <span className="text-[10px] font-bold text-white">{step.stepNo ?? stepIndex + 1}</span>
+        <div
+          className={`size-7 rounded-full ring-4 ${getStepNodeStyle(step.status)} flex items-center justify-center`}
+        >
+          <span className="text-[10px] font-bold text-white">
+            {step.stepNo ?? stepIndex + 1}
+          </span>
         </div>
       </div>
       <div className="mb-4 flex-1 rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
@@ -139,12 +221,22 @@ function StepItem({ step, stepIndex, isLast }) {
         </div>
         {(step.action || step.message || step.currentUrl) && (
           <div className="mt-2 space-y-1.5 text-sm text-slate-600">
-            {step.action && <p><span className="text-slate-400">Action: </span>{step.action}</p>}
+            {step.action && (
+              <p>
+                <span className="text-slate-400">Action: </span>
+                {step.action}
+              </p>
+            )}
             {step.message && <StepErrorMessage raw={step.message} />}
             {step.currentUrl && (
               <p>
                 <span className="text-slate-400">URL: </span>
-                <a href={step.currentUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline break-all">
+                <a
+                  href={step.currentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-500 hover:underline break-all"
+                >
                   {step.currentUrl}
                 </a>
               </p>
@@ -153,27 +245,39 @@ function StepItem({ step, stepIndex, isLast }) {
         )}
         {step.thoughtText && (
           <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-500 leading-relaxed whitespace-pre-wrap">
-            <span className="font-medium text-slate-400">Thought: </span>{step.thoughtText}
+            <span className="font-medium text-slate-400">Thought: </span>
+            {step.thoughtText}
           </div>
         )}
         {step.extractedContent && (
           <div className="mt-2 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2.5 text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">
-            <span className="font-medium text-amber-500">Extracted: </span>{step.extractedContent}
+            <span className="font-medium text-amber-500">Extracted: </span>
+            {step.extractedContent}
           </div>
         )}
         {step.screenshots?.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
             {step.screenshots.map((shot) =>
               shot.imageUrl ? (
-                <a key={shot.id} href={shot.imageUrl} target="_blank" rel="noopener noreferrer"
-                  className="group relative block overflow-hidden rounded-lg border border-slate-200 shadow-sm">
-                  <img src={shot.imageUrl} alt={`Step ${step.stepNo}`}
-                    className="h-28 w-44 object-cover transition-opacity group-hover:opacity-80" />
+                <a
+                  key={shot.id}
+                  href={shot.imageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative block overflow-hidden rounded-lg border border-slate-200 shadow-sm"
+                >
+                  <img
+                    src={shot.imageUrl}
+                    alt={`Step ${step.stepNo}`}
+                    className="h-28 w-44 object-cover transition-opacity group-hover:opacity-80"
+                  />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-colors rounded-lg">
-                    <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-slate-700 text-xs font-medium px-2 py-1 rounded-md transition-opacity">View</span>
+                    <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-slate-700 text-xs font-medium px-2 py-1 rounded-md transition-opacity">
+                      View
+                    </span>
                   </div>
                 </a>
-              ) : null
+              ) : null,
             )}
           </div>
         )}
@@ -190,10 +294,15 @@ function AiAnalysis({ runId, isLive }) {
   const [err, setErr] = useState("");
 
   async function run() {
-    setAnalyzing(true); setErr("");
-    try { setAnalysis(await analyzeTestRun(runId)); }
-    catch (e) { setErr(e?.message || "Failed"); }
-    finally { setAnalyzing(false); }
+    setAnalyzing(true);
+    setErr("");
+    try {
+      setAnalysis(await analyzeTestRun(runId));
+    } catch (e) {
+      setErr(e?.message || "Failed");
+    } finally {
+      setAnalyzing(false);
+    }
   }
 
   return (
@@ -203,36 +312,65 @@ function AiAnalysis({ runId, isLive }) {
           <Sparkles className="size-3.5 text-violet-400" /> AI Analysis
         </div>
         {!analysis && (
-          <button onClick={run} disabled={analyzing || isLive}
-            className="flex items-center gap-1 rounded-lg bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50 transition-colors">
-            {analyzing ? <><span className="size-2.5 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" /> Analyzing…</> : <><Sparkles className="size-3" />{isLive ? "Run first" : "Generate"}</>}
+          <button
+            onClick={run}
+            disabled={analyzing || isLive}
+            className="flex items-center gap-1 rounded-lg bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50 transition-colors"
+          >
+            {analyzing ? (
+              <>
+                <span className="size-2.5 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
+                Analyzing…
+              </>
+            ) : (
+              <>
+                <Sparkles className="size-3" />
+                {isLive ? "Run first" : "Generate"}
+              </>
+            )}
           </button>
         )}
         {analysis && (
-          <button onClick={() => { setAnalysis(null); setErr(""); }} className="text-xs text-slate-400 hover:text-slate-600">Regenerate</button>
+          <button
+            onClick={() => {
+              setAnalysis(null);
+              setErr("");
+            }}
+            className="text-xs text-slate-400 hover:text-slate-600"
+          >
+            Regenerate
+          </button>
         )}
       </div>
       <div className="px-4 py-3">
         {!analysis && !analyzing && !err && (
-          <p className="text-xs text-slate-400">{isLive ? "Available once run completes." : "Get AI-powered insights for this run."}</p>
+          <p className="text-xs text-slate-400">
+            {isLive ? "Available once run completes." : "Get AI-powered insights for this run."}
+          </p>
         )}
         {err && <p className="text-xs text-red-500">{err}</p>}
         {analysis && (
           <div className="space-y-3">
             <div className="rounded-lg bg-violet-50 border border-violet-100 px-3 py-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-violet-400 mb-1">Conclusion</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-violet-400 mb-1">
+                Conclusion
+              </p>
               <p className="text-xs text-slate-700 leading-relaxed">{analysis.conclusion}</p>
             </div>
             {analysis.suggestions?.length > 0 && (
               <div>
                 <div className="flex items-center gap-1 mb-1.5">
                   <Lightbulb className="size-3 text-amber-400" />
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Suggestions</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    Suggestions
+                  </p>
                 </div>
                 <ul className="space-y-1.5">
                   {analysis.suggestions.map((s, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs text-slate-600">
-                      <span className="mt-0.5 shrink-0 size-4 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-[9px] font-bold text-amber-600">{i + 1}</span>
+                      <span className="mt-0.5 shrink-0 size-4 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-[9px] font-bold text-amber-600">
+                        {i + 1}
+                      </span>
                       {s}
                     </li>
                   ))}
@@ -243,6 +381,314 @@ function AiAnalysis({ runId, isLive }) {
         )}
       </div>
     </div>
+  );
+}
+
+/* ─── Run / Replay Panel ──────────────────────────────────────────────── */
+
+function RunReplaySection({
+  tc,
+  scripts,
+  scriptsLoading,
+  scriptsError,
+  onRunCreated,
+}) {
+  const [datasetId, setDatasetId] = useState("");
+  const [datasetAlias, setDatasetAlias] = useState("");
+  const [rowIndex, setRowIndex] = useState("");
+  const [rowKey, setRowKey] = useState("");
+  const [paramsOverrideText, setParamsOverrideText] = useState("{}");
+  const [replayParamsText, setReplayParamsText] = useState("{}");
+  const [selectedScriptId, setSelectedScriptId] = useState("");
+  const [busyAction, setBusyAction] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [actionSuccess, setActionSuccess] = useState("");
+
+  useEffect(() => {
+    if (!selectedScriptId && scripts?.length > 0) {
+      setSelectedScriptId(String(scripts[0].id));
+    }
+  }, [scripts, selectedScriptId]);
+
+  async function handleCreateRun() {
+    setBusyAction("run");
+    setActionError("");
+    setActionSuccess("");
+
+    try {
+      const result = await createTestRun({
+        testCaseId: tc.id,
+        testCaseVersionId: getCurrentVersionId(tc),
+        runtimeConfigId: getRuntimeConfigId(tc),
+        datasetId: toNullablePositiveInt(datasetId),
+        datasetAlias: trimOrNull(datasetAlias),
+        rowIndex: toNullableNonNegativeInt(rowIndex),
+        rowKey: trimOrNull(rowKey),
+        paramsOverride: parseJsonObject(paramsOverrideText, "Run paramsOverride"),
+      });
+
+      setActionSuccess("Run started successfully.");
+      await onRunCreated(result?.testRunId || result?.id || null);
+    } catch (e) {
+      setActionError(e?.message || "Failed to start test run.");
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function handleReplayRun() {
+    setBusyAction("replay");
+    setActionError("");
+    setActionSuccess("");
+
+    try {
+      const executionScriptId = toNullablePositiveInt(selectedScriptId);
+      if (!executionScriptId) {
+        throw new Error("Please select an execution script before replay.");
+      }
+
+      const result = await replayTestRun({
+        testCaseId: tc.id,
+        testCaseVersionId: getCurrentVersionId(tc),
+        runtimeConfigId: getRuntimeConfigId(tc),
+        executionScriptId,
+        datasetId: toNullablePositiveInt(datasetId),
+        datasetAlias: trimOrNull(datasetAlias),
+        rowIndex: toNullableNonNegativeInt(rowIndex),
+        rowKey: trimOrNull(rowKey),
+        params: parseJsonObject(replayParamsText, "Replay params"),
+      });
+
+      setActionSuccess("Replay started successfully.");
+      await onRunCreated(result?.testRunId || result?.id || null);
+    } catch (e) {
+      setActionError(e?.message || "Failed to replay execution script.");
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  const defaultRuntimeConfigId = getRuntimeConfigId(tc);
+
+  return (
+    <section className="rounded-2xl border border-sky-200 bg-sky-50/40 overflow-hidden">
+      <div className="flex items-center gap-2 px-5 py-4 border-b border-sky-100">
+        <PlayCircle className="size-4 text-sky-600" />
+        <h2 className="text-sm font-semibold text-sky-800">Run / Replay</h2>
+        <span className="ml-auto text-xs text-sky-500">
+          Start a new run or replay an existing recorded script with different input data
+        </span>
+      </div>
+
+      <div className="px-5 py-5 space-y-5">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-xl border border-sky-100 bg-white p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Database className="size-4 text-sky-600" />
+              <h3 className="text-sm font-semibold text-slate-700">Dataset Input</h3>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">
+                  Dataset ID
+                </label>
+                <input
+                  value={datasetId}
+                  onChange={(e) => setDatasetId(e.target.value)}
+                  placeholder="e.g. 1"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-300"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">
+                  Dataset Alias
+                </label>
+                <input
+                  value={datasetAlias}
+                  onChange={(e) => setDatasetAlias(e.target.value)}
+                  placeholder="e.g. credentials"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-300"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">
+                  Row Index
+                </label>
+                <input
+                  value={rowIndex}
+                  onChange={(e) => setRowIndex(e.target.value)}
+                  placeholder="e.g. 0"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-300"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">
+                  Row Key
+                </label>
+                <input
+                  value={rowKey}
+                  onChange={(e) => setRowKey(e.target.value)}
+                  placeholder="e.g. nguyenhung"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-300"
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              Leave these blank if the backend should use the default dataset binding.
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-sky-100 bg-white p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <FileCode2 className="size-4 text-sky-600" />
+              <h3 className="text-sm font-semibold text-slate-700">Replay Script</h3>
+            </div>
+
+            <label className="mb-1 block text-xs font-medium text-slate-500">
+              Execution Script
+            </label>
+            <Select value={selectedScriptId} onValueChange={setSelectedScriptId}>
+              <SelectTrigger className="w-full bg-white">
+                <SelectValue
+                  placeholder={
+                    scriptsLoading
+                      ? "Loading scripts..."
+                      : scripts.length > 0
+                        ? "Select a script"
+                        : "No scripts available"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {scripts.map((script) => (
+                  <SelectItem key={script.id} value={String(script.id)}>
+                    #{script.id} · {script.script_type || script.scriptType || "script"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {scriptsError ? (
+              <p className="mt-2 text-xs text-red-500">{scriptsError}</p>
+            ) : scripts.length === 0 ? (
+              <p className="mt-2 text-xs text-slate-400">
+                No replay script found for this test case yet.
+              </p>
+            ) : null}
+
+            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              Replay uses the same script with a different dataset row or different params JSON.
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-500">
+                Runtime config: {defaultRuntimeConfigId ?? "default from version"}
+              </span>
+              <span className="rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-500">
+                Version: {getCurrentVersionId(tc) ?? "current"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <Play className="size-4 text-emerald-600" />
+              <h3 className="text-sm font-semibold text-slate-700">Run paramsOverride</h3>
+            </div>
+            <textarea
+              value={paramsOverrideText}
+              onChange={(e) => setParamsOverrideText(e.target.value)}
+              rows={7}
+              placeholder='{"username":"nguyenhung","password":"aaa"}'
+              className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-emerald-300"
+            />
+            <p className="mt-2 text-xs text-slate-400">
+              Used for normal run: backend will merge dataset row + paramsOverride.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <RotateCcw className="size-4 text-violet-600" />
+              <h3 className="text-sm font-semibold text-slate-700">Replay params</h3>
+            </div>
+            <textarea
+              value={replayParamsText}
+              onChange={(e) => setReplayParamsText(e.target.value)}
+              rows={7}
+              placeholder='{"username":"nguyenhung2","password":"abab"}'
+              className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-violet-300"
+            />
+            <p className="mt-2 text-xs text-slate-400">
+              Used for replay: backend will resolve dataset row first, then merge with this params JSON.
+            </p>
+          </div>
+        </div>
+
+        {actionError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {actionError}
+          </div>
+        )}
+
+        {actionSuccess && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {actionSuccess}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={handleCreateRun}
+            disabled={busyAction === "run" || busyAction === "replay"}
+            className="bg-emerald-600 hover:bg-emerald-700"
+          >
+            {busyAction === "run" ? (
+              <>
+                <LoadingSpinner size="sm" />
+                <span className="ml-2">Starting Run...</span>
+              </>
+            ) : (
+              <>
+                <Play className="mr-2 size-4" />
+                Start Run
+              </>
+            )}
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={handleReplayRun}
+            disabled={
+              busyAction === "run" ||
+              busyAction === "replay" ||
+              scriptsLoading ||
+              scripts.length === 0
+            }
+            className="border-violet-200 text-violet-700 hover:bg-violet-50"
+          >
+            {busyAction === "replay" ? (
+              <>
+                <LoadingSpinner size="sm" />
+                <span className="ml-2">Starting Replay...</span>
+              </>
+            ) : (
+              <>
+                <RotateCcw className="mr-2 size-4" />
+                Replay Script
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -261,17 +707,35 @@ function RunRow({ run, projectId, index }) {
   async function toggle() {
     if (!expanded && !detail) {
       setLoading(true);
-      try { setDetail(await getTestRunDetail(run.id)); }
-      finally { setLoading(false); }
+      try {
+        setDetail(await getTestRunDetail(run.id));
+      } finally {
+        setLoading(false);
+      }
     }
     setExpanded((p) => !p);
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggle();
+    }
   }
 
   const dur = duration(run.startedAt, run.finishedAt);
 
   return (
-    <div className={`rounded-2xl border border-slate-200 overflow-hidden shadow-sm border-l-4 ${stripe} ${bg}`}>
-      <button onClick={toggle} className="w-full px-5 py-4 text-left hover:bg-black/[0.02] transition-colors">
+    <div
+      className={`rounded-2xl border border-slate-200 overflow-hidden shadow-sm border-l-4 ${stripe} ${bg}`}
+    >
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={toggle}
+        onKeyDown={handleKeyDown}
+        className="w-full px-5 py-4 text-left hover:bg-black/[0.02] transition-colors cursor-pointer"
+      >
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <span className="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-400 tabular-nums">
@@ -293,11 +757,16 @@ function RunRow({ run, projectId, index }) {
               </p>
             </div>
           </div>
+
           <div className="flex items-center gap-3 shrink-0">
             {run.verdict ? (
               <div className="flex items-center gap-1.5">
                 {VERDICT_ICON[run.verdict]}
-                <Badge className={`capitalize border text-xs ${VERDICT_BADGE[run.verdict] ?? "bg-slate-100 text-slate-600"}`}>
+                <Badge
+                  className={`capitalize border text-xs ${
+                    VERDICT_BADGE[run.verdict] ?? "bg-slate-100 text-slate-600"
+                  }`}
+                >
                   {run.verdict}
                 </Badge>
               </div>
@@ -306,19 +775,29 @@ function RunRow({ run, projectId, index }) {
                 <Clock className="size-3.5 animate-pulse" /> Running
               </span>
             ) : null}
+
             <div className="flex items-center gap-1 rounded-lg bg-white border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-500">
               {expanded ? "Hide" : "Steps"}
-              <ChevronDown className={`size-3.5 ml-0.5 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+              <ChevronDown
+                className={`size-3.5 ml-0.5 transition-transform duration-200 ${
+                  expanded ? "rotate-180" : ""
+                }`}
+              />
             </div>
+
             <button
-              onClick={(e) => { e.stopPropagation(); navigate(`/projects/${projectId}/test-runs/${run.id}`); }}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/projects/${projectId}/test-runs/${run.id}`);
+              }}
               className="rounded-lg bg-slate-100 hover:bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-500 transition-colors"
             >
               Detail →
             </button>
           </div>
         </div>
-      </button>
+      </div>
 
       {expanded && (
         <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-5">
@@ -328,10 +807,17 @@ function RunRow({ run, projectId, index }) {
             </div>
           ) : detail?.steps?.length ? (
             <>
-              <p className="mb-4 text-xs font-medium text-slate-400">{detail.steps.length} step{detail.steps.length !== 1 ? "s" : ""} recorded</p>
+              <p className="mb-4 text-xs font-medium text-slate-400">
+                {detail.steps.length} step{detail.steps.length !== 1 ? "s" : ""} recorded
+              </p>
               <div className="pl-1">
                 {detail.steps.map((step, i) => (
-                  <StepItem key={step.id} step={step} stepIndex={i} isLast={i === detail.steps.length - 1} />
+                  <StepItem
+                    key={step.id}
+                    step={step}
+                    stepIndex={i}
+                    isLast={i === detail.steps.length - 1}
+                  />
                 ))}
               </div>
               <AiAnalysis runId={run.id} isLive={isLive} />
@@ -357,8 +843,6 @@ function RefineSection({ tc, onApplied }) {
   const [applying, setApplying] = useState(false);
   const [suggestion, setSuggestion] = useState(null);
   const [error, setError] = useState("");
-
-  // edit-mode draft mirrors suggestion
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(null);
 
@@ -392,14 +876,17 @@ function RefineSection({ tc, onApplied }) {
   function updateDraftStep(idx, value) {
     setDraft((d) => ({
       ...d,
-      steps: d.steps.map((s, i) => i === idx ? { ...s, text: value } : s),
+      steps: d.steps.map((s, i) => (i === idx ? { ...s, text: value } : s)),
     }));
   }
 
   function addStep() {
     setDraft((d) => ({
       ...d,
-      steps: [...d.steps, { text: "", order: d.steps.length + 1, action: "custom", _key: Date.now() }],
+      steps: [
+        ...d.steps,
+        { text: "", order: d.steps.length + 1, action: "custom", _key: Date.now() },
+      ],
     }));
   }
 
@@ -409,7 +896,11 @@ function RefineSection({ tc, onApplied }) {
 
   async function handleRefine() {
     if (!prompt.trim()) return;
-    setRefining(true); setError(""); setSuggestion(null); setIsEditing(false); setDraft(null);
+    setRefining(true);
+    setError("");
+    setSuggestion(null);
+    setIsEditing(false);
+    setDraft(null);
     try {
       const result = await refineTestCase(tc.id, prompt.trim());
       setSuggestion(result);
@@ -422,7 +913,8 @@ function RefineSection({ tc, onApplied }) {
 
   async function handleApply() {
     if (!suggestion) return;
-    setApplying(true); setError("");
+    setApplying(true);
+    setError("");
     try {
       await applyRefinement(tc.id, {
         title: suggestion.title,
@@ -446,16 +938,19 @@ function RefineSection({ tc, onApplied }) {
       <div className="flex items-center gap-2 px-5 py-4 border-b border-violet-100">
         <Wand2 className="size-4 text-violet-500" />
         <h2 className="text-sm font-semibold text-violet-700">Refine with AI</h2>
-        <span className="ml-auto text-xs text-violet-400">Describe what to change — AI will suggest a revised version</span>
+        <span className="ml-auto text-xs text-violet-400">
+          Describe what to change — AI will suggest a revised version
+        </span>
       </div>
 
       <div className="px-5 py-4 space-y-4">
-        {/* Prompt */}
         <div className="flex gap-2">
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleRefine(); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleRefine();
+            }}
             placeholder='e.g. "Add a step to verify error message when login fails" or "Make steps more detailed"'
             rows={3}
             disabled={refining || applying}
@@ -466,18 +961,24 @@ function RefineSection({ tc, onApplied }) {
             disabled={!prompt.trim() || refining || applying}
             className="shrink-0 self-end flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-3 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {refining
-              ? <><span className="size-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Thinking…</>
-              : <><Wand2 className="size-3.5" /> Suggest</>}
+            {refining ? (
+              <>
+                <span className="size-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                Thinking…
+              </>
+            ) : (
+              <>
+                <Wand2 className="size-3.5" />
+                Suggest
+              </>
+            )}
           </button>
         </div>
 
         {error && <p className="text-sm text-red-500">{error}</p>}
 
-        {/* Suggestion card */}
         {suggestion && (
           <div className="rounded-xl border border-violet-200 bg-white overflow-hidden">
-            {/* Card header */}
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-violet-100 bg-violet-50">
               <p className="text-xs font-semibold text-violet-600">
                 AI Suggestion — review before applying
@@ -522,27 +1023,39 @@ function RefineSection({ tc, onApplied }) {
                     disabled={applying}
                     className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
                   >
-                    {applying
-                      ? <><span className="size-2.5 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Applying…</>
-                      : <><Check className="size-3" /> Apply changes</>}
+                    {applying ? (
+                      <>
+                        <span className="size-2.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                        Applying…
+                      </>
+                    ) : (
+                      <>
+                        <Check className="size-3" /> Apply changes
+                      </>
+                    )}
                   </button>
                 )}
               </div>
             </div>
 
-            {/* View mode */}
             {!isEditing && (
               <div className="divide-y divide-slate-100">
                 <div className="px-4 py-3 flex gap-3">
-                  <span className="shrink-0 text-xs font-semibold text-slate-400 w-14 pt-0.5">Title</span>
+                  <span className="shrink-0 text-xs font-semibold text-slate-400 w-14 pt-0.5">
+                    Title
+                  </span>
                   <p className="text-sm font-medium text-slate-800">{suggestion.title}</p>
                 </div>
                 <div className="px-4 py-3 flex gap-3">
-                  <span className="shrink-0 text-xs font-semibold text-slate-400 w-14 pt-0.5">Goal</span>
+                  <span className="shrink-0 text-xs font-semibold text-slate-400 w-14 pt-0.5">
+                    Goal
+                  </span>
                   <p className="text-sm text-slate-600 leading-relaxed">{suggestion.goal}</p>
                 </div>
                 <div className="px-4 py-3">
-                  <p className="text-xs font-semibold text-slate-400 mb-3">Steps ({suggestion.steps.length})</p>
+                  <p className="text-xs font-semibold text-slate-400 mb-3">
+                    Steps ({suggestion.steps.length})
+                  </p>
                   <ol className="space-y-2">
                     {suggestion.steps.map((step, i) => (
                       <li key={i} className="flex items-start gap-3">
@@ -556,19 +1069,23 @@ function RefineSection({ tc, onApplied }) {
                 </div>
                 {suggestion.expectedResult && (
                   <div className="px-4 py-3 flex gap-3 bg-emerald-50/60">
-                    <span className="shrink-0 text-xs font-semibold text-slate-400 w-14 pt-0.5">Expected</span>
-                    <p className="text-sm text-slate-600 leading-relaxed">{suggestion.expectedResult}</p>
+                    <span className="shrink-0 text-xs font-semibold text-slate-400 w-14 pt-0.5">
+                      Expected
+                    </span>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      {suggestion.expectedResult}
+                    </p>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Edit mode */}
             {isEditing && draft && (
               <div className="divide-y divide-slate-100">
-                {/* Title */}
                 <div className="px-4 py-3 flex gap-3 items-start">
-                  <span className="shrink-0 text-xs font-semibold text-slate-400 w-14 pt-2">Title</span>
+                  <span className="shrink-0 text-xs font-semibold text-slate-400 w-14 pt-2">
+                    Title
+                  </span>
                   <input
                     value={draft.title}
                     onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
@@ -576,9 +1093,10 @@ function RefineSection({ tc, onApplied }) {
                   />
                 </div>
 
-                {/* Goal */}
                 <div className="px-4 py-3 flex gap-3 items-start">
-                  <span className="shrink-0 text-xs font-semibold text-slate-400 w-14 pt-2">Goal</span>
+                  <span className="shrink-0 text-xs font-semibold text-slate-400 w-14 pt-2">
+                    Goal
+                  </span>
                   <textarea
                     value={draft.goal}
                     onChange={(e) => setDraft((d) => ({ ...d, goal: e.target.value }))}
@@ -587,7 +1105,6 @@ function RefineSection({ tc, onApplied }) {
                   />
                 </div>
 
-                {/* Steps */}
                 <div className="px-4 py-3">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs font-semibold text-slate-400">Steps ({draft.steps.length})</p>
@@ -622,12 +1139,15 @@ function RefineSection({ tc, onApplied }) {
                   </ol>
                 </div>
 
-                {/* Expected result */}
                 <div className="px-4 py-3 flex gap-3 items-start">
-                  <span className="shrink-0 text-xs font-semibold text-slate-400 w-14 pt-2">Expected</span>
+                  <span className="shrink-0 text-xs font-semibold text-slate-400 w-14 pt-2">
+                    Expected
+                  </span>
                   <input
                     value={draft.expectedResult}
-                    onChange={(e) => setDraft((d) => ({ ...d, expectedResult: e.target.value }))}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, expectedResult: e.target.value }))
+                    }
                     placeholder="Expected result (optional)"
                     className="flex-1 rounded-lg border border-violet-200 px-3 py-1.5 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-300"
                   />
@@ -649,10 +1169,12 @@ export default function TestCaseDetailPage() {
 
   const [tc, setTc] = useState(null);
   const [runs, setRuns] = useState([]);
+  const [scripts, setScripts] = useState([]);
+  const [scriptsLoading, setScriptsLoading] = useState(false);
+  const [scriptsError, setScriptsError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Inline edit state
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingGoal, setEditingGoal] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
@@ -662,22 +1184,45 @@ export default function TestCaseDetailPage() {
   const goalRef = useRef(null);
 
   const load = useCallback(async () => {
-    setLoading(true); setError("");
+    setLoading(true);
+    setError("");
+    setScriptsLoading(true);
+    setScriptsError("");
+
     try {
       const [caseData, runsData] = await Promise.all([
         getTestCaseById(testCaseId),
         getTestCaseRuns(testCaseId),
       ]);
+
       setTc(caseData);
       setRuns(runsData);
+
+      try {
+        const scriptsData = await getTestCaseScripts(testCaseId);
+        setScripts(Array.isArray(scriptsData) ? scriptsData : []);
+      } catch (scriptErr) {
+        setScripts([]);
+        setScriptsError(scriptErr?.message || "Failed to load test case scripts.");
+      }
     } catch (e) {
       setError(e?.message || "Failed to load test case.");
     } finally {
       setLoading(false);
+      setScriptsLoading(false);
     }
   }, [testCaseId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function handleRunCreated(newRunId) {
+    await load();
+    if (newRunId) {
+      navigate(`/projects/${projectId}/test-runs/${newRunId}`);
+    }
+  }
 
   if (loading) {
     return (
@@ -691,7 +1236,9 @@ export default function TestCaseDetailPage() {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
         <p className="text-sm text-red-500">{error || "Test case not found."}</p>
-        <Button variant="outline" onClick={() => navigate(-1)}>Go back</Button>
+        <Button variant="outline" onClick={() => navigate(-1)}>
+          Go back
+        </Button>
       </div>
     );
   }
@@ -709,39 +1256,64 @@ export default function TestCaseDetailPage() {
   }
 
   async function saveTitle() {
-    if (!draftTitle.trim() || draftTitle === tc.title) { setEditingTitle(false); return; }
+    if (!draftTitle.trim() || draftTitle === tc.title) {
+      setEditingTitle(false);
+      return;
+    }
     setSaving(true);
     try {
-      await updateTestCase(tc.id, { title: draftTitle.trim(), goal: tc.goal, status: tc.status });
+      await updateTestCase(tc.id, {
+        title: draftTitle.trim(),
+        goal: tc.goal,
+        status: tc.status,
+      });
       setTc((prev) => ({ ...prev, title: draftTitle.trim() }));
-    } finally { setSaving(false); setEditingTitle(false); }
+    } finally {
+      setSaving(false);
+      setEditingTitle(false);
+    }
   }
 
   async function saveGoal() {
-    if (draftGoal === (tc.goal ?? "")) { setEditingGoal(false); return; }
+    if (draftGoal === (tc.goal ?? "")) {
+      setEditingGoal(false);
+      return;
+    }
     setSaving(true);
     try {
-      await updateTestCase(tc.id, { title: tc.title, goal: draftGoal.trim(), status: tc.status });
+      await updateTestCase(tc.id, {
+        title: tc.title,
+        goal: draftGoal.trim(),
+        status: tc.status,
+      });
       setTc((prev) => ({ ...prev, goal: draftGoal.trim() }));
-    } finally { setSaving(false); setEditingGoal(false); }
+    } finally {
+      setSaving(false);
+      setEditingGoal(false);
+    }
   }
 
   async function saveStatus(newStatus) {
     if (newStatus === tc.status) return;
     setSaving(true);
     try {
-      await updateTestCase(tc.id, { title: tc.title, goal: tc.goal, status: newStatus });
+      await updateTestCase(tc.id, {
+        title: tc.title,
+        goal: tc.goal,
+        status: newStatus,
+      });
       setTc((prev) => ({ ...prev, status: newStatus }));
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   }
 
   const passCount = runs.filter((r) => r.verdict === "pass").length;
   const failCount = runs.filter((r) => r.verdict === "fail").length;
-  const passRate  = runs.length > 0 ? Math.round((passCount / runs.length) * 100) : null;
+  const passRate = runs.length > 0 ? Math.round((passCount / runs.length) * 100) : null;
 
   return (
     <div className="space-y-8">
-      {/* Back */}
       <button
         onClick={() => navigate(`/projects/${projectId}/test-cases`)}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -750,16 +1322,16 @@ export default function TestCaseDetailPage() {
         All Test Cases
       </button>
 
-      {/* Header card */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1 space-y-3">
-              {/* Status selector */}
               <div className="flex items-center gap-2">
                 <Select value={tc.status} onValueChange={saveStatus} disabled={saving}>
                   <SelectTrigger className="h-7 w-28 text-xs px-2 border-0 shadow-none bg-transparent p-0 focus:ring-0">
-                    <Badge className={`capitalize text-xs border-0 cursor-pointer ${STATUS_STYLE[tc.status] ?? "bg-slate-100 text-slate-600"}`}>
+                    <Badge
+                      className={`capitalize text-xs border-0 cursor-pointer ${STATUS_STYLE[tc.status] ?? "bg-slate-100 text-slate-600"}`}
+                    >
                       {tc.status}
                     </Badge>
                   </SelectTrigger>
@@ -776,29 +1348,39 @@ export default function TestCaseDetailPage() {
                 )}
               </div>
 
-              {/* Editable title */}
               {editingTitle ? (
                 <div className="flex items-center gap-2">
                   <input
                     ref={titleRef}
                     value={draftTitle}
                     onChange={(e) => setDraftTitle(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") saveTitle(); if (e.key === "Escape") setEditingTitle(false); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveTitle();
+                      if (e.key === "Escape") setEditingTitle(false);
+                    }}
                     onBlur={saveTitle}
                     disabled={saving}
                     className="text-xl font-bold tracking-tight border-b-2 border-indigo-500 bg-transparent outline-none w-full min-w-0"
                   />
-                  <button onClick={saveTitle} className="shrink-0 text-indigo-600 hover:text-indigo-800"><Check className="size-4" /></button>
-                  <button onClick={() => setEditingTitle(false)} className="shrink-0 text-slate-400 hover:text-slate-600"><X className="size-4" /></button>
+                  <button onClick={saveTitle} className="shrink-0 text-indigo-600 hover:text-indigo-800">
+                    <Check className="size-4" />
+                  </button>
+                  <button
+                    onClick={() => setEditingTitle(false)}
+                    className="shrink-0 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="size-4" />
+                  </button>
                 </div>
               ) : (
                 <div className="group flex items-center gap-2 cursor-pointer" onClick={startEditTitle}>
-                  <h1 className="text-xl font-bold tracking-tight text-slate-800 leading-snug">{tc.title}</h1>
+                  <h1 className="text-xl font-bold tracking-tight text-slate-800 leading-snug">
+                    {tc.title}
+                  </h1>
                   <Pencil className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               )}
 
-              {/* Editable goal */}
               {editingGoal ? (
                 <div className="flex items-start gap-2">
                   <Target className="mt-2 size-3.5 shrink-0 text-slate-400" />
@@ -806,19 +1388,30 @@ export default function TestCaseDetailPage() {
                     ref={goalRef}
                     value={draftGoal}
                     onChange={(e) => setDraftGoal(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Escape") setEditingGoal(false); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setEditingGoal(false);
+                    }}
                     onBlur={saveGoal}
                     disabled={saving}
                     rows={3}
                     className="flex-1 text-sm text-slate-600 border-b border-indigo-400 bg-transparent outline-none resize-none leading-relaxed"
                   />
-                  <button onClick={saveGoal} className="shrink-0 mt-1 text-indigo-600 hover:text-indigo-800"><Check className="size-3.5" /></button>
-                  <button onClick={() => setEditingGoal(false)} className="shrink-0 mt-1 text-slate-400 hover:text-slate-600"><X className="size-3.5" /></button>
+                  <button onClick={saveGoal} className="shrink-0 mt-1 text-indigo-600 hover:text-indigo-800">
+                    <Check className="size-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setEditingGoal(false)}
+                    className="shrink-0 mt-1 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="size-3.5" />
+                  </button>
                 </div>
               ) : (
                 <div className="group flex items-start gap-1.5 cursor-pointer" onClick={startEditGoal}>
                   <Target className="mt-0.5 size-3.5 shrink-0 text-slate-400" />
-                  <p className="text-sm text-slate-500 leading-relaxed">{tc.goal || <span className="italic text-slate-300">Add a goal…</span>}</p>
+                  <p className="text-sm text-slate-500 leading-relaxed">
+                    {tc.goal || <span className="italic text-slate-300">Add a goal…</span>}
+                  </p>
                   <Pencil className="mt-0.5 size-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               )}
@@ -829,7 +1422,6 @@ export default function TestCaseDetailPage() {
           </div>
         </div>
 
-        {/* Stats row */}
         <div className="grid grid-cols-3 divide-x divide-slate-100">
           <div className="px-5 py-4">
             <p className="text-xs font-medium text-slate-400">Total Runs</p>
@@ -858,7 +1450,6 @@ export default function TestCaseDetailPage() {
         </div>
       </div>
 
-      {/* Test Steps */}
       {tc.steps?.length > 0 && (
         <section>
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -892,10 +1483,16 @@ export default function TestCaseDetailPage() {
         </section>
       )}
 
-      {/* Refine with AI */}
+      <RunReplaySection
+        tc={tc}
+        scripts={scripts}
+        scriptsLoading={scriptsLoading}
+        scriptsError={scriptsError}
+        onRunCreated={handleRunCreated}
+      />
+
       <RefineSection tc={tc} onApplied={load} />
 
-      {/* Run history */}
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">

@@ -299,10 +299,23 @@ async function getRunsByTestCaseId(userId, testCaseId) {
   return testCaseRepository.getRunsByTestCaseId(id, 50);
 }
 
+async function getTestCaseScripts(userId, testCaseId) {
+  assertUser(userId);
+  const id = toPositiveInt(testCaseId, "testCaseId");
+
+  const tc = await testCaseRepository.getTestCaseById(userId, id);
+  if (!tc) {
+    throw { status: 404, message: "Test case not found" };
+  }
+
+  return testCaseRepository.getExecutionScriptsByTestCaseId(id);
+}
+
 module.exports = {
   getTestCases,
   getTestCaseById,
   getRunsByTestCaseId,
+  getTestCaseScripts,
   generateTestCases,
   saveTestCases,
   updateTestCase,

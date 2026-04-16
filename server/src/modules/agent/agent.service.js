@@ -5,25 +5,6 @@ const env = require("../../config/env");
 
 const AGENT_WORKER_BASE_URL = env.AGENT_WORKER_BASE_URL;
 
-function runtimeConfigFromEnv() {
-  return {
-    id: null,
-    project_id: null,
-    llm_provider: process.env.EXECUTION_LLM_PROVIDER || "gemini",
-    llm_model: process.env.EXECUTION_LLM_MODEL || "gemini-2.5-flash",
-    max_steps: parseInt(process.env.EXECUTION_MAX_STEPS || "20", 10),
-    timeout_seconds: parseInt(process.env.EXECUTION_TIMEOUT_SECONDS || "300", 10),
-    use_vision: (process.env.EXECUTION_USE_VISION || "true") === "true",
-    headless: (process.env.EXECUTION_HEADLESS || "true") === "true",
-    browser_type: process.env.EXECUTION_BROWSER_TYPE || "chromium",
-    allowed_domains: [],
-    viewport_json: null,
-    locale: process.env.EXECUTION_LOCALE || null,
-    timezone: process.env.EXECUTION_TIMEZONE || null,
-    extra_config_json: {},
-  };
-}
-
 const SUPPORTED_WORKER_EXECUTION_MODES = new Set([
   "goal_based_agent",
   "replay_script",
@@ -49,28 +30,48 @@ function resolveAgentPrompt(bundle) {
   );
 }
 
-function deepSanitize(value) {
+function isTemplatePlaceholder(value) {
+  return (
+    typeof value === "string" &&
+    /^\s*\{\{[^}]+\}\}\s*$/.test(value)
+  );
+}
+
+function deepSanitize(value, { preserveTemplates = false } = {}) {
   if (Array.isArray(value)) {
-    return value.map(deepSanitize);
+    return value.map((item) =>
+      deepSanitize(item, { preserveTemplates }),
+    );
   }
 
   if (!value || typeof value !== "object") {
+    if (preserveTemplates && isTemplatePlaceholder(value)) {
+      return value;
+    }
     return value;
   }
 
   const result = {};
   for (const [key, val] of Object.entries(value)) {
     if (SENSITIVE_KEY_RE.test(key)) {
-      result[key] = "[REDACTED]";
+      if (preserveTemplates && isTemplatePlaceholder(val)) {
+        result[key] = val;
+      } else {
+        result[key] = "[REDACTED]";
+      }
       continue;
     }
 
     if (key === "text" && typeof val === "string") {
-      result[key] = "[REDACTED]";
+      if (preserveTemplates && isTemplatePlaceholder(val)) {
+        result[key] = val;
+      } else {
+        result[key] = "[REDACTED]";
+      }
       continue;
     }
 
-    result[key] = deepSanitize(val);
+    result[key] = deepSanitize(val, { preserveTemplates });
   }
   return result;
 }
@@ -106,10 +107,9 @@ function sanitizeRecordedScript(scriptJson) {
     steps: Array.isArray(scriptJson.steps)
       ? scriptJson.steps.map((step) => ({
           ...step,
-          actionInput: sanitizeStepJsonByAction(
-            step?.actionName,
-            step?.actionInput,
-          ),
+          actionInput: deepSanitize(step?.actionInput, {
+            preserveTemplates: true,
+          }),
         }))
       : [],
   };
@@ -177,7 +177,6 @@ function mapBrowserProfile(row) {
 }
 
 function assertSupportedExecutionMode(executionMode) {
-  // Normalize legacy/unsupported modes: treat `step_based` as `goal_based_agent`
   const normalized =
     executionMode === "step_based" ? "goal_based_agent" : executionMode;
 
@@ -240,6 +239,7 @@ function buildBaseRunPayload({
   bundle,
   runtimeConfig,
   browserProfile,
+  inputData = null,
 }) {
   const agentPrompt = resolveAgentPrompt(bundle);
   const normalizedExecutionMode = assertSupportedExecutionMode(
@@ -264,6 +264,7 @@ function buildBaseRunPayload({
     },
     runtimeConfig: mapRuntimeConfig(runtimeConfig),
     browserProfile: mapBrowserProfile(browserProfile),
+    inputData,
   };
 }
 
@@ -296,11 +297,117 @@ async function markRunAndAttemptAsWorkerDispatchFailed({
   });
 }
 
+function normalizeDatasetParams(row) {
+  if (!row || typeof row !== "object") return {};
+  return { ...row };
+}
+
+async function resolveRunDatasetInput({
+  testCaseId,
+  datasetId = null,
+  datasetAlias = null,
+  rowIndex = null,
+  rowKey = null,
+  paramsOverride = {},
+}) {
+  let binding = null;
+
+  if (datasetId || datasetAlias) {
+    binding = await agentRepository.findDatasetBindingForTestCase({
+      testCaseId,
+      datasetId,
+      alias: datasetAlias,
+    });
+  } else {
+    binding = await agentRepository.findDefaultDatasetBindingForTestCase(
+      testCaseId,
+    );
+  }
+
+  if (!binding) {
+    return {
+      datasetId: null,
+      alias: datasetAlias || null,
+      rowIndex: rowIndex ?? null,
+      rowKey: rowKey ?? null,
+      datasetSnapshot: Object.keys(paramsOverride || {}).length
+        ? paramsOverride
+        : null,
+      params: { ...(paramsOverride || {}) },
+    };
+  }
+
+  const dataset = await agentRepository.findDatasetById(binding.dataset_id);
+  if (!dataset) {
+    throw new Error("Dataset not found");
+  }
+
+  const resolvedRow = await agentRepository.resolveDatasetRow({
+    dataset,
+    rowIndex,
+    rowKey,
+  });
+
+  const datasetSnapshot = normalizeDatasetParams(resolvedRow?.data || {});
+  const mergedParams = {
+    ...datasetSnapshot,
+    ...(paramsOverride || {}),
+  };
+
+  return {
+    datasetId: binding.dataset_id,
+    alias: binding.alias || datasetAlias || null,
+    rowIndex:
+      resolvedRow?.rowIndex !== undefined && resolvedRow?.rowIndex !== null
+        ? resolvedRow.rowIndex
+        : rowIndex,
+    rowKey:
+      resolvedRow?.rowKey !== undefined && resolvedRow?.rowKey !== null
+        ? resolvedRow.rowKey
+        : rowKey,
+    datasetSnapshot,
+    params: mergedParams,
+  };
+}
+
+async function persistRunDatasetBinding({
+  testRunId,
+  attemptId,
+  resolvedInput,
+}) {
+  if (!resolvedInput) return null;
+
+  if (
+    !resolvedInput.datasetId &&
+    !resolvedInput.alias &&
+    !resolvedInput.datasetSnapshot
+  ) {
+    return null;
+  }
+
+  return agentRepository.insertTestRunDatasetBinding({
+    testRunId,
+    testRunAttemptId: attemptId,
+    datasetId: resolvedInput.datasetId || null,
+    alias: resolvedInput.alias || null,
+    rowIndex:
+      resolvedInput.rowIndex !== undefined ? resolvedInput.rowIndex : null,
+    rowKey:
+      resolvedInput.rowKey !== undefined ? resolvedInput.rowKey : null,
+    datasetSnapshot: resolvedInput.datasetSnapshot || {},
+  });
+}
+
 async function startAgentRun({
   testCaseId,
   testCaseVersionId = null,
   runtimeConfigId = null,
   browserProfileId = null,
+  datasetId = null,
+  datasetAlias = null,
+  rowIndex = null,
+  rowKey = null,
+  paramsOverride = {},
   triggeredBy = null,
 }) {
   const bundle = await agentRepository.findTestCaseBundle(
@@ -313,7 +420,17 @@ async function startAgentRun({
 
   assertSupportedExecutionMode(bundle.execution_mode);
 
-  const runtimeConfig = runtimeConfigFromEnv();
+  const resolvedRuntimeConfigId = runtimeConfigId || bundle.runtime_config_id;
+  if (!resolvedRuntimeConfigId) {
+    throw new Error(
+      "runtimeConfigId is required because this test case version has no runtime_config_id",
+    );
+  }
+
+  const runtimeConfig = await agentRepository.findRuntimeConfigById(
+    resolvedRuntimeConfigId,
+  );
+  assertRuntimeConfigBelongsToProject(runtimeConfig, bundle.project_id);
 
   const browserProfile = browserProfileId
     ? await agentRepository.findBrowserProfileById(browserProfileId)
@@ -338,13 +455,38 @@ async function startAgentRun({
     agentPrompt: resolveAgentPrompt(bundle),
   });
 
+  const resolvedInput = await resolveRunDatasetInput({
+    testCaseId: bundle.test_case_id,
+    datasetId,
+    datasetAlias,
+    rowIndex,
+    rowKey,
+    paramsOverride,
+  });
+
+  await persistRunDatasetBinding({
+    testRunId: testRun.id,
+    attemptId: attempt.id,
+    resolvedInput,
+  });
+
   const workerPayload = buildBaseRunPayload({
     testRun,
     attempt,
     bundle,
     runtimeConfig,
     browserProfile,
+    inputData: {
+      datasetId: resolvedInput.datasetId,
+      alias: resolvedInput.alias,
+      rowIndex: resolvedInput.rowIndex,
+      rowKey: resolvedInput.rowKey,
+    },
   });
+
+  if (Object.keys(resolvedInput.params || {}).length > 0) {
+    workerPayload.testCase.inputParams = resolvedInput.params;
+  }
 
   try {
     await postToWorkerRun(workerPayload);
@@ -371,6 +513,10 @@ async function replayAgentRun({
   runtimeConfigId = null,
   browserProfileId = null,
   executionScriptId,
+  datasetId = null,
+  datasetAlias = null,
+  rowIndex = null,
+  rowKey = null,
   params = {},
   triggeredBy = null,
 }) {
@@ -386,7 +532,15 @@ async function replayAgentRun({
     await agentRepository.findExecutionScriptById(executionScriptId);
   assertExecutionScriptMatchesTestCase(script, bundle);
 
-  const runtimeConfig = runtimeConfigFromEnv();
+  const resolvedRuntimeConfigId = runtimeConfigId || bundle.runtime_config_id;
+  if (!resolvedRuntimeConfigId) {
+    throw new Error("runtimeConfigId is required for replay");
+  }
+
+  const runtimeConfig = await agentRepository.findRuntimeConfigById(
+    resolvedRuntimeConfigId,
+  );
+  assertRuntimeConfigBelongsToProject(runtimeConfig, bundle.project_id);
 
   const browserProfile = browserProfileId
     ? await agentRepository.findBrowserProfileById(browserProfileId)
@@ -411,12 +565,33 @@ async function replayAgentRun({
     agentPrompt: `Replay execution script #${script.id}`,
   });
 
+  const resolvedInput = await resolveRunDatasetInput({
+    testCaseId: bundle.test_case_id,
+    datasetId,
+    datasetAlias,
+    rowIndex,
+    rowKey,
+    paramsOverride: params,
+  });
+
+  await persistRunDatasetBinding({
+    testRunId: testRun.id,
+    attemptId: attempt.id,
+    resolvedInput,
+  });
+
   const workerPayload = buildBaseRunPayload({
     testRun,
     attempt,
     bundle,
     runtimeConfig,
     browserProfile,
+    inputData: {
+      datasetId: resolvedInput.datasetId,
+      alias: resolvedInput.alias,
+      rowIndex: resolvedInput.rowIndex,
+      rowKey: resolvedInput.rowKey,
+    },
   });
 
   workerPayload.testCase.executionMode = "replay_script";
@@ -424,7 +599,7 @@ async function replayAgentRun({
     scriptId: script.id,
     strict: true,
     allowLlmFallback: false,
-    params,
+    params: resolvedInput.params || {},
     scriptJson: script.script_json,
   };
 
@@ -459,7 +634,7 @@ async function handleStepCallback(payload) {
     status: payload.status,
     message: sanitizeFreeText(payload.message),
     currentUrl: payload.currentUrl || null,
-    thoughtText: null, // không cần lưu thought vào DB
+    thoughtText: null,
     extractedContent: sanitizeFreeText(payload.extractedContent || null),
     actionInputJson: sanitizeStepJsonByAction(
       sanitizedAction,
@@ -511,7 +686,6 @@ async function handleFinalCallback(payload) {
     errorMessage: sanitizeFreeText(payload.errorMessage || null),
   });
 
-  // Update test sheet run summary if this test run belongs to one
   try {
     const testSheetService = require("../testSheet/testSheet.service");
     await testSheetService.onTestRunCompleted(

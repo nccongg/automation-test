@@ -176,7 +176,7 @@ COPY public.tags (id, project_id, name, created_at) FROM stdin;
 -- Data for Name: test_case_dataset_bindings; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.test_case_dataset_bindings (id, test_case_id, dataset_id, is_default, created_at) FROM stdin;
+COPY public.test_case_dataset_bindings (id, test_case_id, dataset_id, alias, is_default, created_at, updated_at) FROM stdin;
 \.
 
 
@@ -279,7 +279,7 @@ COPY public.test_run_attempts (id, test_run_id, attempt_no, status, verdict, tri
 -- Data for Name: test_run_dataset_bindings; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.test_run_dataset_bindings (id, test_run_id, dataset_id, alias, dataset_snapshot, created_at) FROM stdin;
+COPY public.test_run_dataset_bindings (id, test_run_id, test_run_attempt_id, dataset_id, alias, row_index, row_key, dataset_snapshot, created_at) FROM stdin;
 \.
 
 

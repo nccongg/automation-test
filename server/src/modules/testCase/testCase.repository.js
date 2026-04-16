@@ -741,11 +741,38 @@ async function applyRefinement(userId, testCaseId, { title, goal, steps, expecte
   }
 }
 
+async function getExecutionScriptsByTestCaseId(testCaseId) {
+  const result = await pool.query(
+    `
+      SELECT
+        es.id,
+        es.test_case_id AS "testCaseId",
+        es.test_case_version_id AS "testCaseVersionId",
+        es.source_test_run_id AS "sourceTestRunId",
+        es.source_attempt_id AS "sourceAttemptId",
+        es.script_type AS "scriptType",
+        es.status,
+        es.script_json AS "scriptJson",
+        es.params_schema AS "paramsSchema",
+        es.metadata_json AS "metadataJson",
+        es.created_at AS "createdAt"
+      FROM execution_scripts es
+      WHERE es.test_case_id = $1
+        AND es.status = 'active'
+      ORDER BY es.created_at DESC, es.id DESC
+    `,
+    [testCaseId]
+  );
+
+  return result.rows;
+}
+
 module.exports = {
   findOwnedProjectById,
   getTestCases,
   getTestCaseById,
   getRunsByTestCaseId,
+  getExecutionScriptsByTestCaseId,
   createGenerationBatchWithCandidates,
   saveCandidatesAsTestCases,
   updateTestCase,

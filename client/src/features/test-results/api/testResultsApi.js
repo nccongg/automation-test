@@ -95,24 +95,22 @@ function normalizeScreenshotUrl(filePath) {
     return filePath;
   }
 
-  // Chuyển đổi đường dẫn tuyệt đối thành URL tương đối phục vụ bởi Backend (3001)
   const marker = "screenshots";
   const normalizedPath = filePath.replace(/\\/g, "/");
   const index = normalizedPath.indexOf(marker);
-  
+
   if (index !== -1) {
     let pathAfter = normalizedPath.substring(index + marker.length);
     if (pathAfter.startsWith("/")) {
       pathAfter = pathAfter.substring(1);
     }
-    
-    // Sử dụng port 3001 (Backend) thay vì 8001 (Worker)
+
     const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
     let baseUrl = apiUrl.replace(/\/api\/?$/, "");
     if (baseUrl.includes(":8001")) {
       baseUrl = baseUrl.replace(":8001", ":3001");
     }
-    
+
     return `${baseUrl}/screenshots/${pathAfter}`;
   }
 
@@ -133,6 +131,7 @@ export async function getTestResults(projectId) {
       testCaseId: run.testCaseId,
       projectName: run.testCaseTitle || `Run #${run.id}`,
       status: run.status || "unknown",
+      verdict: run.verdict || null,
       result,
       fromSheet: !!run.fromSheet,
       totalTests: 1,
@@ -158,10 +157,15 @@ export async function getTestRunDetail(runId) {
 
   const steps = Array.isArray(payload?.steps) ? payload.steps : [];
   const evidences = Array.isArray(payload?.evidences) ? payload.evidences : [];
+  const attempts = Array.isArray(payload?.attempts) ? payload.attempts : [];
+  const datasetBindings = Array.isArray(payload?.datasetBindings)
+    ? payload.datasetBindings
+    : [];
 
   return {
     run: payload?.run || null,
-    attempts: Array.isArray(payload?.attempts) ? payload.attempts : [],
+    attempts,
+    datasetBindings,
     steps: steps.map((step) => {
       const screenshots = evidences
         .filter((evidence) => evidence.run_step_log_id === step.id)
@@ -174,7 +178,8 @@ export async function getTestRunDetail(runId) {
           capturedAt: formatDateTime(evidence.captured_at),
         }));
 
-      const isUnknown = (v) => !v || v.toLowerCase() === "unknown";
+      const isUnknown = (v) => !v || String(v).toLowerCase() === "unknown";
+
       return {
         id: step.id,
         stepNo: step.step_no,
@@ -196,10 +201,61 @@ export async function getTestRunDetail(runId) {
   };
 }
 
-export async function createTestRun({ testCaseId, promptText }) {
+export async function createTestRun({
+  testCaseId,
+  testCaseVersionId = null,
+  runtimeConfigId = null,
+  browserProfileId = null,
+  datasetId = null,
+  datasetAlias = null,
+  rowIndex = null,
+  rowKey = null,
+  paramsOverride = {},
+  triggeredBy = null,
+}) {
   const response = await apiClient.post("/test-runs", {
     testCaseId,
-    promptText,
+    testCaseVersionId,
+    runtimeConfigId,
+    browserProfileId,
+    datasetId,
+    datasetAlias,
+    rowIndex,
+    rowKey,
+    paramsOverride,
+    triggeredBy,
+  });
+
+  return normalizeApiPayload(response);
+}
+
+export async function replayTestRun({
+  sourceRunId = null,
+  testCaseId,
+  testCaseVersionId = null,
+  runtimeConfigId = null,
+  browserProfileId = null,
+  executionScriptId,
+  datasetId = null,
+  datasetAlias = null,
+  rowIndex = null,
+  rowKey = null,
+  params = {},
+  triggeredBy = null,
+}) {
+  const response = await apiClient.post("/test-runs/replay", {
+    sourceRunId,
+    testCaseId,
+    testCaseVersionId,
+    runtimeConfigId,
+    browserProfileId,
+    executionScriptId,
+    datasetId,
+    datasetAlias,
+    rowIndex,
+    rowKey,
+    params,
+    triggeredBy,
   });
 
   return normalizeApiPayload(response);

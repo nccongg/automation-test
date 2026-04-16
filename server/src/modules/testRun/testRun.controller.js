@@ -7,10 +7,53 @@ function toPositiveNumber(value) {
   return Number.isInteger(num) && num > 0 ? num : null;
 }
 
+function toNullablePositiveNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const num = Number(value);
+  return Number.isInteger(num) && num > 0 ? num : null;
+}
+
+function toNullableNonNegativeNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const num = Number(value);
+  return Number.isInteger(num) && num >= 0 ? num : null;
+}
+
+function hasMeaningfulValue(value) {
+  return value !== undefined && value !== null && value !== "";
+}
+
+function toNullableTrimmedString(value) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text ? text : null;
+}
+
+function toPlainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {};
+}
+
 async function createTestRun(req, res, next) {
   try {
     const userId = req.user?.userId;
+
     const testCaseId = toPositiveNumber(req.body?.testCaseId);
+    const testCaseVersionId = toNullablePositiveNumber(req.body?.testCaseVersionId);
+    const runtimeConfigId = toNullablePositiveNumber(req.body?.runtimeConfigId);
+    const browserProfileId = toNullablePositiveNumber(req.body?.browserProfileId);
+    const datasetId = toNullablePositiveNumber(req.body?.datasetId);
+    const datasetAlias = toNullableTrimmedString(req.body?.datasetAlias);
+    const rowIndex = toNullableNonNegativeNumber(req.body?.rowIndex);
+    const rowKey = toNullableTrimmedString(req.body?.rowKey);
+    const paramsOverride = toPlainObject(req.body?.paramsOverride);
 
     if (!testCaseId) {
       return res.status(400).json({
@@ -19,8 +62,51 @@ async function createTestRun(req, res, next) {
       });
     }
 
+    if (hasMeaningfulValue(req.body?.testCaseVersionId) && testCaseVersionId === null) {
+      return res.status(400).json({
+        success: false,
+        message: "testCaseVersionId must be a positive integer",
+      });
+    }
+
+    if (hasMeaningfulValue(req.body?.runtimeConfigId) && runtimeConfigId === null) {
+      return res.status(400).json({
+        success: false,
+        message: "runtimeConfigId must be a positive integer",
+      });
+    }
+
+    if (hasMeaningfulValue(req.body?.browserProfileId) && browserProfileId === null) {
+      return res.status(400).json({
+        success: false,
+        message: "browserProfileId must be a positive integer",
+      });
+    }
+
+    if (hasMeaningfulValue(req.body?.datasetId) && datasetId === null) {
+      return res.status(400).json({
+        success: false,
+        message: "datasetId must be a positive integer",
+      });
+    }
+
+    if (hasMeaningfulValue(req.body?.rowIndex) && rowIndex === null) {
+      return res.status(400).json({
+        success: false,
+        message: "rowIndex must be a non-negative integer",
+      });
+    }
+
     const result = await testRunService.startTestRun({
       testCaseId,
+      testCaseVersionId,
+      runtimeConfigId,
+      browserProfileId,
+      datasetId,
+      datasetAlias,
+      rowIndex,
+      rowKey,
+      paramsOverride,
       triggeredBy: userId,
     });
 
@@ -87,17 +173,86 @@ async function getTestRunDetail(req, res, next) {
 async function replayTestRun(req, res, next) {
   try {
     const userId = req.user?.userId;
-    const id = toPositiveNumber(req.params?.id);
 
-    if (!id) {
+    // Support both:
+    // - POST /test-runs/replay
+    // - POST /test-runs/:id/replay
+    const sourceRunId =
+      toNullablePositiveNumber(req.params?.id) ??
+      toNullablePositiveNumber(req.body?.sourceRunId);
+
+    const testCaseId = toPositiveNumber(req.body?.testCaseId);
+    const testCaseVersionId = toNullablePositiveNumber(req.body?.testCaseVersionId);
+    const runtimeConfigId = toNullablePositiveNumber(req.body?.runtimeConfigId);
+    const browserProfileId = toNullablePositiveNumber(req.body?.browserProfileId);
+    const executionScriptId = toPositiveNumber(req.body?.executionScriptId);
+    const datasetId = toNullablePositiveNumber(req.body?.datasetId);
+    const datasetAlias = toNullableTrimmedString(req.body?.datasetAlias);
+    const rowIndex = toNullableNonNegativeNumber(req.body?.rowIndex);
+    const rowKey = toNullableTrimmedString(req.body?.rowKey);
+    const params = toPlainObject(req.body?.params);
+
+    if (!testCaseId) {
       return res.status(400).json({
         success: false,
-        message: "id must be a positive integer",
+        message: "testCaseId must be a positive integer",
+      });
+    }
+
+    if (!executionScriptId) {
+      return res.status(400).json({
+        success: false,
+        message: "executionScriptId must be a positive integer",
+      });
+    }
+
+    if (hasMeaningfulValue(req.body?.testCaseVersionId) && testCaseVersionId === null) {
+      return res.status(400).json({
+        success: false,
+        message: "testCaseVersionId must be a positive integer",
+      });
+    }
+
+    if (hasMeaningfulValue(req.body?.runtimeConfigId) && runtimeConfigId === null) {
+      return res.status(400).json({
+        success: false,
+        message: "runtimeConfigId must be a positive integer",
+      });
+    }
+
+    if (hasMeaningfulValue(req.body?.browserProfileId) && browserProfileId === null) {
+      return res.status(400).json({
+        success: false,
+        message: "browserProfileId must be a positive integer",
+      });
+    }
+
+    if (hasMeaningfulValue(req.body?.datasetId) && datasetId === null) {
+      return res.status(400).json({
+        success: false,
+        message: "datasetId must be a positive integer",
+      });
+    }
+
+    if (hasMeaningfulValue(req.body?.rowIndex) && rowIndex === null) {
+      return res.status(400).json({
+        success: false,
+        message: "rowIndex must be a non-negative integer",
       });
     }
 
     const result = await testRunService.replayTestRun({
-      sourceRunId: id,
+      sourceRunId,
+      testCaseId,
+      testCaseVersionId,
+      runtimeConfigId,
+      browserProfileId,
+      executionScriptId,
+      datasetId,
+      datasetAlias,
+      rowIndex,
+      rowKey,
+      params,
       triggeredBy: userId,
     });
 
@@ -116,16 +271,25 @@ async function analyzeTestRun(req, res, next) {
     const id = toPositiveNumber(req.params?.id);
 
     if (!id) {
-      return res.status(400).json({ success: false, message: "id must be a positive integer" });
+      return res.status(400).json({
+        success: false,
+        message: "id must be a positive integer",
+      });
     }
 
     const analysis = await testRunService.analyzeTestRun(id, userId);
 
     if (!analysis) {
-      return res.status(404).json({ success: false, message: "Test run not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Test run not found",
+      });
     }
 
-    return res.status(200).json({ success: true, data: analysis });
+    return res.status(200).json({
+      success: true,
+      data: analysis,
+    });
   } catch (error) {
     next(error);
   }

@@ -86,6 +86,7 @@ class TestCasePayload(BaseModel):
     executionMode: ExecutionMode
     promptText: Optional[str] = None
     planSnapshot: Optional[Dict[str, Any]] = None
+    inputParams: Dict[str, Any] = Field(default_factory=dict)
     replay: Optional[ReplayPayload] = None
 
     @model_validator(mode="after")

@@ -339,10 +339,11 @@ router.get("/:id", ctrl.getTestCaseById);
 
 router.get("/:id/runs", ctrl.getRunsByTestCaseId);
 
+router.get("/:id/scripts", ctrl.getTestCaseScripts);
+
 router.post("/:id/refine", ctrl.refineTestCase);
 
 router.post("/:id/apply-refinement", ctrl.applyRefinement);
 
 router.put("/:id", ctrl.updateTestCase);
-
 module.exports = router;

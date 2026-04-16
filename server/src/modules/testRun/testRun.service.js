@@ -10,11 +10,42 @@ function toPositiveNumber(value) {
   return Number.isInteger(num) && num > 0 ? num : null;
 }
 
+function toNullablePositiveNumber(value, fieldName) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed = toPositiveNumber(value);
+  if (!parsed) {
+    throw { status: 400, message: `${fieldName} must be a positive integer` };
+  }
+
+  return parsed;
+}
+
+function toNullableInteger(value, fieldName) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const num = Number(value);
+  if (!Number.isInteger(num) || num < 0) {
+    throw { status: 400, message: `${fieldName} must be a non-negative integer` };
+  }
+
+  return num;
+}
+
 async function startTestRun({
   testCaseId,
   testCaseVersionId = null,
   runtimeConfigId = null,
   browserProfileId = null,
+  datasetId = null,
+  datasetAlias = null,
+  rowIndex = null,
+  rowKey = null,
+  paramsOverride = {},
   triggeredBy = null,
 }) {
   if (!testCaseId || !toPositiveNumber(testCaseId)) {
@@ -23,35 +54,55 @@ async function startTestRun({
 
   return agentService.startAgentRun({
     testCaseId: Number(testCaseId),
-    testCaseVersionId,
-    runtimeConfigId,
-    browserProfileId,
+    testCaseVersionId: toNullablePositiveNumber(testCaseVersionId, "testCaseVersionId"),
+    runtimeConfigId: toNullablePositiveNumber(runtimeConfigId, "runtimeConfigId"),
+    browserProfileId: toNullablePositiveNumber(browserProfileId, "browserProfileId"),
+    datasetId: toNullablePositiveNumber(datasetId, "datasetId"),
+    datasetAlias: datasetAlias ? String(datasetAlias).trim() : null,
+    rowIndex: toNullableInteger(rowIndex, "rowIndex"),
+    rowKey: rowKey ? String(rowKey).trim() : null,
+    paramsOverride:
+      paramsOverride && typeof paramsOverride === "object" ? paramsOverride : {},
     triggeredBy,
   });
 }
 
 async function replayTestRun({
-  sourceRunId,
+  sourceRunId = null,
   testCaseId = null,
   testCaseVersionId = null,
   runtimeConfigId = null,
   browserProfileId = null,
   executionScriptId = null,
+  datasetId = null,
+  datasetAlias = null,
+  rowIndex = null,
+  rowKey = null,
   params = {},
   triggeredBy = null,
 }) {
-  if (!sourceRunId || !toPositiveNumber(sourceRunId)) {
-    throw { status: 400, message: "sourceRunId must be a positive integer" };
+  const normalizedSourceRunId = toNullablePositiveNumber(sourceRunId, "sourceRunId");
+
+  if (!testCaseId || !toPositiveNumber(testCaseId)) {
+    throw { status: 400, message: "testCaseId must be a positive integer" };
   }
 
-  // If executionScriptId provided, delegate to agent replay
+  if (!executionScriptId || !toPositiveNumber(executionScriptId)) {
+    throw { status: 400, message: "executionScriptId must be a positive integer" };
+  }
+
   return agentService.replayAgentRun({
+    sourceRunId: normalizedSourceRunId,
     testCaseId: Number(testCaseId),
-    testCaseVersionId,
-    runtimeConfigId,
-    browserProfileId,
-    executionScriptId,
-    params,
+    testCaseVersionId: toNullablePositiveNumber(testCaseVersionId, "testCaseVersionId"),
+    runtimeConfigId: toNullablePositiveNumber(runtimeConfigId, "runtimeConfigId"),
+    browserProfileId: toNullablePositiveNumber(browserProfileId, "browserProfileId"),
+    executionScriptId: Number(executionScriptId),
+    datasetId: toNullablePositiveNumber(datasetId, "datasetId"),
+    datasetAlias: datasetAlias ? String(datasetAlias).trim() : null,
+    rowIndex: toNullableInteger(rowIndex, "rowIndex"),
+    rowKey: rowKey ? String(rowKey).trim() : null,
+    params: params && typeof params === "object" ? params : {},
     triggeredBy,
   });
 }
@@ -100,9 +151,12 @@ async function getTestRunDetail(runId, userId) {
   const run = await agentRepository.findRunById(id);
   if (!run) return null;
 
-  // verify ownership: ensure the run's test case belongs to the user
   const proj = await query(
-    `SELECT p.user_id FROM public.projects p JOIN public.test_cases tc ON tc.project_id = p.id WHERE tc.id = $1 LIMIT 1`,
+    `SELECT p.user_id
+       FROM public.projects p
+       JOIN public.test_cases tc ON tc.project_id = p.id
+      WHERE tc.id = $1
+      LIMIT 1`,
     [run.test_case_id],
   );
 
@@ -111,33 +165,41 @@ async function getTestRunDetail(runId, userId) {
   }
 
   const attempts = await query(
-    `SELECT * FROM public.test_run_attempts WHERE test_run_id = $1 ORDER BY attempt_no ASC`,
+    `SELECT *
+       FROM public.test_run_attempts
+      WHERE test_run_id = $1
+      ORDER BY attempt_no ASC`,
     [id],
   );
 
   const steps = await query(
-    `SELECT * FROM public.run_step_logs WHERE test_run_id = $1 ORDER BY step_no ASC`,
+    `SELECT *
+       FROM public.run_step_logs
+      WHERE test_run_id = $1
+      ORDER BY step_no ASC`,
     [id],
   );
 
   const evidences = await query(
-    `SELECT * FROM public.evidences WHERE test_run_id = $1`,
+    `SELECT *
+       FROM public.evidences
+      WHERE test_run_id = $1`,
     [id],
   );
+
+  const datasetBindings = await agentRepository.listTestRunDatasetBindings(id);
 
   const mappedEvidences = (evidences.rows || []).map((ev) => {
     let imageUrl = null;
     if (ev.evidence_type === "screenshot" && ev.file_path) {
       const filePathStr = String(ev.file_path);
-      // Tìm vị trí của chuỗi "screenshots"
       const marker = "screenshots";
       const parts = filePathStr.split(/[\\/]screenshots[\\/]/);
+
       if (parts.length > 1) {
-        // Lấy phần sau /screenshots/ cuối cùng
         const pathAfter = parts[parts.length - 1];
         imageUrl = `/screenshots/${pathAfter.replace(/\\/g, "/")}`;
       } else if (filePathStr.includes(marker)) {
-        // Fallback cho các trường hợp khác
         const index = filePathStr.indexOf(marker);
         let pathAfter = filePathStr.substring(index + marker.length);
         if (pathAfter.startsWith("/") || pathAfter.startsWith("\\")) {
@@ -145,22 +207,34 @@ async function getTestRunDetail(runId, userId) {
         }
         imageUrl = `/screenshots/${pathAfter.replace(/\\/g, "/")}`;
       }
+
       console.log(`[DEBUG] Mapping evidence ${ev.id}: ${ev.file_path} -> ${imageUrl}`);
     }
+
     return { ...ev, imageUrl };
   });
 
-  // Nhóm evidences theo run_step_log_id và gắn vào steps
   const stepsWithScreenshots = (steps.rows || []).map((step) => ({
     ...step,
-    screenshots: mappedEvidences.filter((ev) => String(ev.run_step_log_id) === String(step.id)),
+    screenshots: mappedEvidences.filter(
+      (ev) => String(ev.run_step_log_id) === String(step.id),
+    ),
+  }));
+
+  const attemptsWithDatasets = (attempts.rows || []).map((attempt) => ({
+    ...attempt,
+    datasetBindings: (datasetBindings || []).filter(
+      (binding) =>
+        String(binding.test_run_attempt_id) === String(attempt.id),
+    ),
   }));
 
   return {
     run,
-    attempts: attempts.rows || [],
+    attempts: attemptsWithDatasets,
     steps: stepsWithScreenshots,
     evidences: mappedEvidences,
+    datasetBindings: datasetBindings || [],
   };
 }
 
@@ -171,9 +245,11 @@ async function analyzeTestRun(runId, userId) {
   const run = detail.run;
   const steps = detail.steps ?? [];
 
-  // Fetch test case goal
   const tcResult = await query(
-    `SELECT tc.goal, tc.title FROM public.test_cases tc WHERE tc.id = $1 LIMIT 1`,
+    `SELECT tc.goal, tc.title
+       FROM public.test_cases tc
+      WHERE tc.id = $1
+      LIMIT 1`,
     [run.test_case_id],
   );
   const tc = tcResult.rows[0] || {};

@@ -6,40 +6,56 @@
 
 import { apiClient } from "@/api";
 
+function normalizeApiPayload(response) {
+  return response?.data?.data ?? response?.data ?? response ?? null;
+}
+
 export async function getTestCases(projectId) {
   const params = projectId ? { projectId } : {};
   const response = await apiClient.get("/test-cases", { params });
-
-  if (Array.isArray(response?.data)) return response.data;
-  if (Array.isArray(response)) return response;
-
-  return [];
+  const raw = normalizeApiPayload(response);
+  return Array.isArray(raw) ? raw : [];
 }
 
 export async function getTestCaseById(testCaseId) {
   const response = await apiClient.get(`/test-cases/${testCaseId}`);
-  const raw = response?.data?.data ?? response?.data ?? response ?? null;
-  return raw;
+  return normalizeApiPayload(response);
 }
 
 export async function getTestCaseRuns(testCaseId) {
   const response = await apiClient.get(`/test-cases/${testCaseId}/runs`);
-  const raw = response?.data?.data ?? response?.data ?? response ?? null;
+  const raw = normalizeApiPayload(response);
+  return Array.isArray(raw) ? raw : [];
+}
+
+export async function getTestCaseScripts(testCaseId) {
+  const response = await apiClient.get(`/test-cases/${testCaseId}/scripts`);
+  const raw = normalizeApiPayload(response);
   return Array.isArray(raw) ? raw : [];
 }
 
 export async function refineTestCase(testCaseId, prompt) {
-  const response = await apiClient.post(`/test-cases/${testCaseId}/refine`, { prompt });
-  const raw = response?.data?.data ?? response?.data ?? response ?? null;
-  return raw;
+  const response = await apiClient.post(`/test-cases/${testCaseId}/refine`, {
+    prompt,
+  });
+  return normalizeApiPayload(response);
 }
 
-export async function applyRefinement(testCaseId, { title, goal, steps, expectedResult, promptText }) {
-  const response = await apiClient.post(`/test-cases/${testCaseId}/apply-refinement`, {
-    title, goal, steps, expectedResult, promptText,
-  });
-  const raw = response?.data?.data ?? response?.data ?? response ?? null;
-  return raw;
+export async function applyRefinement(
+  testCaseId,
+  { title, goal, steps, expectedResult, promptText },
+) {
+  const response = await apiClient.post(
+    `/test-cases/${testCaseId}/apply-refinement`,
+    {
+      title,
+      goal,
+      steps,
+      expectedResult,
+      promptText,
+    },
+  );
+  return normalizeApiPayload(response);
 }
 
 export async function generateTestCase(promptText, projectId) {
@@ -48,7 +64,7 @@ export async function generateTestCase(promptText, projectId) {
     projectId,
   });
 
-  return response?.data ?? response;
+  return normalizeApiPayload(response);
 }
 
 export async function updateTestCase(testCaseId, { title, goal, status }) {
@@ -57,7 +73,7 @@ export async function updateTestCase(testCaseId, { title, goal, status }) {
     goal,
     status,
   });
-  return response?.data ?? response;
+  return normalizeApiPayload(response);
 }
 
 export async function saveTestCases({
@@ -74,5 +90,5 @@ export async function saveTestCases({
   };
 
   const response = await apiClient.post("/test-cases/save", payload);
-  return response?.data ?? response;
+  return normalizeApiPayload(response);
 }

@@ -833,8 +833,10 @@ CREATE TABLE public.test_case_dataset_bindings (
     id bigint NOT NULL,
     test_case_id bigint NOT NULL,
     dataset_id bigint NOT NULL,
+    alias character varying(100),
     is_default boolean DEFAULT false NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -1249,10 +1251,14 @@ ALTER SEQUENCE public.test_run_attempts_id_seq OWNED BY public.test_run_attempts
 CREATE TABLE public.test_run_dataset_bindings (
     id bigint NOT NULL,
     test_run_id bigint NOT NULL,
+    test_run_attempt_id bigint,
     dataset_id bigint,
     alias character varying(100),
+    row_index integer,
+    row_key character varying(255),
     dataset_snapshot jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT chk_test_run_dataset_bindings_row_index CHECK ((row_index IS NULL) OR (row_index >= 0))
 );
 
 
@@ -2619,6 +2625,27 @@ CREATE INDEX idx_test_tree_nodes_sort_order ON public.test_tree_nodes USING btre
 
 CREATE INDEX idx_tr_dataset_bindings_run_id ON public.test_run_dataset_bindings USING btree (test_run_id);
 
+--
+-- TOC entry 5214 (class 1259 OID 19889)
+-- Name: idx_tr_dataset_bindings_attempt_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_tr_dataset_bindings_attempt_id ON public.test_run_dataset_bindings USING btree (test_run_attempt_id);
+
+--
+-- TOC entry 5214 (class 1259 OID 19890)
+-- Name: idx_tr_dataset_bindings_dataset_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_tr_dataset_bindings_dataset_id ON public.test_run_dataset_bindings USING btree (dataset_id);
+
+--
+-- TOC entry 5214 (class 1259 OID 19891)
+-- Name: uq_tr_dataset_binding_attempt_alias; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX uq_tr_dataset_binding_attempt_alias ON public.test_run_dataset_bindings USING btree (test_run_attempt_id, alias) WHERE (alias IS NOT NULL);
+
 
 --
 -- TOC entry 5215 (class 1259 OID 20163)
@@ -2658,6 +2685,13 @@ CREATE UNIQUE INDEX uq_tc_generation_candidates_order ON public.test_case_genera
 --
 
 CREATE UNIQUE INDEX uq_test_case_one_default_dataset ON public.test_case_dataset_bindings USING btree (test_case_id) WHERE (is_default = true);
+
+--
+-- TOC entry 5214 (class 1259 OID 19798)
+-- Name: uq_test_case_dataset_alias; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX uq_test_case_dataset_alias ON public.test_case_dataset_bindings USING btree (test_case_id, alias) WHERE (alias IS NOT NULL);
 
 
 --
@@ -3108,6 +3142,14 @@ ALTER TABLE ONLY public.test_run_dataset_bindings
 
 ALTER TABLE ONLY public.test_run_dataset_bindings
     ADD CONSTRAINT test_run_dataset_bindings_test_run_id_fkey FOREIGN KEY (test_run_id) REFERENCES public.test_runs(id) ON DELETE CASCADE;
+
+--
+-- TOC entry 5281 (class 2606 OID 19892)
+-- Name: test_run_dataset_bindings test_run_dataset_bindings_test_run_attempt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.test_run_dataset_bindings
+    ADD CONSTRAINT test_run_dataset_bindings_test_run_attempt_id_fkey FOREIGN KEY (test_run_attempt_id) REFERENCES public.test_run_attempts(id) ON DELETE CASCADE;
 
 
 --

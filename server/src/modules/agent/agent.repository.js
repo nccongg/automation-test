@@ -392,6 +392,259 @@ async function insertExecutionScript({
   return result.rows[0];
 }
 
+/* =========================
+   DATASET / BINDING HELPERS
+========================= */
+
+async function findDefaultDatasetBindingForTestCase(testCaseId) {
+  const sql = `
+    SELECT
+      tcdb.id,
+      tcdb.test_case_id,
+      tcdb.dataset_id,
+      tcdb.alias,
+      tcdb.is_default,
+      tcdb.created_at,
+      tcdb.updated_at
+    FROM public.test_case_dataset_bindings tcdb
+    WHERE tcdb.test_case_id = $1
+      AND tcdb.is_default = true
+    ORDER BY tcdb.id ASC
+    LIMIT 1
+  `;
+  const result = await query(sql, [testCaseId]);
+  return result.rows[0] || null;
+}
+
+async function findDatasetBindingForTestCase({
+  testCaseId,
+  datasetId = null,
+  alias = null,
+}) {
+  if (!testCaseId) return null;
+
+  if (datasetId) {
+    const sql = `
+      SELECT
+        tcdb.id,
+        tcdb.test_case_id,
+        tcdb.dataset_id,
+        tcdb.alias,
+        tcdb.is_default,
+        tcdb.created_at,
+        tcdb.updated_at
+      FROM public.test_case_dataset_bindings tcdb
+      WHERE tcdb.test_case_id = $1
+        AND tcdb.dataset_id = $2
+      LIMIT 1
+    `;
+    const result = await query(sql, [testCaseId, datasetId]);
+    return result.rows[0] || null;
+  }
+
+  if (alias) {
+    const sql = `
+      SELECT
+        tcdb.id,
+        tcdb.test_case_id,
+        tcdb.dataset_id,
+        tcdb.alias,
+        tcdb.is_default,
+        tcdb.created_at,
+        tcdb.updated_at
+      FROM public.test_case_dataset_bindings tcdb
+      WHERE tcdb.test_case_id = $1
+        AND tcdb.alias = $2
+      LIMIT 1
+    `;
+    const result = await query(sql, [testCaseId, alias]);
+    return result.rows[0] || null;
+  }
+
+  return findDefaultDatasetBindingForTestCase(testCaseId);
+}
+
+async function findDatasetById(datasetId) {
+  const sql = `
+    SELECT
+      id,
+      project_id,
+      name,
+      description,
+      data_mode,
+      schema_json,
+      data_json,
+      generator_config,
+      created_by,
+      created_at,
+      updated_at,
+      deleted_at
+    FROM public.test_datasets
+    WHERE id = $1
+      AND deleted_at IS NULL
+    LIMIT 1
+  `;
+  const result = await query(sql, [datasetId]);
+  return result.rows[0] || null;
+}
+
+function normalizeDatasetRows(dataJson) {
+  if (!dataJson) return [];
+
+  if (Array.isArray(dataJson)) {
+    return dataJson;
+  }
+
+  if (typeof dataJson === 'object') {
+    if (Array.isArray(dataJson.rows)) {
+      return dataJson.rows;
+    }
+
+    if (Array.isArray(dataJson.items)) {
+      return dataJson.items;
+    }
+
+    if (Array.isArray(dataJson.data)) {
+      return dataJson.data;
+    }
+
+    return [dataJson];
+  }
+
+  return [];
+}
+
+function inferRowKey(row) {
+  if (!row || typeof row !== 'object') return null;
+  return (
+    row.rowKey ??
+    row.key ??
+    row.id ??
+    row.code ??
+    row.username ??
+    row.email ??
+    null
+  );
+}
+
+async function resolveDatasetRow({
+  dataset,
+  rowIndex = null,
+  rowKey = null,
+}) {
+  if (!dataset) {
+    throw new Error('Dataset is required to resolve row');
+  }
+
+  if (dataset.data_mode !== 'static_json') {
+    throw new Error(`Dataset mode ${dataset.data_mode} is not supported yet`);
+  }
+
+  const rows = normalizeDatasetRows(dataset.data_json);
+
+  if (!rows.length) {
+    throw new Error('Dataset contains no rows');
+  }
+
+  if (rowIndex !== null && rowIndex !== undefined) {
+    const idx = Number(rowIndex);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= rows.length) {
+      throw new Error('rowIndex is out of range');
+    }
+
+    const row = rows[idx];
+    return {
+      rowIndex: idx,
+      rowKey: inferRowKey(row),
+      data: row,
+    };
+  }
+
+  if (rowKey !== null && rowKey !== undefined && String(rowKey).trim() !== '') {
+    const normalizedRowKey = String(rowKey).trim();
+
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      const candidates = [
+        row?.rowKey,
+        row?.key,
+        row?.id,
+        row?.code,
+        row?.username,
+        row?.email,
+      ]
+        .filter((v) => v !== null && v !== undefined)
+        .map((v) => String(v));
+
+      if (candidates.includes(normalizedRowKey)) {
+        return {
+          rowIndex: i,
+          rowKey: normalizedRowKey,
+          data: row,
+        };
+      }
+    }
+
+    throw new Error(`Cannot find dataset row with key: ${normalizedRowKey}`);
+  }
+
+  const firstRow = rows[0];
+  return {
+    rowIndex: 0,
+    rowKey: inferRowKey(firstRow),
+    data: firstRow,
+  };
+}
+
+async function insertTestRunDatasetBinding({
+  testRunId,
+  testRunAttemptId,
+  datasetId = null,
+  alias = null,
+  rowIndex = null,
+  rowKey = null,
+  datasetSnapshot = {},
+}) {
+  const sql = `
+    INSERT INTO public.test_run_dataset_bindings (
+      test_run_id,
+      test_run_attempt_id,
+      dataset_id,
+      alias,
+      row_index,
+      row_key,
+      dataset_snapshot,
+      created_at
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, NOW())
+    RETURNING *
+  `;
+
+  const result = await query(sql, [
+    testRunId,
+    testRunAttemptId,
+    datasetId,
+    alias,
+    rowIndex,
+    rowKey,
+    JSON.stringify(datasetSnapshot || {}),
+  ]);
+
+  return result.rows[0] || null;
+}
+
+async function listTestRunDatasetBindings(testRunId) {
+  const sql = `
+    SELECT
+      trdb.*
+    FROM public.test_run_dataset_bindings trdb
+    WHERE trdb.test_run_id = $1
+    ORDER BY trdb.id ASC
+  `;
+  const result = await query(sql, [testRunId]);
+  return result.rows || [];
+}
+
 module.exports = {
   query,
   findTestCaseBundle,
@@ -406,4 +659,11 @@ module.exports = {
   updateRunFinal,
   findRunById,
   insertExecutionScript,
+
+  findDefaultDatasetBindingForTestCase,
+  findDatasetBindingForTestCase,
+  findDatasetById,
+  resolveDatasetRow,
+  insertTestRunDatasetBinding,
+  listTestRunDatasetBindings,
 };

@@ -1,13 +1,35 @@
-import { apiClient } from "./client";
+import { apiClient } from "@/api/client";
 
-export const getProjectTestCases = async (projectId) => {
-  const response = await apiClient.get("/test-cases", {
-    params: { projectId },
-  });
+function normalizeApiPayload(response) {
+  return response?.data?.data ?? response?.data ?? response ?? null;
+}
 
-  return response.data?.data ?? response.data ?? [];
+export const testCaseApi = {
+  async getProjectTestCases(projectId) {
+    const response = await apiClient.get("/test-cases", {
+      params: { projectId },
+    });
+    const payload = normalizeApiPayload(response);
+    return Array.isArray(payload) ? payload : [];
+  },
+
+  async getTestCases(projectId) {
+    return this.getProjectTestCases(projectId);
+  },
+
+  async getTestCaseScripts(testCaseId) {
+    if (!testCaseId) return [];
+    const response = await apiClient.get(`/test-cases/${testCaseId}/scripts`);
+    const payload = normalizeApiPayload(response);
+    return Array.isArray(payload) ? payload : [];
+  },
 };
 
-export const getTestCaseScripts = async () => {
-  throw new Error("getTestCaseScripts is not implemented in backend yet.");
-};
+export const getProjectTestCases = (projectId) =>
+  testCaseApi.getProjectTestCases(projectId);
+
+export const getTestCases = (projectId) =>
+  testCaseApi.getTestCases(projectId);
+
+export const getTestCaseScripts = (testCaseId) =>
+  testCaseApi.getTestCaseScripts(testCaseId);

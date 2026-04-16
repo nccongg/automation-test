@@ -177,6 +177,9 @@ def build_task_text(run_req: RunRequest) -> str:
     if not prompt_text:
         raise ValueError("No promptText or goal provided for LLM run")
 
+    input_params = getattr(run_req.testCase, "inputParams", {}) or {}
+    prompt_text = render_template(prompt_text, input_params)
+
     allowed_domains = ", ".join(run_req.runtimeConfig.allowedDomains or [])
     extra_lines: List[str] = []
 
@@ -186,46 +189,267 @@ def build_task_text(run_req: RunRequest) -> str:
     if run_req.project.baseUrl:
         extra_lines.append(f"Project base URL: {run_req.project.baseUrl}")
 
+    if input_params:
+        extra_lines.append(
+            "Use these runtime input values for this run: "
+            + json.dumps(input_params, ensure_ascii=False)
+        )
+
     if extra_lines:
         return f"{prompt_text}\n\n" + "\n".join(extra_lines)
     return prompt_text
 
+def _placeholder_to_template(text: Any) -> Any:
+    if not isinstance(text, str):
+        return text
+    match = re.fullmatch(r"placeholder_([a-zA-Z0-9_]+)", text.strip())
+    if match:
+        return "{{" + match.group(1) + "}}"
+    return text
+
+
+def _extract_browser_use_items(raw_history_item: Any) -> List[Dict[str, Any]]:
+    normalized = normalize_action_item(raw_history_item)
+
+    if isinstance(normalized, dict) and isinstance(normalized.get("value"), list):
+        return [normalize_action_item(v) for v in normalized["value"]]
+
+    if isinstance(normalized, list):
+        return [normalize_action_item(v) for v in normalized]
+
+    return [normalized]
+
+
+def _build_locator_input_from_interacted_element(item: Dict[str, Any]) -> Dict[str, Any]:
+    interacted = item.get("interacted_element") or {}
+    attrs = interacted.get("attributes") or {}
+
+    action_input: Dict[str, Any] = {}
+
+    if interacted.get("x_path"):
+        action_input["xpath"] = interacted["x_path"]
+
+    if attrs.get("id"):
+        action_input["id"] = attrs["id"]
+
+    if attrs.get("name"):
+        action_input["nameAttr"] = attrs["name"]
+
+    if attrs.get("placeholder"):
+        action_input["placeholder"] = attrs["placeholder"]
+
+    ax_name = interacted.get("ax_name")
+    if ax_name:
+        action_input["axName"] = ax_name
+
+    if attrs.get("title"):
+        action_input["title"] = attrs["title"]
+
+    if interacted.get("node_name"):
+        action_input["nodeName"] = interacted["node_name"]
+
+    return action_input
+
+
+def _make_replay_step(
+    step_no: int,
+    action_name: str,
+    action_input: Dict[str, Any],
+    expected_url: Optional[str] = None,
+    continue_on_error: bool = False,
+    capture_screenshot: bool = True,
+    timeout_ms: Optional[int] = None,
+) -> ReplayStepPayload:
+    return ReplayStepPayload(
+        stepNo=step_no,
+        actionName=action_name,
+        actionInput=action_input,
+        expectedUrl=expected_url,
+        continueOnError=continue_on_error,
+        captureScreenshot=capture_screenshot,
+        timeoutMs=timeout_ms,
+    )
+
+
+def _step_signature(step: ReplayStepPayload) -> str:
+    return json.dumps(
+        {
+            "actionName": step.actionName,
+            "actionInput": safe_to_jsonable(step.actionInput),
+            "expectedUrl": step.expectedUrl,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+
+
+def _convert_browser_use_history_to_replay_steps(
+    steps: List[Any],
+) -> List[ReplayStepPayload]:
+    replay_steps: List[ReplayStepPayload] = []
+    step_counter = 1
+    last_sig: Optional[str] = None
+
+    for raw_step in steps:
+        step_no = getattr(raw_step, "stepNo", None)
+        action_name = getattr(raw_step, "actionName", None)
+        action_input = getattr(raw_step, "actionInput", None)
+        expected_url = getattr(raw_step, "expectedUrl", None)
+        continue_on_error = bool(getattr(raw_step, "continueOnError", False))
+
+        if isinstance(raw_step, dict):
+            step_no = raw_step.get("stepNo", step_no)
+            action_name = raw_step.get("actionName", action_name)
+            action_input = raw_step.get("actionInput", action_input)
+            expected_url = raw_step.get("expectedUrl", expected_url)
+            continue_on_error = bool(raw_step.get("continueOnError", continue_on_error))
+
+        items = _extract_browser_use_items(action_input)
+
+        for item in items:
+            if "navigate" in item:
+                nav = item.get("navigate") or {}
+                url = nav.get("url")
+                if isinstance(url, str) and url.strip():
+                    step_obj = _make_replay_step(
+                        step_no=step_counter,
+                        action_name="navigate",
+                        action_input={"url": url},
+                        expected_url=expected_url,
+                        continue_on_error=continue_on_error,
+                    )
+                    sig = _step_signature(step_obj)
+                    if sig != last_sig:
+                        replay_steps.append(step_obj)
+                        last_sig = sig
+                        step_counter += 1
+                continue
+
+            if "input" in item:
+                input_payload = item.get("input") or {}
+                text = _placeholder_to_template(input_payload.get("text"))
+                locator_input = _build_locator_input_from_interacted_element(item)
+                if text is not None:
+                    locator_input["text"] = text
+                if "clear" in input_payload:
+                    locator_input["clear"] = bool(input_payload.get("clear"))
+                step_obj = _make_replay_step(
+                    step_no=step_counter,
+                    action_name="fill",
+                    action_input=locator_input,
+                    expected_url=None,
+                    continue_on_error=continue_on_error,
+                )
+                sig = _step_signature(step_obj)
+                if sig != last_sig:
+                    replay_steps.append(step_obj)
+                    last_sig = sig
+                    step_counter += 1
+                continue
+
+            if "click" in item:
+                locator_input = _build_locator_input_from_interacted_element(item)
+                step_obj = _make_replay_step(
+                    step_no=step_counter,
+                    action_name="click",
+                    action_input=locator_input,
+                    expected_url=expected_url,
+                    continue_on_error=continue_on_error,
+                )
+                sig = _step_signature(step_obj)
+                if sig != last_sig:
+                    replay_steps.append(step_obj)
+                    last_sig = sig
+                    step_counter += 1
+                continue
+
+            if "done" in item:
+                continue
+
+        if not items and action_name and isinstance(action_input, dict):
+            step_obj = _make_replay_step(
+                step_no=step_counter,
+                action_name=str(action_name),
+                action_input=action_input,
+                expected_url=expected_url,
+                continue_on_error=continue_on_error,
+            )
+            sig = _step_signature(step_obj)
+            if sig != last_sig:
+                replay_steps.append(step_obj)
+                last_sig = sig
+                step_counter += 1
+
+    return replay_steps
+
+
+def xpath_literal(value: str) -> str:
+    if "'" not in value:
+        return f"'{value}'"
+    if '"' not in value:
+        return f'"{value}"'
+    parts = value.split("'")
+    return "concat(" + ', "\'", '.join(f"'{part}'" for part in parts) + ")"
+
+
+def _extract_url_from_action_input(action_input: Dict[str, Any]) -> Optional[str]:
+    direct_url = action_input.get("url") or action_input.get("href")
+    if isinstance(direct_url, str) and direct_url.strip():
+        return direct_url
+
+    value = action_input.get("value")
+    if isinstance(value, str) and value.strip():
+        return value
+
+    navigate = action_input.get("navigate")
+    if isinstance(navigate, dict):
+        url = navigate.get("url")
+        if isinstance(url, str) and url.strip():
+            return url
+
+    if isinstance(value, list):
+        for item in value:
+            normalized = normalize_action_item(item)
+            nav = normalized.get("navigate")
+            if isinstance(nav, dict):
+                url = nav.get("url")
+                if isinstance(url, str) and url.strip():
+                    return url
+
+    return None
 
 def build_recorded_script(run_req: RunRequest, history: Any) -> Dict[str, Any]:
     action_history = safe_to_jsonable(getattr(history, "action_history", lambda: [])()) or []
-    model_actions = safe_to_jsonable(getattr(history, "model_actions", lambda: [])()) or []
     urls = safe_to_jsonable(getattr(history, "urls", lambda: [])()) or []
-    actions = safe_to_jsonable(getattr(history, "action_names", lambda: [])()) or []
 
-    steps: List[Dict[str, Any]] = []
-    total_steps = max(len(action_history), len(model_actions), len(actions), len(urls))
+    raw_steps: List[ReplayStepPayload] = []
+    total_steps = len(action_history)
 
     for i in range(total_steps):
-        action_name = actions[i] if i < len(actions) else None
         raw_history_item = action_history[i] if i < len(action_history) else None
-        raw_model_action = model_actions[i] if i < len(model_actions) else None
         expected_url = urls[i] if i < len(urls) else None
 
-        normalized_input = {}
-        if raw_history_item is not None:
-            normalized_input = normalize_action_item(raw_history_item)
-        elif raw_model_action is not None:
-            normalized_input = normalize_action_item(raw_model_action)
-
-        steps.append(
-            {
-                "stepNo": i + 1,
-                "actionName": action_name or "unknown",
-                "actionInput": normalized_input,
-                "expectedUrl": expected_url,
-                "continueOnError": False,
-            }
+        raw_steps.append(
+            ReplayStepPayload(
+                stepNo=i + 1,
+                actionName="browser_use_history",
+                actionInput=normalize_action_item(raw_history_item),
+                expectedUrl=expected_url,
+                continueOnError=False,
+                captureScreenshot=True,
+                timeoutMs=15000,
+            )
         )
+
+    clean_steps = _convert_browser_use_history_to_replay_steps(raw_steps)
 
     return {
         "formatVersion": 1,
-        "scriptType": "browser_use_history",
-        "paramsSchema": {},
+        "scriptType": "strict_replay_json",
+        "paramsSchema": {
+            "username": {"type": "string", "required": False},
+            "password": {"type": "string", "required": False},
+        },
         "metadata": {
             "source": "browser_use_agent_history",
             "testCaseId": run_req.testCase.id,
@@ -234,7 +458,7 @@ def build_recorded_script(run_req: RunRequest, history: Any) -> Dict[str, Any]:
             "llmProvider": run_req.runtimeConfig.llmProvider,
             "llmModel": run_req.runtimeConfig.llmModel,
         },
-        "steps": steps,
+        "steps": [safe_to_jsonable(step) for step in clean_steps],
     }
 
 
@@ -405,16 +629,27 @@ async def execute_llm_run(run_req: RunRequest) -> None:
 
 def render_template(value: Any, params: Dict[str, Any]) -> Any:
     if isinstance(value, str):
+        stripped = value.strip()
+
+        placeholder_match = re.fullmatch(r"placeholder_([a-zA-Z0-9_]+)", stripped)
+        if placeholder_match:
+            key = placeholder_match.group(1)
+            if key in params:
+                return str(params[key])
+
         def replacer(match: re.Match[str]) -> str:
             key = match.group(1).strip()
             return str(params.get(key, match.group(0)))
+
         return re.sub(r"\{\{\s*([^{}]+?)\s*\}\}", replacer, value)
+
     if isinstance(value, list):
         return [render_template(v, params) for v in value]
+
     if isinstance(value, dict):
         return {k: render_template(v, params) for k, v in value.items()}
-    return value
 
+    return value
 
 async def create_playwright_context(run_req: RunRequest) -> Tuple[Any, PWBrowser, BrowserContext]:
     if async_playwright is None:
@@ -456,23 +691,31 @@ async def resolve_locator(page: Page, action_input: Dict[str, Any]) -> Locator:
         raise ValueError("Locator input is empty")
 
     selector = action_input.get("selector") or action_input.get("css")
-    if selector:
+    if isinstance(selector, str) and selector.strip():
         return page.locator(selector)
 
-    xpath = action_input.get("xpath")
-    if xpath:
+    element_id = action_input.get("id") or action_input.get("elementId")
+    if isinstance(element_id, str) and element_id.strip():
+        return page.locator(f"xpath=//*[@id={xpath_literal(element_id)}]")
+
+    name_attr = action_input.get("nameAttr")
+    if isinstance(name_attr, str) and name_attr.strip():
+        return page.locator(f"xpath=//*[@name={xpath_literal(name_attr)}]")
+
+    xpath = action_input.get("xpath") or action_input.get("x_path")
+    if isinstance(xpath, str) and xpath.strip():
         return page.locator(f"xpath={xpath}")
 
     test_id = action_input.get("testId")
-    if test_id:
+    if isinstance(test_id, str) and test_id.strip():
         return page.get_by_test_id(test_id)
 
     label = action_input.get("label")
-    if label:
+    if isinstance(label, str) and label.strip():
         return page.get_by_label(label)
 
     placeholder = action_input.get("placeholder")
-    if placeholder:
+    if isinstance(placeholder, str) and placeholder.strip():
         return page.get_by_placeholder(placeholder)
 
     role = action_input.get("role")
@@ -480,14 +723,33 @@ async def resolve_locator(page: Page, action_input: Dict[str, Any]) -> Locator:
     if role:
         return page.get_by_role(role, name=name)
 
+    ax_name = action_input.get("axName")
+    if isinstance(ax_name, str) and ax_name.strip():
+        title = action_input.get("title")
+        node_name = str(action_input.get("nodeName") or "").lower()
+        if node_name == "input":
+            return page.get_by_placeholder(ax_name)
+        if title:
+            return page.get_by_title(str(title))
+        return page.get_by_text(ax_name, exact=False)
+
+    title = action_input.get("title")
+    if isinstance(title, str) and title.strip():
+        return page.get_by_title(title)
+
     text = action_input.get("text")
-    if text:
-        return page.get_by_text(text)
+    if isinstance(text, str) and text.strip():
+        return page.get_by_text(text, exact=False)
 
     raise ValueError(f"Unable to resolve locator from action input: {action_input}")
 
-
-async def execute_replay_step(page: Page, step: ReplayStepPayload, params: Dict[str, Any], artifacts_dir: Path, screenshots_dir: Path) -> StepResult:
+async def execute_replay_step(
+    page: Page,
+    step: ReplayStepPayload,
+    params: Dict[str, Any],
+    artifacts_dir: Path,
+    screenshots_dir: Path,
+) -> StepResult:
     started_at = time.perf_counter()
     action_input = render_template(step.actionInput, params)
     action_name = step.actionName.lower().strip()
@@ -496,10 +758,10 @@ async def execute_replay_step(page: Page, step: ReplayStepPayload, params: Dict[
 
     try:
         if action_name in {"goto", "go_to_url", "open_url", "navigate"}:
-            url = action_input.get("url") or action_input.get("value") or action_input.get("href")
+            url = _extract_url_from_action_input(action_input)
             if not url:
                 raise ValueError("navigate step requires actionInput.url")
-            await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+            await page.goto(str(url), wait_until="domcontentloaded", timeout=timeout_ms)
             message = f"Navigated to {url}"
             output = {"url": page.url}
 
@@ -509,14 +771,16 @@ async def execute_replay_step(page: Page, step: ReplayStepPayload, params: Dict[
             message = "Click completed"
             output = {"url": page.url}
 
-        elif action_name in {"fill", "type", "input_text", "enter_text"}:
+        elif action_name in {"fill", "type", "input_text", "enter_text", "input"}:
             locator = await resolve_locator(page, action_input)
             text = action_input.get("text")
             if text is None:
                 raise ValueError("fill step requires actionInput.text")
+            if bool(action_input.get("clear")):
+                await locator.fill("", timeout=timeout_ms)
             await locator.fill(str(text), timeout=timeout_ms)
             message = "Input completed"
-            output = {"filled": True}
+            output = {"filled": True, "text": str(text)}
 
         elif action_name in {"press", "press_key", "keyboard_press"}:
             key = action_input.get("key")
@@ -559,10 +823,10 @@ async def execute_replay_step(page: Page, step: ReplayStepPayload, params: Dict[
             output = {"state": state}
 
         elif action_name in {"wait_for_url"}:
-            url = action_input.get("url")
+            url = _extract_url_from_action_input(action_input)
             if not url:
                 raise ValueError("wait_for_url step requires actionInput.url")
-            await page.wait_for_url(url, timeout=timeout_ms)
+            await page.wait_for_url(str(url), timeout=timeout_ms)
             message = f"URL matched {url}"
             output = {"url": page.url}
 
@@ -592,12 +856,10 @@ async def execute_replay_step(page: Page, step: ReplayStepPayload, params: Dict[
 
         elif action_name in {"screenshot"}:
             file_name = action_input.get("fileName") or f"replay_step_{step.stepNo}.png"
-            # Save screenshots into a central screenshots directory (per-run subfolder)
             file_path = screenshots_dir / file_name
             file_path.parent.mkdir(parents=True, exist_ok=True)
             logger.info("Saving screenshot to %s", str(file_path.resolve()))
             await page.screenshot(path=str(file_path), full_page=bool(action_input.get("fullPage", False)))
-            # Use absolute path so the server/frontend can resolve it reliably
             screenshot_path = str(file_path.resolve())
             message = "Screenshot captured"
             output = {"path": screenshot_path}
@@ -669,7 +931,6 @@ async def execute_replay_run(run_req: RunRequest) -> None:
     artifacts_dir = Path("artifacts") / f"run_{run_req.testRunId}_attempt_{run_req.attemptId}"
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-    # Central screenshots directory configurable via SCREENSHOTS_DIR env var
     screenshots_base = Path(os.getenv("SCREENSHOTS_DIR", "screenshots"))
     screenshots_dir = screenshots_base / f"run_{run_req.testRunId}_attempt_{run_req.attemptId}"
     screenshots_dir.mkdir(parents=True, exist_ok=True)
@@ -678,12 +939,19 @@ async def execute_replay_run(run_req: RunRequest) -> None:
         script = parse_inline_script(run_req)
         params = run_req.testCase.replay.params if run_req.testCase.replay else {}
 
+        script_steps = script.steps
+        if getattr(script, "scriptType", None) == "browser_use_history":
+            script_steps = _convert_browser_use_history_to_replay_steps(script.steps)
+
+        if not script_steps:
+            raise RuntimeError("Replay script contains no executable steps")
+
         playwright, browser, context = await create_playwright_context(run_req)
         page = await context.new_page()
 
         last_extracted: Optional[str] = None
 
-        for step in script.steps:
+        for step in script_steps:
             result = await execute_replay_step(page, step, params, artifacts_dir, screenshots_dir)
             if result.screenshot_path:
                 screenshots_count += 1
@@ -724,7 +992,7 @@ async def execute_replay_run(run_req: RunRequest) -> None:
                 "errorMessage": None,
                 "executionLog": {
                     "mode": "replay_script",
-                    "steps": len(script.steps),
+                    "steps": len(script_steps),
                     "scriptType": script.scriptType,
                     "artifactsDir": str(artifacts_dir),
                 },
@@ -760,7 +1028,6 @@ async def execute_replay_run(run_req: RunRequest) -> None:
             finally:
                 if playwright is not None:
                     await playwright.stop()
-
 
 async def execute_run(run_req: RunRequest) -> None:
     if run_req.testCase.executionMode == "replay_script":
