@@ -30,7 +30,6 @@ import SettingsPage from "@/pages/main/SettingsPage";
 import TestSuitesPage from "@/pages/main/TestCollectionPage";
 import TestSuiteDetailPage from "@/pages/main/TestSheetDetailPage";
 import TestSuiteRunDetailPage from "@/pages/main/TestSheetRunDetailPage";
-import TestCollectionsPage from "@/pages/main/TestCollectionsPage";
 import TestCollectionDetailPage from "@/pages/main/TestCollectionDetailPage";
 import TestRunDetailPage from "@/pages/main/TestRunDetailPage";
 import TestCaseDetailPage from "@/pages/main/TestCaseDetailPage";
@@ -70,8 +69,7 @@ export default function App() {
               {/* Test Suites — execution unit with ordering and batch run */}
               <Route path="suites" element={<TestSuitesPage />} />
               <Route path="suites/:sheetId" element={<TestSuiteDetailPage />} />
-              {/* Collections — organize-only, label/folder, no execution */}
-              <Route path="collections" element={<TestCollectionsPage />} />
+              {/* Collections — accessible from Test Cases page tabs */}
               <Route path="collections/:collectionId" element={<TestCollectionDetailPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>

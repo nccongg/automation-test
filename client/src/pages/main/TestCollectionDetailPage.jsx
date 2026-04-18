@@ -28,22 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-// ─── Color palette ────────────────────────────────────────────────────────────
-
-const COLOR_OPTIONS = [
-  { key: "indigo",  bg: "bg-indigo-100",  text: "text-indigo-700",  dot: "bg-indigo-500",  ring: "ring-indigo-300",  bar: "bg-indigo-500"  },
-  { key: "emerald", bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500", ring: "ring-emerald-300", bar: "bg-emerald-500" },
-  { key: "rose",    bg: "bg-rose-100",    text: "text-rose-700",    dot: "bg-rose-500",    ring: "ring-rose-300",    bar: "bg-rose-500"    },
-  { key: "amber",   bg: "bg-amber-100",   text: "text-amber-700",   dot: "bg-amber-500",   ring: "ring-amber-300",   bar: "bg-amber-500"   },
-  { key: "violet",  bg: "bg-violet-100",  text: "text-violet-700",  dot: "bg-violet-500",  ring: "ring-violet-300",  bar: "bg-violet-500"  },
-  { key: "cyan",    bg: "bg-cyan-100",    text: "text-cyan-700",    dot: "bg-cyan-500",    ring: "ring-cyan-300",    bar: "bg-cyan-500"    },
-  { key: "slate",   bg: "bg-slate-100",   text: "text-slate-700",   dot: "bg-slate-500",   ring: "ring-slate-300",   bar: "bg-slate-500"   },
-];
-
-function getColor(key) {
-  return COLOR_OPTIONS.find((c) => c.key === key) ?? COLOR_OPTIONS[0];
-}
+import { COLOR_OPTIONS, getColor } from "@/shared/constants/colors";
 
 const STATUS_BADGE = {
   ready:    "bg-emerald-100 text-emerald-700",

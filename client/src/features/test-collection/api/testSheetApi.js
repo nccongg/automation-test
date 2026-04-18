@@ -1,4 +1,4 @@
-import { apiClient } from "@/api";
+import { apiClient } from "@/api/client";
 
 function normalize(response) {
   return response?.data?.data ?? response?.data ?? response ?? null;

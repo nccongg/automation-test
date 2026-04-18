@@ -15,9 +15,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  FolderOpen,
   FlaskConical,
-  Tag,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -124,22 +122,6 @@ export default function ProjectDetailPage() {
           </NavLink>
           
           <NavLink
-            to="collections"
-            className={({ isActive }) =>
-              [
-                "flex items-center gap-3 rounded-xl px-3 py-4 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
-                  : "text-muted-foreground hover:bg-muted",
-                isSidebarCollapsed ? "justify-center px-2" : "",
-              ].join(" ")
-            }
-          >
-            <Tag className="size-5 shrink-0" />
-            {!isSidebarCollapsed && "Collections"}
-          </NavLink>
-
-             <NavLink
             to="suites"
             className={({ isActive }) =>
               [

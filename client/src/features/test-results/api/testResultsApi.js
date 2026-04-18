@@ -1,4 +1,4 @@
-import { apiClient } from "@/api";
+import { apiClient } from "@/api/client";
 
 function formatDateTime(dateString) {
   if (!dateString) return "N/A";

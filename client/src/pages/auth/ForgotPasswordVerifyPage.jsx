@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-import AuthLayout from "@/components/shared/AuthLayout";
+import AuthLayout from "@/shared/components/layout/AuthLayout";
 import { Button } from "@/components/ui/button";
 
 const CODE_LENGTH = 5;

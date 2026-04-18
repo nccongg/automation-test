@@ -4,7 +4,7 @@
  * Test case management API calls
  */
 
-import { apiClient } from "@/api";
+import { apiClient } from "@/api/client";
 
 function normalizeApiPayload(response) {
   return response?.data?.data ?? response?.data ?? response ?? null;
