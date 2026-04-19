@@ -1,9 +1,3 @@
-/**
- * Main Application Component
- *
- * Root component with routing configuration
- */
-
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ROUTES } from "@/config/routes";
 import Layout from "@/shared/components/layout/Layout";
@@ -20,19 +14,19 @@ import ResetPasswordPage from "@/pages/auth/ResetPasswordPage";
 import ResetPasswordSuccessPage from "@/pages/auth/ResetPasswordSuccessPage";
 
 // Main app pages
-import DashboardPage from "@/pages/main/DashboardPage";
-import ProjectsPage from "@/pages/main/ProjectsPage";
-import ProjectDetailPage from "@/pages/main/ProjectDetailPage";
-import ProjectOverviewPage from "@/pages/main/ProjectOverviewPage";
-import TestCasesPage from "@/pages/main/TestCasesPage";
-import TestResultsPage from "@/pages/main/TestResultsPage";
-import SettingsPage from "@/pages/main/SettingsPage";
-import TestSuitesPage from "@/pages/main/TestCollectionPage";
-import TestSuiteDetailPage from "@/pages/main/TestSheetDetailPage";
-import TestSuiteRunDetailPage from "@/pages/main/TestSheetRunDetailPage";
-import TestCollectionDetailPage from "@/pages/main/TestCollectionDetailPage";
-import TestRunDetailPage from "@/pages/main/TestRunDetailPage";
-import TestCaseDetailPage from "@/pages/main/TestCaseDetailPage";
+import DashboardPage from "@/pages/dashboard/DashboardPage";
+import ProjectsPage from "@/pages/projects/ProjectsPage";
+import ProjectDetailPage from "@/pages/projects/ProjectDetailPage";
+import ProjectOverviewPage from "@/pages/projects/ProjectOverviewPage";
+import TestCasesPage from "@/pages/test-cases/TestCasesPage";
+import TestCaseDetailPage from "@/pages/test-cases/TestCaseDetailPage";
+import TestResultsPage from "@/pages/test-runs/TestResultsPage";
+import TestRunDetailPage from "@/pages/test-runs/TestRunDetailPage";
+import TestSuiteRunDetailPage from "@/pages/test-runs/TestSheetRunDetailPage";
+import TestSuitesPage from "@/pages/test-suites/TestCollectionPage";
+import TestSuiteDetailPage from "@/pages/test-suites/TestSheetDetailPage";
+import TestCollectionDetailPage from "@/pages/collections/TestCollectionDetailPage";
+import SettingsPage from "@/pages/settings/SettingsPage";
 
 export default function App() {
   return (
@@ -70,6 +64,7 @@ export default function App() {
               <Route path="suites" element={<TestSuitesPage />} />
               <Route path="suites/:sheetId" element={<TestSuiteDetailPage />} />
               {/* Collections — accessible from Test Cases page tabs */}
+              <Route path="collections" element={<Navigate to="../test-cases" replace />} />
               <Route path="collections/:collectionId" element={<TestCollectionDetailPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
