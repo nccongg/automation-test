@@ -261,10 +261,47 @@ async function analyzeTestRun(runId, userId) {
   });
 }
 
+async function batchReplayTestRun({
+  testCaseId = null,
+  testCaseVersionId = null,
+  runtimeConfigId = null,
+  browserProfileId = null,
+  executionScriptId = null,
+  datasetId = null,
+  rowIndexes = null,
+  columnBindings = null,
+  triggeredBy = null,
+}) {
+  if (!testCaseId || !toPositiveNumber(testCaseId)) {
+    throw { status: 400, message: "testCaseId must be a positive integer" };
+  }
+
+  if (!executionScriptId || !toPositiveNumber(executionScriptId)) {
+    throw { status: 400, message: "executionScriptId must be a positive integer" };
+  }
+
+  if (!datasetId || !toPositiveNumber(datasetId)) {
+    throw { status: 400, message: "datasetId must be a positive integer" };
+  }
+
+  return agentService.startBatchReplayRun({
+    testCaseId: Number(testCaseId),
+    testCaseVersionId: toNullablePositiveNumber(testCaseVersionId, "testCaseVersionId"),
+    runtimeConfigId: toNullablePositiveNumber(runtimeConfigId, "runtimeConfigId"),
+    browserProfileId: toNullablePositiveNumber(browserProfileId, "browserProfileId"),
+    executionScriptId: Number(executionScriptId),
+    datasetId: Number(datasetId),
+    rowIndexes: Array.isArray(rowIndexes) ? rowIndexes.map(Number).filter(Number.isInteger) : null,
+    columnBindings: columnBindings && typeof columnBindings === "object" ? columnBindings : null,
+    triggeredBy,
+  });
+}
+
 module.exports = {
   startTestRun,
   listRecentTestRuns,
   getTestRunDetail,
   replayTestRun,
+  batchReplayTestRun,
   analyzeTestRun,
 };

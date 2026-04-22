@@ -265,6 +265,60 @@ async function replayTestRun(req, res, next) {
   }
 }
 
+async function batchReplayTestRun(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+
+    const testCaseId = toPositiveNumber(req.body?.testCaseId);
+    const testCaseVersionId = toNullablePositiveNumber(req.body?.testCaseVersionId);
+    const runtimeConfigId = toNullablePositiveNumber(req.body?.runtimeConfigId);
+    const browserProfileId = toNullablePositiveNumber(req.body?.browserProfileId);
+    const executionScriptId = toPositiveNumber(req.body?.executionScriptId);
+    const datasetId = toPositiveNumber(req.body?.datasetId);
+    const rowIndexes = Array.isArray(req.body?.rowIndexes) ? req.body.rowIndexes : null;
+    const columnBindings =
+      req.body?.columnBindings && typeof req.body.columnBindings === "object" && !Array.isArray(req.body.columnBindings)
+        ? req.body.columnBindings
+        : null;
+
+    if (!testCaseId) {
+      return res.status(400).json({ success: false, message: "testCaseId must be a positive integer" });
+    }
+    if (!executionScriptId) {
+      return res.status(400).json({ success: false, message: "executionScriptId must be a positive integer" });
+    }
+    if (!datasetId) {
+      return res.status(400).json({ success: false, message: "datasetId must be a positive integer" });
+    }
+
+    if (hasMeaningfulValue(req.body?.testCaseVersionId) && testCaseVersionId === null) {
+      return res.status(400).json({ success: false, message: "testCaseVersionId must be a positive integer" });
+    }
+    if (hasMeaningfulValue(req.body?.runtimeConfigId) && runtimeConfigId === null) {
+      return res.status(400).json({ success: false, message: "runtimeConfigId must be a positive integer" });
+    }
+    if (hasMeaningfulValue(req.body?.browserProfileId) && browserProfileId === null) {
+      return res.status(400).json({ success: false, message: "browserProfileId must be a positive integer" });
+    }
+
+    const result = await testRunService.batchReplayTestRun({
+      testCaseId,
+      testCaseVersionId,
+      runtimeConfigId,
+      browserProfileId,
+      executionScriptId,
+      datasetId,
+      rowIndexes,
+      columnBindings,
+      triggeredBy: userId,
+    });
+
+    return res.status(202).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function analyzeTestRun(req, res, next) {
   try {
     const userId = req.user?.userId;
@@ -300,5 +354,6 @@ module.exports = {
   getRecentTestRuns,
   getTestRunDetail,
   replayTestRun,
+  batchReplayTestRun,
   analyzeTestRun,
 };

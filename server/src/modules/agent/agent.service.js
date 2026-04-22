@@ -37,10 +37,18 @@ function isTemplatePlaceholder(value) {
   );
 }
 
-function deepSanitize(value, { preserveTemplates = false } = {}) {
+const PASSWORD_HINT_RE = /password|passwd|pwd|secret|pin|otp/i;
+
+function isPasswordStep(obj) {
+  if (!obj || typeof obj !== "object") return false;
+  const hints = [obj.placeholder, obj.axName, obj.nameAttr, obj.id, obj.name];
+  return hints.some((h) => typeof h === "string" && PASSWORD_HINT_RE.test(h));
+}
+
+function deepSanitize(value, { preserveTemplates = false, sensitiveContext = false } = {}) {
   if (Array.isArray(value)) {
     return value.map((item) =>
-      deepSanitize(item, { preserveTemplates }),
+      deepSanitize(item, { preserveTemplates, sensitiveContext }),
     );
   }
 
@@ -50,6 +58,8 @@ function deepSanitize(value, { preserveTemplates = false } = {}) {
     }
     return value;
   }
+
+  const isSensitive = sensitiveContext || isPasswordStep(value);
 
   const result = {};
   for (const [key, val] of Object.entries(value)) {
@@ -62,7 +72,8 @@ function deepSanitize(value, { preserveTemplates = false } = {}) {
       continue;
     }
 
-    if (key === "text" && typeof val === "string") {
+    // Only redact `text` when this step is a password/sensitive input
+    if (key === "text" && typeof val === "string" && isSensitive) {
       if (preserveTemplates && isTemplatePlaceholder(val)) {
         result[key] = val;
       } else {
@@ -71,7 +82,7 @@ function deepSanitize(value, { preserveTemplates = false } = {}) {
       continue;
     }
 
-    result[key] = deepSanitize(val, { preserveTemplates });
+    result[key] = deepSanitize(val, { preserveTemplates, sensitiveContext: isSensitive });
   }
   return result;
 }
@@ -602,6 +613,7 @@ async function replayAgentRun({
     params: resolvedInput.params || {},
     scriptJson: script.script_json,
   };
+  console.log(`[replayAgentRun] testRun=${testRun.id} replay.params:`, JSON.stringify(resolvedInput.params));
 
   try {
     await postToWorkerRun(workerPayload);
@@ -620,6 +632,80 @@ async function replayAgentRun({
     attemptId: attempt.id,
     workerPayload,
   };
+}
+
+async function startBatchReplayRun({
+  testCaseId,
+  testCaseVersionId = null,
+  runtimeConfigId = null,
+  browserProfileId = null,
+  executionScriptId,
+  datasetId,
+  rowIndexes = null,
+  columnBindings = null,
+  triggeredBy = null,
+}) {
+  const bundle = await agentRepository.findTestCaseBundle(testCaseId, testCaseVersionId);
+  if (!bundle) throw new Error("Test case or test case version not found");
+
+  const script = await agentRepository.findExecutionScriptById(executionScriptId);
+  assertExecutionScriptMatchesTestCase(script, bundle);
+
+  const dataset = await agentRepository.findDatasetById(datasetId);
+  if (!dataset) throw new Error("Dataset not found");
+
+  const allRows = Array.isArray(dataset.data_json) ? dataset.data_json : [];
+  const targetIndexes = rowIndexes
+    ? rowIndexes.filter((i) => i >= 0 && i < allRows.length)
+    : allRows.map((_, i) => i);
+
+  if (targetIndexes.length === 0) throw new Error("No rows to run in dataset");
+
+  const batch = await agentRepository.createTestRunBatch({
+    projectId: bundle.project_id,
+    testCaseId: bundle.test_case_id,
+    datasetId,
+    executionScriptId,
+    totalRows: targetIndexes.length,
+    triggeredBy,
+  });
+
+  // Fire-and-forget: run each row sequentially without blocking the HTTP response
+  (async () => {
+    for (const rowIndex of targetIndexes) {
+      try {
+        // Build per-row params: spread row columns so {{col}} templates resolve,
+        // then add _step_N_key = "{{col}}" so worker overrides the hardcoded step text.
+        const row = allRows[rowIndex] || {};
+        const rowParams = { ...row };
+        if (columnBindings && typeof columnBindings === "object") {
+          for (const [paramKey, colName] of Object.entries(columnBindings)) {
+            if (typeof colName === "string" && colName) {
+              rowParams[paramKey] = `{{${colName}}}`;
+            }
+          }
+        }
+        console.log(`[batch:${batch.id}] row ${rowIndex} rowParams:`, JSON.stringify(rowParams));
+
+        const result = await replayAgentRun({
+          testCaseId,
+          testCaseVersionId,
+          runtimeConfigId,
+          browserProfileId,
+          executionScriptId,
+          datasetId,
+          rowIndex,
+          params: rowParams,
+          triggeredBy,
+        });
+        await agentRepository.setTestRunBatchId({ testRunId: result.testRunId, batchId: batch.id });
+      } catch (err) {
+        console.error(`[batch:${batch.id}] row ${rowIndex} dispatch failed:`, err.message);
+      }
+    }
+  })();
+
+  return { batchId: batch.id, totalRows: targetIndexes.length };
 }
 
 async function handleStepCallback(payload) {
@@ -717,6 +803,25 @@ async function handleFinalCallback(payload) {
     }
   }
 
+  // Update batch progress if this run belongs to a batch
+  try {
+    const run = updatedRun || await agentRepository.findRunById(payload.testRunId);
+    if (run && run.batch_id) {
+      const batch = await agentRepository.findTestRunBatchById(run.batch_id);
+      if (batch) {
+        const isPassed = payload.verdict === "pass";
+        await agentRepository.updateTestRunBatchProgress({
+          batchId: batch.id,
+          completedRows: batch.completed_rows + 1,
+          passedRows: batch.passed_rows + (isPassed ? 1 : 0),
+          failedRows: batch.failed_rows + (isPassed ? 0 : 1),
+        });
+      }
+    }
+  } catch (batchErr) {
+    console.error("[agent] Failed to update batch progress:", batchErr.message);
+  }
+
   return {
     attempt: updatedAttempt,
     run: updatedRun,
@@ -727,9 +832,37 @@ async function startWorkerRun(payload) {
   return postToWorkerRun(payload);
 }
 
+const VALID_VAR_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+async function parameterizeExecutionScript({ scriptId, steps, userId }) {
+  if (!scriptId) throw { status: 400, message: "scriptId is required" };
+  if (!Array.isArray(steps)) throw { status: 400, message: "steps must be an array" };
+
+  const script = await agentRepository.findExecutionScriptById(scriptId);
+  if (!script) throw { status: 404, message: "Execution script not found" };
+
+  // Validate that any {{var}} used in steps follow safe naming convention
+  const vars = agentRepository.extractTemplateVariables(steps);
+  const invalid = vars.filter((v) => !VALID_VAR_RE.test(v));
+  if (invalid.length) {
+    throw { status: 400, message: `Invalid variable names: ${invalid.join(", ")}. Use letters, digits and underscore only.` };
+  }
+
+  const updated = await agentRepository.updateExecutionScriptSteps({ id: scriptId, steps });
+  if (!updated) throw { status: 404, message: "Execution script not found" };
+
+  return {
+    id: updated.id,
+    steps: updated.script_json?.steps ?? steps,
+    templateVariables: updated.metadata_json?.templateVariables ?? vars,
+  };
+}
+
 module.exports = {
   startAgentRun,
   replayAgentRun,
+  startBatchReplayRun,
+  parameterizeExecutionScript,
   handleStepCallback,
   handleFinalCallback,
   startWorkerRun,

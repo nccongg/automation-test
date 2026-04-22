@@ -153,9 +153,31 @@ async function handleFinalCallback(req, res) {
   }
 }
 
+async function parameterizeScript(req, res) {
+  try {
+    const scriptId = Number(req.params?.id);
+    if (!scriptId || !Number.isInteger(scriptId) || scriptId <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid script id" });
+    }
+    const steps = req.body?.steps;
+    if (!Array.isArray(steps)) {
+      return res.status(400).json({ success: false, message: "steps must be an array" });
+    }
+    const result = await agentService.parameterizeExecutionScript({
+      scriptId,
+      steps,
+      userId: getUserId(req),
+    });
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    return sendError(res, error, "Failed to parameterize script");
+  }
+}
+
 module.exports = {
   startRun,
   replayRun,
   handleStepCallback,
   handleFinalCallback,
+  parameterizeScript,
 };

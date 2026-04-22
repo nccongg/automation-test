@@ -645,6 +645,94 @@ async function listTestRunDatasetBindings(testRunId) {
   return result.rows || [];
 }
 
+function extractTemplateVariables(steps) {
+  const vars = new Set();
+  const re = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g;
+  function scan(val) {
+    if (typeof val === "string") {
+      let m;
+      while ((m = re.exec(val)) !== null) vars.add(m[1]);
+      re.lastIndex = 0;
+    } else if (Array.isArray(val)) {
+      val.forEach(scan);
+    } else if (val && typeof val === "object") {
+      Object.values(val).forEach(scan);
+    }
+  }
+  scan(steps);
+  return [...vars];
+}
+
+async function updateExecutionScriptSteps({ id, steps }) {
+  const templateVariables = extractTemplateVariables(steps);
+  const sql = `
+    UPDATE public.execution_scripts
+    SET
+      script_json   = jsonb_set(COALESCE(script_json, '{}'), '{steps}', $2::jsonb),
+      metadata_json = COALESCE(metadata_json, '{}') || $3::jsonb
+    WHERE id = $1
+    RETURNING id, script_json, metadata_json
+  `;
+  const result = await query(sql, [
+    id,
+    JSON.stringify(steps),
+    JSON.stringify({ templateVariables }),
+  ]);
+  return result.rows[0] || null;
+}
+
+async function createTestRunBatch({ projectId, testCaseId, datasetId, executionScriptId, totalRows, triggeredBy }) {
+  const sql = `
+    INSERT INTO public.test_run_batches
+      (project_id, test_case_id, dataset_id, execution_script_id, total_rows, triggered_by)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING *
+  `;
+  const result = await query(sql, [projectId, testCaseId, datasetId || null, executionScriptId || null, totalRows, triggeredBy || null]);
+  return result.rows[0];
+}
+
+async function updateTestRunBatchProgress({ batchId, completedRows, passedRows, failedRows }) {
+  const sql = `
+    UPDATE public.test_run_batches
+    SET
+      completed_rows = $2,
+      passed_rows    = $3,
+      failed_rows    = $4,
+      status         = CASE WHEN $2 >= total_rows THEN 'completed' ELSE 'running' END,
+      completed_at   = CASE WHEN $2 >= total_rows THEN NOW() ELSE NULL END
+    WHERE id = $1
+    RETURNING *
+  `;
+  const result = await query(sql, [batchId, completedRows, passedRows, failedRows]);
+  return result.rows[0];
+}
+
+async function findTestRunBatchById(batchId) {
+  const sql = `SELECT * FROM public.test_run_batches WHERE id = $1`;
+  const result = await query(sql, [batchId]);
+  return result.rows[0] || null;
+}
+
+async function listTestRunBatches({ testCaseId, limit = 20, offset = 0 }) {
+  const sql = `
+    SELECT b.*, COUNT(r.id) AS run_count
+    FROM public.test_run_batches b
+    LEFT JOIN public.test_runs r ON r.batch_id = b.id
+    WHERE b.test_case_id = $1
+    GROUP BY b.id
+    ORDER BY b.created_at DESC
+    LIMIT $2 OFFSET $3
+  `;
+  const result = await query(sql, [testCaseId, limit, offset]);
+  return result.rows || [];
+}
+
+async function setTestRunBatchId({ testRunId, batchId }) {
+  const sql = `UPDATE public.test_runs SET batch_id = $2 WHERE id = $1`;
+  await query(sql, [testRunId, batchId]);
+}
+
 module.exports = {
   query,
   findTestCaseBundle,
@@ -660,10 +748,17 @@ module.exports = {
   findRunById,
   insertExecutionScript,
 
+  updateExecutionScriptSteps,
+  extractTemplateVariables,
   findDefaultDatasetBindingForTestCase,
   findDatasetBindingForTestCase,
   findDatasetById,
   resolveDatasetRow,
   insertTestRunDatasetBinding,
   listTestRunDatasetBindings,
+  createTestRunBatch,
+  updateTestRunBatchProgress,
+  findTestRunBatchById,
+  listTestRunBatches,
+  setTestRunBatchId,
 };

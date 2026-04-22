@@ -3,8 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Check,
+  ChevronDown,
+  ChevronRight,
   Hash,
-  Layers,
   Pencil,
   Play,
   Target,
@@ -29,6 +30,63 @@ import { STATUS_STYLE } from "@/features/test-cases/constants/styles.jsx";
 import RunRow from "@/features/test-cases/components/RunRow";
 import RunReplaySection from "@/features/test-cases/components/RunReplaySection";
 import RefineSection from "@/features/test-cases/components/RefineSection";
+
+function TestPlanSection({ steps }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+      >
+        {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+        <span className="font-medium">Test Plan</span>
+        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
+          {steps.length}
+        </span>
+        <span className="text-[10px] text-slate-300">· agent intent</span>
+      </button>
+
+      {open && (
+        <div className="mt-3 space-y-1.5">
+          {steps.map((step, i) => {
+            const isLast = i === steps.length - 1;
+            return (
+              <div key={step.id ?? i} className="relative flex gap-2.5">
+                {!isLast && (
+                  <div className="absolute left-[9px] top-6 bottom-0 w-px bg-slate-100" />
+                )}
+                <span className="relative z-10 mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-[9px] font-bold text-slate-400">
+                  {step.order ?? i + 1}
+                </span>
+                <div className="flex-1 pb-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      {step.description || step.text || `Step ${i + 1}`}
+                    </p>
+                    {step.action && step.action !== "custom" && (
+                      <span className="shrink-0 rounded border border-slate-100 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        {step.action}
+                      </span>
+                    )}
+                  </div>
+                  {step.expectedResult && (
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      <span className="font-medium">Expected: </span>
+                      {step.expectedResult}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function TestCaseDetailPage() {
   const { projectId, testCaseId } = useParams();
@@ -180,11 +238,6 @@ export default function TestCaseDetailPage() {
                     <SelectItem value="archived">Archived</SelectItem>
                   </SelectContent>
                 </Select>
-                {tc.steps?.length > 0 && (
-                  <span className="flex items-center gap-1 text-xs text-slate-400">
-                    <Layers className="size-3" /> {tc.steps.length} steps
-                  </span>
-                )}
               </div>
 
               {editingTitle ? (
@@ -233,6 +286,8 @@ export default function TestCaseDetailPage() {
                   <Pencil className="mt-0.5 size-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               )}
+
+              {tc.steps?.length > 0 && <TestPlanSection steps={tc.steps} />}
             </div>
             <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400 mt-1">
               <Hash className="size-3" /> {tc.id}
@@ -264,44 +319,12 @@ export default function TestCaseDetailPage() {
             )}
           </div>
         </div>
-      </div>
 
-      {/* Test steps */}
-      {tc.steps?.length > 0 && (
-        <section>
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Test Steps ({tc.steps.length})
-          </h2>
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden divide-y divide-slate-100">
-            {tc.steps.map((step, i) => (
-              <div key={step.id ?? i} className="flex items-start gap-4 px-5 py-4">
-                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[11px] font-bold text-indigo-500">
-                  {step.order ?? i + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-slate-700 leading-relaxed">
-                    {step.description || step.text || `Step ${i + 1}`}
-                  </p>
-                  {step.expectedResult && (
-                    <p className="mt-1 text-xs text-slate-400">
-                      <span className="font-medium text-slate-500">Expected: </span>
-                      {step.expectedResult}
-                    </p>
-                  )}
-                </div>
-                {step.action && step.action !== "custom" && (
-                  <span className="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
-                    {step.action}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      </div>
 
       <RunReplaySection
         tc={tc}
+        projectId={projectId}
         scripts={scripts}
         scriptsLoading={scriptsLoading}
         scriptsError={scriptsError}

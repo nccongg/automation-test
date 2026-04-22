@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FlaskConical,
+  Database,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -137,6 +138,22 @@ export default function ProjectDetailPage() {
             {!isSidebarCollapsed && "Test Suites"}
           </NavLink>
 
+
+          <NavLink
+            to="data"
+            className={({ isActive }) =>
+              [
+                "flex items-center gap-3 rounded-xl px-3 py-4 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
+                  : "text-muted-foreground hover:bg-muted",
+                isSidebarCollapsed ? "justify-center px-2" : "",
+              ].join(" ")
+            }
+          >
+            <Database className="size-5 shrink-0" />
+            {!isSidebarCollapsed && "Data"}
+          </NavLink>
 
           <NavLink
             to="test-runs"

@@ -261,6 +261,35 @@ export async function replayTestRun({
   return normalizeApiPayload(response);
 }
 
+export async function parameterizeScript({ scriptId, steps }) {
+  const response = await apiClient.patch(`/agent/execution-scripts/${scriptId}/steps`, { steps });
+  return normalizeApiPayload(response);
+}
+
+export async function batchReplayTestRun({
+  testCaseId,
+  testCaseVersionId = null,
+  runtimeConfigId = null,
+  browserProfileId = null,
+  executionScriptId,
+  datasetId,
+  rowIndexes = null,
+  columnBindings = null,
+}) {
+  const response = await apiClient.post("/test-runs/batch-replay", {
+    testCaseId,
+    testCaseVersionId,
+    runtimeConfigId,
+    browserProfileId,
+    executionScriptId,
+    datasetId,
+    rowIndexes,
+    columnBindings,
+  });
+
+  return normalizeApiPayload(response);
+}
+
 export async function analyzeTestRun(runId) {
   const response = await apiClient.post(`/test-runs/${runId}/analyze`);
   return normalizeApiPayload(response);

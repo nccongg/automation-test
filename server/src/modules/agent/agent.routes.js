@@ -46,4 +46,11 @@ router.post('/replay', agentController.replayRun);
 router.post('/callbacks/step', agentController.handleStepCallback);
 router.post('/callbacks/final', agentController.handleFinalCallback);
 
+/**
+ * Parameterize an execution script — replace hardcoded step values with {{var}} templates
+ * PATCH /api/agent/execution-scripts/:id/steps
+ * body: { steps: [...] }
+ */
+router.patch('/execution-scripts/:id/steps', agentController.parameterizeScript);
+
 module.exports = router;

@@ -136,6 +136,58 @@ router.post("/replay", testRunController.replayTestRun);
 
 /**
  * @swagger
+ * /test-runs/batch-replay:
+ *   post:
+ *     summary: Run all dataset rows as a batch (DDT — one run per row)
+ *     tags: [Test Runs]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - testCaseId
+ *               - executionScriptId
+ *               - datasetId
+ *             properties:
+ *               testCaseId:
+ *                 type: integer
+ *               testCaseVersionId:
+ *                 type: integer
+ *                 nullable: true
+ *               runtimeConfigId:
+ *                 type: integer
+ *                 nullable: true
+ *               browserProfileId:
+ *                 type: integer
+ *                 nullable: true
+ *               executionScriptId:
+ *                 type: integer
+ *               datasetId:
+ *                 type: integer
+ *               rowIndexes:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 nullable: true
+ *                 description: Subset of row indexes to run; omit to run all rows
+ *     responses:
+ *       202:
+ *         description: Batch accepted; returns batchId and totalRows
+ *       400:
+ *         description: Bad Request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Dataset or script not found
+ */
+router.post("/batch-replay", testRunController.batchReplayTestRun);
+
+/**
+ * @swagger
  * /test-runs/{id}/replay:
  *   post:
  *     summary: Replay a previous test run (legacy path)

@@ -27,6 +27,7 @@ import TestSuitesPage from "@/pages/test-suites/TestCollectionPage";
 import TestSuiteDetailPage from "@/pages/test-suites/TestSheetDetailPage";
 import TestCollectionDetailPage from "@/pages/collections/TestCollectionDetailPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
+import DataPage from "@/pages/data/DataPage";
 
 export default function App() {
   return (
@@ -66,6 +67,7 @@ export default function App() {
               {/* Collections — accessible from Test Cases page tabs */}
               <Route path="collections" element={<Navigate to="../test-cases" replace />} />
               <Route path="collections/:collectionId" element={<TestCollectionDetailPage />} />
+              <Route path="data" element={<DataPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route path="settings" element={<SettingsPage />} />

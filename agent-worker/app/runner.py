@@ -223,30 +223,60 @@ def _extract_browser_use_items(raw_history_item: Any) -> List[Dict[str, Any]]:
 def _build_locator_input_from_interacted_element(item: Dict[str, Any]) -> Dict[str, Any]:
     interacted = item.get("interacted_element") or {}
     attrs = interacted.get("attributes") or {}
+    node_name = str(interacted.get("node_name") or "").upper()
+    ax_name = interacted.get("ax_name") or ""
+    title = attrs.get("title") or ""
+    name_attr = attrs.get("name") or ""
+    placeholder = attrs.get("placeholder") or ""
+    element_id = attrs.get("id") or ""
+    raw_xpath = interacted.get("x_path") or ""
 
     action_input: Dict[str, Any] = {}
 
-    if interacted.get("x_path"):
-        action_input["xpath"] = interacted["x_path"]
+    if node_name:
+        action_input["nodeName"] = node_name
 
-    if attrs.get("id"):
-        action_input["id"] = attrs["id"]
+    # --- Prefer semantic / stable locators over absolute DOM paths ---
 
-    if attrs.get("name"):
-        action_input["nameAttr"] = attrs["name"]
+    # Form inputs: name/placeholder are stable across renders
+    if name_attr and node_name in {"INPUT", "SELECT", "TEXTAREA"}:
+        action_input["nameAttr"] = name_attr
+        if placeholder:
+            action_input["placeholder"] = placeholder
+        if ax_name:
+            action_input["axName"] = ax_name
+        return action_input
 
-    if attrs.get("placeholder"):
-        action_input["placeholder"] = attrs["placeholder"]
+    if placeholder and node_name in {"INPUT", "TEXTAREA"}:
+        action_input["placeholder"] = placeholder
+        if ax_name:
+            action_input["axName"] = ax_name
+        return action_input
 
-    ax_name = interacted.get("ax_name")
+    # Buttons/links: title or axName uniquely identify the target
+    if title:
+        action_input["title"] = title
+        if ax_name:
+            action_input["axName"] = ax_name
+        return action_input
+
     if ax_name:
         action_input["axName"] = ax_name
+        return action_input
 
-    if attrs.get("title"):
-        action_input["title"] = attrs["title"]
+    # Non-unique IDs (e.g. YouTube reuses id="video-title") — only use when xpath unavailable
+    if element_id and not raw_xpath:
+        action_input["id"] = element_id
+        return action_input
 
-    if interacted.get("node_name"):
-        action_input["nodeName"] = interacted["node_name"]
+    # Fallback: absolute DOM xpath (fragile but better than nothing)
+    if raw_xpath:
+        action_input["xpath"] = raw_xpath
+        # Keep title/axName as hints for debugging
+        if title:
+            action_input["title"] = title
+        if ax_name:
+            action_input["axName"] = ax_name
 
     return action_input
 
@@ -276,7 +306,6 @@ def _step_signature(step: ReplayStepPayload) -> str:
         {
             "actionName": step.actionName,
             "actionInput": safe_to_jsonable(step.actionInput),
-            "expectedUrl": step.expectedUrl,
         },
         ensure_ascii=False,
         sort_keys=True,
@@ -315,7 +344,7 @@ def _convert_browser_use_history_to_replay_steps(
                         step_no=step_counter,
                         action_name="navigate",
                         action_input={"url": url},
-                        expected_url=expected_url,
+                        expected_url=None,  # pre-nav URL is meaningless as post-nav check
                         continue_on_error=continue_on_error,
                     )
                     sig = _step_signature(step_obj)
@@ -353,7 +382,7 @@ def _convert_browser_use_history_to_replay_steps(
                     step_no=step_counter,
                     action_name="click",
                     action_input=locator_input,
-                    expected_url=expected_url,
+                    expected_url=None,  # URL after click depends on data — breaks DDT if hardcoded
                     continue_on_error=continue_on_error,
                 )
                 sig = _step_signature(step_obj)
@@ -367,6 +396,10 @@ def _convert_browser_use_history_to_replay_steps(
                 continue
 
         if not items and action_name and isinstance(action_input, dict):
+            # browser_use_history steps with no recorded actions (e.g. validation errors
+            # or empty action lists) have nothing to replay — skip them silently.
+            if str(action_name).lower() == "browser_use_history":
+                continue
             step_obj = _make_replay_step(
                 step_no=step_counter,
                 action_name=str(action_name),
@@ -686,56 +719,77 @@ async def create_playwright_context(run_req: RunRequest) -> Tuple[Any, PWBrowser
     return playwright, browser, context
 
 
+def _apply_nth(locator: "Locator", action_input: Dict[str, Any]) -> "Locator":
+    nth = action_input.get("nth")
+    if nth is not None:
+        return locator.nth(int(nth))
+    return locator
+
+
 async def resolve_locator(page: Page, action_input: Dict[str, Any]) -> Locator:
     if not action_input:
         raise ValueError("Locator input is empty")
 
     selector = action_input.get("selector") or action_input.get("css")
     if isinstance(selector, str) and selector.strip():
-        return page.locator(selector)
+        return _apply_nth(page.locator(selector), action_input)
 
-    element_id = action_input.get("id") or action_input.get("elementId")
-    if isinstance(element_id, str) and element_id.strip():
-        return page.locator(f"xpath=//*[@id={xpath_literal(element_id)}]")
-
+    # Semantic locators first — stable across DOM changes
     name_attr = action_input.get("nameAttr")
     if isinstance(name_attr, str) and name_attr.strip():
         return page.locator(f"xpath=//*[@name={xpath_literal(name_attr)}]")
-
-    xpath = action_input.get("xpath") or action_input.get("x_path")
-    if isinstance(xpath, str) and xpath.strip():
-        return page.locator(f"xpath={xpath}")
-
-    test_id = action_input.get("testId")
-    if isinstance(test_id, str) and test_id.strip():
-        return page.get_by_test_id(test_id)
-
-    label = action_input.get("label")
-    if isinstance(label, str) and label.strip():
-        return page.get_by_label(label)
 
     placeholder = action_input.get("placeholder")
     if isinstance(placeholder, str) and placeholder.strip():
         return page.get_by_placeholder(placeholder)
 
+    node_name = str(action_input.get("nodeName") or "").upper()
+
+    title = action_input.get("title")
+    if isinstance(title, str) and title.strip():
+        if node_name == "BUTTON":
+            # exact=True: avoid matching longer button names (e.g. "Search with your voice")
+            return page.get_by_role("button", name=title, exact=True)
+        if node_name == "A":
+            # exact=False: link accessible names often include extra metadata (duration, etc.)
+            return page.get_by_role("link", name=title, exact=False)
+        return page.get_by_title(title, exact=True)
+
+    label = action_input.get("label")
+    if isinstance(label, str) and label.strip():
+        return page.get_by_label(label, exact=True)
+
+    test_id = action_input.get("testId")
+    if isinstance(test_id, str) and test_id.strip():
+        return page.get_by_test_id(test_id)
+
+    ax_name = action_input.get("axName")
+    if isinstance(ax_name, str) and ax_name.strip():
+        if node_name == "BUTTON":
+            return page.get_by_role("button", name=ax_name, exact=True)
+        if node_name == "A":
+            return page.get_by_role("link", name=ax_name, exact=False)
+        if node_name == "INPUT":
+            return page.get_by_placeholder(ax_name)
+        return page.get_by_text(ax_name, exact=False)
+
+    # Absolute xpath — fragile but explicit
+    xpath = action_input.get("xpath") or action_input.get("x_path")
+    if isinstance(xpath, str) and xpath.strip():
+        raw = xpath.strip()
+        if not raw.startswith("/") and not raw.startswith("("):
+            raw = "/" + raw
+        return page.locator(f"xpath={raw}")
+
+    # id — last resort (may not be unique)
+    element_id = action_input.get("id") or action_input.get("elementId")
+    if isinstance(element_id, str) and element_id.strip():
+        return page.locator(f"xpath=//*[@id={xpath_literal(element_id)}]")
+
     role = action_input.get("role")
     name = action_input.get("name")
     if role:
         return page.get_by_role(role, name=name)
-
-    ax_name = action_input.get("axName")
-    if isinstance(ax_name, str) and ax_name.strip():
-        title = action_input.get("title")
-        node_name = str(action_input.get("nodeName") or "").lower()
-        if node_name == "input":
-            return page.get_by_placeholder(ax_name)
-        if title:
-            return page.get_by_title(str(title))
-        return page.get_by_text(ax_name, exact=False)
-
-    title = action_input.get("title")
-    if isinstance(title, str) and title.strip():
-        return page.get_by_title(title)
 
     text = action_input.get("text")
     if isinstance(text, str) and text.strip():
@@ -752,8 +806,20 @@ async def execute_replay_step(
 ) -> StepResult:
     started_at = time.perf_counter()
     action_input = render_template(step.actionInput, params)
+    # Apply per-step field overrides: params["_step_N_key"] → action_input["key"]
+    step_prefix = f"_step_{step.stepNo}_"
+    for param_key, param_val in params.items():
+        if isinstance(param_key, str) and param_key.startswith(step_prefix):
+            field_key = param_key[len(step_prefix):]
+            if field_key:
+                logger.info("[override] step %s: %s = %r", step.stepNo, field_key, param_val)
+                action_input[field_key] = param_val
+    # Re-render after overrides so override values containing {{var}} are resolved
+    action_input = render_template(action_input, params)
+    logger.info("[execute_replay_step] stepNo=%s action=%s action_input=%s params_keys=%s",
+                step.stepNo, step.actionName, action_input, list(params.keys()))
     action_name = step.actionName.lower().strip()
-    timeout_ms = step.timeoutMs or 15000
+    timeout_ms = step.timeoutMs or 30000
     screenshot_path: Optional[str] = None
 
     try:
@@ -762,23 +828,84 @@ async def execute_replay_step(
             if not url:
                 raise ValueError("navigate step requires actionInput.url")
             await page.goto(str(url), wait_until="domcontentloaded", timeout=timeout_ms)
+            # Best-effort wait for full load; networkidle is unreliable on SPAs
+            try:
+                await page.wait_for_load_state("load", timeout=8000)
+            except Exception:
+                pass
+            await page.wait_for_timeout(400)
             message = f"Navigated to {url}"
             output = {"url": page.url}
 
         elif action_name in {"click", "tap"}:
             locator = await resolve_locator(page, action_input)
-            await locator.click(timeout=timeout_ms)
+            nth = action_input.get("nth")
+            target = locator.nth(int(nth)) if nth is not None else locator.first
+            try:
+                await target.scroll_into_view_if_needed(timeout=5000)
+            except Exception:
+                pass
+            url_before = page.url
+            try:
+                await target.click(timeout=timeout_ms)
+            except Exception as click_err:
+                try:
+                    await target.click(timeout=5000, force=True)
+                except Exception:
+                    raise click_err
+            # Wait for JS-driven navigation (pushState) to start before checking URL.
+            # Checking page.url immediately after click may see the old URL because
+            # SPA navigation is asynchronous.
+            try:
+                await page.wait_for_url(lambda url: url != url_before, timeout=3000)
+            except Exception:
+                pass
+            # Fallback: if click did not trigger navigation (e.g. autocomplete overlay
+            # intercepted the click or the form needs keyboard submission), press Enter.
+            if page.url == url_before:
+                try:
+                    await page.keyboard.press("Enter")
+                    await page.wait_for_url(lambda url: url != url_before, timeout=3000)
+                except Exception:
+                    pass
+            if page.url != url_before:
+                try:
+                    await page.wait_for_load_state("domcontentloaded", timeout=10000)
+                except Exception:
+                    pass
+                try:
+                    await page.wait_for_load_state("load", timeout=10000)
+                except Exception:
+                    pass
+                # Brief buffer for SPA visual rendering after load event
+                await page.wait_for_timeout(600)
             message = "Click completed"
             output = {"url": page.url}
 
         elif action_name in {"fill", "type", "input_text", "enter_text", "input"}:
             locator = await resolve_locator(page, action_input)
-            text = action_input.get("text")
-            if text is None:
+            nth = action_input.get("nth")
+            target = locator.nth(int(nth)) if nth is not None else locator.first
+            text = str(action_input.get("text") or "").strip()
+            if not text and action_input.get("text") is None:
                 raise ValueError("fill step requires actionInput.text")
-            if bool(action_input.get("clear")):
-                await locator.fill("", timeout=timeout_ms)
-            await locator.fill(str(text), timeout=timeout_ms)
+            try:
+                await target.scroll_into_view_if_needed(timeout=5000)
+            except Exception:
+                pass
+            # fill() atomically clears existing value and sets the new one,
+            # dispatching the built-in input event. We also fire change explicitly
+            # so React/Vue/Angular controlled inputs pick up the new state.
+            await target.fill(str(text), timeout=timeout_ms)
+            try:
+                await target.evaluate(
+                    "el => {"
+                    "  el.dispatchEvent(new Event('input',  {bubbles: true, cancelable: true}));"
+                    "  el.dispatchEvent(new Event('change', {bubbles: true, cancelable: true}));"
+                    "}"
+                )
+            except Exception:
+                pass
             message = "Input completed"
             output = {"filled": True, "text": str(text)}
 
@@ -867,8 +994,13 @@ async def execute_replay_step(
         else:
             raise ValueError(f"Unsupported replay actionName: {step.actionName}")
 
-        if step.expectedUrl and step.expectedUrl not in page.url:
-            raise AssertionError(f"Expected URL to contain '{step.expectedUrl}', actual '{page.url}'")
+        # Skip URL check for navigate actions — the pre-navigation URL is stored as
+        # expectedUrl during recording, but after navigating the page is at the new URL.
+        is_navigate = action_name in {"goto", "go_to_url", "open_url", "navigate"}
+        # Render expectedUrl through template so {{param}} placeholders are substituted
+        expected_url = render_template(step.expectedUrl, params) if step.expectedUrl else None
+        if expected_url and not is_navigate and expected_url not in page.url:
+            raise AssertionError(f"Expected URL to contain '{expected_url}', actual '{page.url}'")
 
         if step.captureScreenshot and screenshot_path is None:
             file_name = f"replay_step_{step.stepNo}.png"
