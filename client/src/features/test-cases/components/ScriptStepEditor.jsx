@@ -245,6 +245,7 @@ export default function ScriptStepEditor({
   onBindingsChange = null,
   // Called when user parameterizes a step: (stepNo, fieldKey, varName) => void
   onParameterize = null,
+  parameterizeDisabled = false,
 }) {
   // pkey → column name (controlled if bindingsProp provided, otherwise local)
   const [localBindings, setLocalBindings] = useState({});
@@ -402,7 +403,7 @@ export default function ScriptStepEditor({
                         binding={bindings[pkey]}
                         onBind={(col) => bindParam(pkey, col)}
                         onUnbind={() => unbindParam(pkey)}
-                        onParameterize={onParameterize ? (fieldKey, varName) => onParameterize(sno, fieldKey, varName) : null}
+                        onParameterize={onParameterize && !parameterizeDisabled ? (fieldKey, varName) => onParameterize(sno, fieldKey, varName) : null}
                       />
                     ))}
                   </div>

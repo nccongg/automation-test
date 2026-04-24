@@ -106,21 +106,8 @@ export default function DatasetTable({
       const text = evt.target.result;
       const lines = text.split(/\r?\n/).filter(Boolean);
       if (lines.length < 2) return;
-
-      // ===== DEBUG: xem raw content =====
-      const firstLine = lines[0];
-      const charCodes = [...firstLine].map((c) => `${c}(${c.charCodeAt(0)})`).join(" ");
-      console.log("[CSV Debug] Header raw chars:", charCodes);
-      console.log("[CSV Debug] Tab count:", (firstLine.match(/\t/g) || []).length);
-      console.log("[CSV Debug] Comma count:", (firstLine.match(/,/g) || []).length);
-      console.log("[CSV Debug] Semicolon count:", (firstLine.match(/;/g) || []).length);
-      // ==================================
-
       const delimiter = detectDelimiter(lines[0]);
-      console.log("[CSV Debug] Detected delimiter charCode:", delimiter.charCodeAt(0));
-
       const headers = parseCSVLine(lines[0], delimiter).map((h) => h.replace(/^"|"$/g, "").trim());
-      console.log("[CSV Debug] Parsed headers:", headers);
 
       const newRows = lines.slice(1).map((line) => {
         const cells = parseCSVLine(line, delimiter).map((c) => c.replace(/^"|"$/g, "").trim());

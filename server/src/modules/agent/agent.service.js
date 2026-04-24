@@ -613,8 +613,6 @@ async function replayAgentRun({
     params: resolvedInput.params || {},
     scriptJson: script.script_json,
   };
-  console.log(`[replayAgentRun] testRun=${testRun.id} replay.params:`, JSON.stringify(resolvedInput.params));
-
   try {
     await postToWorkerRun(workerPayload);
   } catch (error) {
@@ -685,8 +683,6 @@ async function startBatchReplayRun({
             }
           }
         }
-        console.log(`[batch:${batch.id}] row ${rowIndex} rowParams:`, JSON.stringify(rowParams));
-
         const result = await replayAgentRun({
           testCaseId,
           testCaseVersionId,

@@ -812,12 +812,9 @@ async def execute_replay_step(
         if isinstance(param_key, str) and param_key.startswith(step_prefix):
             field_key = param_key[len(step_prefix):]
             if field_key:
-                logger.info("[override] step %s: %s = %r", step.stepNo, field_key, param_val)
                 action_input[field_key] = param_val
     # Re-render after overrides so override values containing {{var}} are resolved
     action_input = render_template(action_input, params)
-    logger.info("[execute_replay_step] stepNo=%s action=%s action_input=%s params_keys=%s",
-                step.stepNo, step.actionName, action_input, list(params.keys()))
     action_name = step.actionName.lower().strip()
     timeout_ms = step.timeoutMs or 30000
     screenshot_path: Optional[str] = None
@@ -906,6 +903,19 @@ async def execute_replay_step(
                 )
             except Exception:
                 pass
+            # Verify value was actually set — critical for React/Vue controlled inputs
+            # where fill() may not reflect in .value until the event is processed.
+            try:
+                actual_value = await target.input_value(timeout=2000)
+                if actual_value != str(text):
+                    raise AssertionError(
+                        f"Fill verification failed: expected '{text}', got '{actual_value}'"
+                    )
+            except AssertionError:
+                raise
+            except Exception:
+                # input_value() unsupported on non-input elements (contenteditable etc.) — skip
+                pass
             message = "Input completed"
             output = {"filled": True, "text": str(text)}
 
@@ -991,15 +1001,89 @@ async def execute_replay_step(
             message = "Screenshot captured"
             output = {"path": screenshot_path}
 
+        # ── Assertion actions ──────────────────────────────────────────────────
+
+        elif action_name in {"assert_text", "assert_text_present", "verify_text"}:
+            locator = await resolve_locator(page, action_input)
+            expected = str(action_input.get("text") or action_input.get("value") or "")
+            exact = bool(action_input.get("exact", False))
+            actual = await locator.first.inner_text(timeout=timeout_ms)
+            if exact:
+                if actual.strip() != expected:
+                    raise AssertionError(
+                        f"Text assertion failed: expected '{expected}', got '{actual.strip()}'"
+                    )
+            else:
+                if expected not in actual:
+                    raise AssertionError(
+                        f"Text assertion failed: '{expected}' not found in '{actual}'"
+                    )
+            message = f"Text assertion passed: '{expected}'"
+            output = {"text": actual, "expected": expected}
+
+        elif action_name in {"assert_visible", "assert_element_visible", "assert_element_present", "verify_element_visible"}:
+            locator = await resolve_locator(page, action_input)
+            await locator.first.wait_for(state="visible", timeout=timeout_ms)
+            message = "Element is visible"
+            output = {"visible": True}
+
+        elif action_name in {"assert_value", "assert_input_value", "verify_input_value"}:
+            locator = await resolve_locator(page, action_input)
+            expected = str(action_input.get("value") or action_input.get("text") or "")
+            actual = await locator.first.input_value(timeout=timeout_ms)
+            if actual != expected:
+                raise AssertionError(
+                    f"Value assertion failed: expected '{expected}', got '{actual}'"
+                )
+            message = f"Value assertion passed: '{expected}'"
+            output = {"value": actual, "expected": expected}
+
+        elif action_name in {"assert_url", "assert_url_equals", "verify_url"}:
+            expected = str(action_input.get("url") or action_input.get("value") or "")
+            if not expected:
+                raise ValueError("assert_url requires actionInput.url or actionInput.value")
+            exact = bool(action_input.get("exact", False))
+            if exact:
+                if page.url != expected:
+                    raise AssertionError(
+                        f"URL assertion failed: expected '{expected}', got '{page.url}'"
+                    )
+            else:
+                if expected not in page.url:
+                    raise AssertionError(
+                        f"URL assertion failed: '{expected}' not in '{page.url}'"
+                    )
+            message = "URL assertion passed"
+            output = {"url": page.url, "expected": expected}
+
+        # ── Wait actions ───────────────────────────────────────────────────────
+
+        elif action_name in {"wait_for_visible", "wait_element_visible", "wait_for_element"}:
+            locator = await resolve_locator(page, action_input)
+            await locator.first.wait_for(state="visible", timeout=timeout_ms)
+            message = "Element is visible"
+            output = {"visible": True}
+
+        elif action_name in {"wait_for_text", "wait_text_present"}:
+            text_expected = str(action_input.get("text") or "")
+            if not text_expected:
+                raise ValueError("wait_for_text requires actionInput.text")
+            locator = page.get_by_text(text_expected, exact=False)
+            await locator.first.wait_for(state="visible", timeout=timeout_ms)
+            message = f"Text '{text_expected}' is visible"
+            output = {"text": text_expected}
+
         else:
             raise ValueError(f"Unsupported replay actionName: {step.actionName}")
 
-        # Skip URL check for navigate actions — the pre-navigation URL is stored as
-        # expectedUrl during recording, but after navigating the page is at the new URL.
+        # Skip URL check for navigate and click actions:
+        # - navigate: pre-nav URL is meaningless as a post-nav assertion
+        # - click: post-click URL depends on data (DDT) and must not be hardcoded
         is_navigate = action_name in {"goto", "go_to_url", "open_url", "navigate"}
+        is_click = action_name in {"click", "tap"}
         # Render expectedUrl through template so {{param}} placeholders are substituted
         expected_url = render_template(step.expectedUrl, params) if step.expectedUrl else None
-        if expected_url and not is_navigate and expected_url not in page.url:
+        if expected_url and not is_navigate and not is_click and expected_url not in page.url:
             raise AssertionError(f"Expected URL to contain '{expected_url}', actual '{page.url}'")
 
         if step.captureScreenshot and screenshot_path is None:
