@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, Sparkles, Light
 import { getTestRunDetail, analyzeTestRun } from "@/features/test-results/api/testResultsApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
+import ScreenshotList from "@/shared/components/common/ScreenshotList";
 import { Badge } from "@/components/ui/badge";
 import { parseAgentError } from "@/shared/utils/parseAgentError";
 
@@ -128,32 +129,7 @@ function StepItem({ step, stepIndex, isLast }) {
             {step.extractedContent}
           </div>
         )}
-        {step.screenshots?.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {step.screenshots.map((shot) =>
-              shot.imageUrl ? (
-                <a
-                  key={shot.id}
-                  href={shot.imageUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative block overflow-hidden rounded-lg border border-slate-200 shadow-sm"
-                >
-                  <img
-                    src={shot.imageUrl}
-                    alt={`Step ${step.stepNo} screenshot`}
-                    className="h-28 w-44 object-cover transition-opacity group-hover:opacity-80"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-colors rounded-lg">
-                    <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-slate-700 text-xs font-medium px-2 py-1 rounded-md transition-opacity">
-                      View
-                    </span>
-                  </div>
-                </a>
-              ) : null
-            )}
-          </div>
-        )}
+        <ScreenshotList screenshots={step.screenshots} stepNo={step.stepNo} />
       </div>
     </div>
   );
