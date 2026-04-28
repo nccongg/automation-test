@@ -276,9 +276,9 @@ async function batchReplayTestRun(req, res, next) {
     const executionScriptId = toPositiveNumber(req.body?.executionScriptId);
     const datasetId = toPositiveNumber(req.body?.datasetId);
     const rowIndexes = Array.isArray(req.body?.rowIndexes) ? req.body.rowIndexes : null;
-    const columnBindings =
-      req.body?.columnBindings && typeof req.body.columnBindings === "object" && !Array.isArray(req.body.columnBindings)
-        ? req.body.columnBindings
+    const variableMapping =
+      req.body?.variableMapping && typeof req.body.variableMapping === "object" && !Array.isArray(req.body.variableMapping)
+        ? req.body.variableMapping
         : null;
 
     if (!testCaseId) {
@@ -309,11 +309,49 @@ async function batchReplayTestRun(req, res, next) {
       executionScriptId,
       datasetId,
       rowIndexes,
-      columnBindings,
+      variableMapping,
       triggeredBy: userId,
     });
 
     return res.status(202).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getBatchDetail(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const batchId = toPositiveNumber(req.params?.batchId);
+
+    if (!batchId) {
+      return res.status(400).json({ success: false, message: "batchId must be a positive integer" });
+    }
+
+    const data = await testRunService.getBatchDetail(batchId, userId);
+    if (!data) {
+      return res.status(404).json({ success: false, message: "Batch not found" });
+    }
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function listBatchesForTestCase(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const testCaseId = toPositiveNumber(req.query?.testCaseId);
+    const limit = Math.min(parseInt(req.query?.limit ?? "20", 10) || 20, 100);
+    const offset = Math.max(parseInt(req.query?.offset ?? "0", 10) || 0, 0);
+
+    if (!testCaseId) {
+      return res.status(400).json({ success: false, message: "testCaseId is required" });
+    }
+
+    const data = await testRunService.listBatchesForTestCase({ testCaseId, userId, limit, offset });
+    return res.status(200).json({ success: true, data });
   } catch (error) {
     next(error);
   }
@@ -356,4 +394,6 @@ module.exports = {
   replayTestRun,
   batchReplayTestRun,
   analyzeTestRun,
+  getBatchDetail,
+  listBatchesForTestCase,
 };

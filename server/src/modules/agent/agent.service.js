@@ -640,7 +640,7 @@ async function startBatchReplayRun({
   executionScriptId,
   datasetId,
   rowIndexes = null,
-  columnBindings = null,
+  variableMapping = null,
   triggeredBy = null,
 }) {
   const bundle = await agentRepository.findTestCaseBundle(testCaseId, testCaseVersionId);
@@ -672,14 +672,13 @@ async function startBatchReplayRun({
   (async () => {
     for (const rowIndex of targetIndexes) {
       try {
-        // Build per-row params: spread row columns so {{col}} templates resolve,
-        // then add _step_N_key = "{{col}}" so worker overrides the hardcoded step text.
         const row = allRows[rowIndex] || {};
+        // Spread entire row first (exact name match), then apply explicit mappings
         const rowParams = { ...row };
-        if (columnBindings && typeof columnBindings === "object") {
-          for (const [paramKey, colName] of Object.entries(columnBindings)) {
-            if (typeof colName === "string" && colName) {
-              rowParams[paramKey] = `{{${colName}}}`;
+        if (variableMapping && typeof variableMapping === "object") {
+          for (const [scriptVar, colName] of Object.entries(variableMapping)) {
+            if (typeof colName === "string" && Object.prototype.hasOwnProperty.call(row, colName)) {
+              rowParams[scriptVar] = row[colName];
             }
           }
         }
@@ -731,6 +730,7 @@ async function handleStepCallback(payload) {
       payload.modelOutputJson || null,
     ),
     durationMs: payload.durationMs || null,
+    failureReason: payload.failureReason || null,
   });
 
   if (payload.screenshotPath) {
@@ -803,16 +803,10 @@ async function handleFinalCallback(payload) {
   try {
     const run = updatedRun || await agentRepository.findRunById(payload.testRunId);
     if (run && run.batch_id) {
-      const batch = await agentRepository.findTestRunBatchById(run.batch_id);
-      if (batch) {
-        const isPassed = payload.verdict === "pass";
-        await agentRepository.updateTestRunBatchProgress({
-          batchId: batch.id,
-          completedRows: batch.completed_rows + 1,
-          passedRows: batch.passed_rows + (isPassed ? 1 : 0),
-          failedRows: batch.failed_rows + (isPassed ? 0 : 1),
-        });
-      }
+      await agentRepository.incrementTestRunBatchProgress({
+        batchId: run.batch_id,
+        isPassed: payload.verdict === "pass",
+      });
     }
   } catch (batchErr) {
     console.error("[agent] Failed to update batch progress:", batchErr.message);

@@ -42,15 +42,25 @@ app.add_middleware(
 # scanId → asyncio.Task  (so we can cancel mid-crawl)
 _crawl_tasks: dict[int, asyncio.Task] = {}
 
+# Limit concurrent browser sessions to avoid OOM on large datasets.
+# Override via WORKER_MAX_CONCURRENCY env var (default 3).
+_MAX_CONCURRENCY = int(os.getenv("WORKER_MAX_CONCURRENCY", "3"))
+_run_semaphore = asyncio.Semaphore(_MAX_CONCURRENCY)
+
+
+async def _run_with_semaphore(run_req: RunRequest) -> None:
+    async with _run_semaphore:
+        await execute_run(run_req)
+
 
 @app.get("/health")
 async def health() -> dict:
-    return {"ok": True}
+    return {"ok": True, "maxConcurrency": _MAX_CONCURRENCY}
 
 
 @app.post("/run")
 async def run_task(run_req: RunRequest) -> dict:
-    asyncio.create_task(execute_run(run_req))
+    asyncio.create_task(_run_with_semaphore(run_req))
     return {
         "accepted": True,
         "testRunId": run_req.testRunId,

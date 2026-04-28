@@ -194,6 +194,7 @@ export async function getTestRunDetail(runId) {
         currentUrl: step.current_url || "",
         thoughtText: step.thought_text || "",
         extractedContent: step.extracted_content || "",
+        failureReason: step.failure_reason || null,
         createdAt: formatDateTime(step.created_at),
         screenshots,
       };
@@ -274,7 +275,7 @@ export async function batchReplayTestRun({
   executionScriptId,
   datasetId,
   rowIndexes = null,
-  columnBindings = null,
+  variableMapping = null,
 }) {
   const response = await apiClient.post("/test-runs/batch-replay", {
     testCaseId,
@@ -284,9 +285,19 @@ export async function batchReplayTestRun({
     executionScriptId,
     datasetId,
     rowIndexes,
-    columnBindings,
+    variableMapping,
   });
 
+  return normalizeApiPayload(response);
+}
+
+export async function getBatchDetail(batchId) {
+  const response = await apiClient.get(`/test-runs/batches/${batchId}`);
+  return normalizeApiPayload(response);
+}
+
+export async function listBatchesForTestCase(testCaseId, { limit = 20, offset = 0 } = {}) {
+  const response = await apiClient.get("/test-runs/batches", { params: { testCaseId, limit, offset } });
   return normalizeApiPayload(response);
 }
 

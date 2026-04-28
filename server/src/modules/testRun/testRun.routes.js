@@ -188,6 +188,56 @@ router.post("/batch-replay", testRunController.batchReplayTestRun);
 
 /**
  * @swagger
+ * /test-runs/batches:
+ *   get:
+ *     summary: List dataset replay batches for a test case
+ *     tags: [Test Runs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: testCaseId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of batches
+ */
+router.get("/batches", testRunController.listBatchesForTestCase);
+
+/**
+ * @swagger
+ * /test-runs/batches/{batchId}:
+ *   get:
+ *     summary: Get dataset replay batch detail with per-row results
+ *     tags: [Test Runs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: batchId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Batch detail with runs
+ *       404:
+ *         description: Batch not found
+ */
+router.get("/batches/:batchId", testRunController.getBatchDetail);
+
+/**
+ * @swagger
  * /test-runs/{id}/replay:
  *   post:
  *     summary: Replay a previous test run (legacy path)

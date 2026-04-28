@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link2, X, ChevronDown, Wand2, Check } from "lucide-react";
-
-const VALID_VAR_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+import { Link2, X, ChevronDown, Check, ShieldCheck, Plus, Wand2 } from "lucide-react";
 
 const ACTION_COLORS = {
   navigate:        "border-blue-200 bg-blue-50 text-blue-700",
@@ -20,215 +18,309 @@ const ACTION_COLORS = {
 };
 
 const USER_INPUT_KEYS = new Set([
-  "text", "url", "value", "content", "key", "keys", "query", "option", "file",
+  "text", "url", "value", "content", "key", "keys", "query", "option", "file", "contains",
 ]);
+
+const ASSERTION_TYPES = [
+  { value: "assert_text",         label: "Text equals",     fields: ["selector", "text"],  needsExpected: true },
+  { value: "assert_url_contains", label: "URL contains",    fields: ["contains"],           needsExpected: true },
+  { value: "assert_url",          label: "URL equals",      fields: ["url"],                needsExpected: true },
+  { value: "assert_visible",      label: "Element visible", fields: ["selector"],           needsExpected: false },
+  { value: "assert_value",        label: "Input value",     fields: ["selector", "value"],  needsExpected: true },
+];
+
+function actionColorClass(name) {
+  if (!name) return "border-slate-200 bg-slate-100 text-slate-600";
+  if (ACTION_COLORS[name]) return ACTION_COLORS[name];
+  if (name.startsWith("assert_") || name.startsWith("verify_")) return ACTION_COLORS.assert;
+  return "border-slate-200 bg-slate-100 text-slate-600";
+}
 
 function extractTemplateVars(val) {
   if (typeof val !== "string") return [];
   return [...new Set((val.match(/\{\{(\w+)\}\}/g) || []).map((m) => m.slice(2, -2)))];
 }
 
-function stepParamKey(stepNo, key) {
-  return `_step_${stepNo}_${key}`;
-}
-
 function stepDescription(step) {
   return step.notes || step.actionInput?.axName || step.actionInput?.placeholder || step.actionInput?.title || null;
 }
 
-// Inline "parameterize" widget: convert hardcoded value to {{varName}}
-function ParameterizeInput({ currentText, availableColumns, onConfirm }) {
+// Column picker dropdown (shared between template bind and hardcoded parameterize)
+function ColDropdown({ icon, label, columns, columnValues, onPick, triggerClass }) {
+  const Icon = icon;
   const [open, setOpen] = useState(false);
-  const [varName, setVarName] = useState("");
   const ref = useRef(null);
 
   useEffect(() => {
     if (!open) return;
-    // Pre-fill with matching column name if text matches any column value in first row
-    if (!varName && availableColumns.length > 0) setVarName(availableColumns[0]);
-    function handler(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const isValid = VALID_VAR_RE.test(varName);
+    function h(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
 
   return (
     <div className="relative shrink-0" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] font-semibold text-amber-600 hover:bg-amber-100 transition-all"
-        title="Replace hardcoded value with {{variable}}"
+        className={`flex items-center gap-1 rounded border px-1.5 py-1 text-[10px] font-semibold transition-colors ${triggerClass}`}
+        title={label}
       >
-        <Wand2 className="size-3" />
-        param
+        <Icon className="size-3" />
+        <ChevronDown className="size-2.5" />
       </button>
+
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-1 w-64 rounded-xl border border-amber-200 bg-white shadow-lg p-3 space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">
-            Replace with variable
-          </p>
-          <p className="text-[10px] text-slate-500">
-            Current: <span className="font-mono text-slate-700">"{currentText?.slice(0, 30)}"</span>
-          </p>
-          <div className="flex gap-1.5">
-            {availableColumns.length > 0 ? (
-              <select
-                value={varName}
-                onChange={(e) => setVarName(e.target.value)}
-                className="flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-amber-200"
-              >
-                {availableColumns.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type="text"
-                value={varName}
-                onChange={(e) => setVarName(e.target.value)}
-                placeholder="variable_name"
-                className="flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-mono outline-none focus:ring-2 focus:ring-amber-200"
-              />
-            )}
-            <button
-              type="button"
-              disabled={!isValid}
-              onClick={() => { onConfirm(varName); setOpen(false); }}
-              className="flex items-center gap-1 rounded-lg bg-amber-500 px-2.5 py-1.5 text-[10px] font-bold text-white disabled:opacity-40 hover:bg-amber-600 transition-colors"
-            >
-              <Check className="size-3" />
-            </button>
+        <div className="absolute right-0 top-full z-30 mt-1 min-w-[140px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+          <div className="border-b border-slate-100 px-2.5 py-1.5">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
           </div>
-          {varName && !isValid && (
-            <p className="text-[10px] text-red-500">Only letters, digits, underscore. Must start with letter/underscore.</p>
-          )}
-          <p className="text-[10px] text-slate-400">
-            Will become: <span className="font-mono text-amber-700">{`{{${varName || "..."}}} `}</span>
-            <span className="text-slate-300">· saved to script</span>
-          </p>
+          <div className="max-h-44 overflow-y-auto py-0.5">
+            {columns.map((col) => (
+              <button
+                key={col}
+                type="button"
+                onClick={() => { onPick(col); setOpen(false); }}
+                className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left hover:bg-slate-50"
+              >
+                <span className="text-[11px] font-semibold text-violet-600">{col}</span>
+                {columnValues?.[col] !== undefined && (
+                  <span className="max-w-[70px] truncate text-[10px] font-mono text-slate-400">
+                    {String(columnValues[col]) || "—"}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-// A single input field with optional column-binding dropdown
-function BoundInput({ pkey, fieldKey, example, isTemplate, value, onChangeValue, readOnly, availableColumns, columnValues, binding, onBind, onUnbind, onParameterize }) {
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const pickerRef = useRef(null);
-
-  useEffect(() => {
-    if (!pickerOpen) return;
-    function handleClick(e) {
-      if (pickerRef.current && !pickerRef.current.contains(e.target)) setPickerOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [pickerOpen]);
-
-  const showBind = !readOnly && availableColumns?.length > 0;
+// Unified field row: handles both template {{var}} fields and hardcoded value fields
+function FieldRow({ fieldKey, pkey, isTemplate, rawValue, paramValue, onChangeValue, readOnly, availableColumns, columnValues, binding, onBind, onUnbind, onParameterize }) {
+  const hasColumns = availableColumns?.length > 0;
 
   return (
-    <div className="flex flex-col gap-1">
-      {/* Label row */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{fieldKey}</span>
-        {isTemplate && (
-          <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-mono font-semibold text-amber-600">
-            {`{{${pkey}}}`}
-          </span>
-        )}
-        {binding && (
-          <span className="flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[9px] font-bold text-violet-700">
-            <Link2 className="size-2.5" />
-            {binding}
-            {!readOnly && (
-              <button type="button" onClick={onUnbind} className="ml-0.5 text-violet-400 hover:text-violet-700">
+    <div className="flex items-center gap-2 min-w-0">
+      {/* Key label */}
+      <span className="w-14 shrink-0 text-right text-[10px] font-bold uppercase tracking-widest text-slate-300">
+        {fieldKey}
+      </span>
+
+      {/* Value area */}
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        {readOnly ? (
+          <span className="text-xs text-slate-600">{rawValue || paramValue || <span className="italic text-slate-300">—</span>}</span>
+        ) : binding ? (
+          // Bound to a dataset column
+          <>
+            <span className="flex shrink-0 items-center gap-1 rounded-full border border-violet-200 bg-violet-50 py-0.5 pl-2 pr-1 text-[11px] font-semibold text-violet-700">
+              <Link2 className="size-2.5 text-violet-400" />
+              {binding}
+              <button
+                type="button"
+                onClick={onUnbind}
+                className="ml-0.5 rounded-full p-0.5 text-violet-300 hover:bg-violet-100 hover:text-violet-600 transition-colors"
+              >
                 <X className="size-2.5" />
               </button>
+            </span>
+            {columnValues?.[binding] !== undefined && (
+              <span className="min-w-0 flex-1 truncate text-[10px] font-mono text-slate-400" title={String(columnValues[binding])}>
+                = {String(columnValues[binding]) || "—"}
+              </span>
             )}
-          </span>
-        )}
-      </div>
-
-      {/* Input row */}
-      <div className="flex items-center gap-1.5">
-        {readOnly ? (
-          <span className="text-sm text-slate-700">{value || <span className="text-slate-300">—</span>}</span>
-        ) : (
+          </>
+        ) : isTemplate ? (
+          // Template var — text input with {{var}} placeholder + optional bind dropdown
           <>
+            <span className="shrink-0 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-amber-600">
+              {`{{${pkey}}}`}
+            </span>
             <input
               type="text"
-              value={value ?? ""}
-              onChange={(e) => { onUnbind?.(); onChangeValue(e.target.value); }}
-              placeholder={binding ? `bound to ${binding}` : (example || `${fieldKey}…`)}
-              disabled={!!binding}
-              className={`min-w-0 flex-1 rounded-lg border px-2.5 py-1.5 text-sm outline-none transition-all focus:ring-2 ${
-                binding
-                  ? "border-violet-200 bg-violet-50/60 text-violet-800 placeholder:text-violet-400 cursor-default"
-                  : value
-                    ? "border-sky-300 bg-sky-50/40 text-slate-800 focus:ring-sky-200"
-                    : "border-slate-200 bg-white text-slate-700 placeholder:text-slate-300 hover:border-slate-300 focus:border-sky-300 focus:ring-sky-100"
-              }`}
+              value={paramValue ?? ""}
+              onChange={(e) => onChangeValue(e.target.value)}
+              placeholder="override…"
+              className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 placeholder:text-slate-300 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100 transition-colors"
             />
-
-            {/* Parameterize button — only for non-template hardcoded fields */}
-            {!readOnly && !isTemplate && onParameterize && (
-              <ParameterizeInput
-                currentText={example}
-                availableColumns={availableColumns}
-                onConfirm={(varName) => onParameterize(fieldKey, varName)}
+            {hasColumns && (
+              <ColDropdown
+                icon={Link2}
+                label="Bind to column"
+                columns={availableColumns}
+                columnValues={columnValues}
+                onPick={onBind}
+                triggerClass="border-violet-200 bg-violet-50 text-violet-500 hover:bg-violet-100"
               />
             )}
-
-            {/* Bind button */}
-            {showBind && !binding && (
-              <div className="relative shrink-0" ref={pickerRef}>
-                <button
-                  type="button"
-                  onClick={() => setPickerOpen((v) => !v)}
-                  className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] font-semibold text-slate-400 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-600 transition-all"
-                >
-                  <Link2 className="size-3" />
-                  bind
-                  <ChevronDown className="size-2.5" />
-                </button>
-
-                {pickerOpen && (
-                  <div className="absolute right-0 top-full z-20 mt-1 min-w-[160px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-                    <div className="border-b border-slate-100 px-3 py-2">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                        Bind to column
-                      </p>
-                    </div>
-                    <div className="py-1 max-h-48 overflow-y-auto">
-                      {availableColumns.map((col) => (
-                        <button
-                          key={col}
-                          type="button"
-                          onClick={() => { onBind(col); setPickerOpen(false); }}
-                          className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[12px] text-slate-700 hover:bg-violet-50"
-                        >
-                          <span className="font-semibold text-violet-700">{col}</span>
-                          {columnValues?.[col] !== undefined && (
-                            <span className="max-w-[90px] truncate text-[11px] text-slate-400 font-mono">
-                              {String(columnValues[col]) || "—"}
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+          </>
+        ) : (
+          // Hardcoded value — show as read-only badge + optional column picker to parameterize
+          <>
+            <span
+              className="min-w-0 flex-1 truncate rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-mono text-slate-600"
+              title={rawValue}
+            >
+              {rawValue || <span className="italic text-slate-300">empty</span>}
+            </span>
+            {hasColumns && onParameterize && (
+              <ColDropdown
+                icon={Wand2}
+                label="Map to column"
+                columns={availableColumns}
+                columnValues={columnValues}
+                onPick={onParameterize}
+                triggerClass="border-slate-200 bg-slate-50 text-slate-400 hover:border-amber-200 hover:bg-amber-50 hover:text-amber-600"
+              />
             )}
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function AddAssertionPanel({ nextStepNo, availableColumns, onAdd, disabled }) {
+  const [open, setOpen] = useState(false);
+  const [type, setType] = useState("assert_text");
+  const [selector, setSelector] = useState("");
+  const [expected, setExpected] = useState("");
+  const [continueOnError, setContinueOnError] = useState(false);
+  const ref = useRef(null);
+
+  const typeConfig = ASSERTION_TYPES.find((t) => t.value === type);
+  const needsSelector = typeConfig?.fields.includes("selector");
+  const expectedField = typeConfig?.fields.find((f) => f !== "selector");
+  const canAdd = typeConfig?.needsExpected ? expected.trim() !== "" : selector.trim() !== "";
+
+  useEffect(() => {
+    if (!open) return;
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  function handleAdd() {
+    const actionInput = {};
+    if (needsSelector && selector.trim()) actionInput.selector = selector.trim();
+    if (expectedField && expected.trim()) actionInput[expectedField] = expected.trim();
+    onAdd({ actionName: type, actionInput, continueOnError, captureScreenshot: false });
+    setOpen(false);
+    setSelector("");
+    setExpected("");
+  }
+
+  return (
+    <div ref={ref} className="border-t border-slate-100 px-4 py-3">
+      {!open ? (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-1.5 rounded border border-dashed border-purple-200 px-3 py-1.5 text-xs font-medium text-purple-400 hover:border-purple-300 hover:bg-purple-50 hover:text-purple-600 transition-colors disabled:opacity-40"
+        >
+          <Plus className="size-3" />
+          Add assertion
+        </button>
+      ) : (
+        <div className="space-y-3 rounded-lg border border-purple-200 bg-white p-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="size-3.5 shrink-0 text-purple-500" />
+            <p className="text-[10px] font-bold uppercase tracking-widest text-purple-500">
+              Assertion — Step {nextStepNo}
+            </p>
+            <button type="button" onClick={() => setOpen(false)} className="ml-auto text-slate-300 hover:text-slate-500">
+              <X className="size-3.5" />
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-1">
+            {ASSERTION_TYPES.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setType(t.value)}
+                className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold transition-colors ${
+                  type === t.value
+                    ? "border-purple-300 bg-purple-100 text-purple-700"
+                    : "border-slate-200 bg-white text-slate-400 hover:border-purple-200 hover:text-purple-500"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            {needsSelector && (
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  Selector
+                </label>
+                <input
+                  type="text"
+                  value={selector}
+                  onChange={(e) => setSelector(e.target.value)}
+                  placeholder="#el, .class, [data-id]"
+                  className="w-full rounded border border-slate-200 px-2.5 py-1.5 text-xs font-mono outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-100"
+                />
+              </div>
+            )}
+            {typeConfig?.needsExpected && expectedField && (
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  Expected
+                </label>
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={expected}
+                    onChange={(e) => setExpected(e.target.value)}
+                    placeholder={availableColumns.length > 0 ? "value or {{col}}" : "expected value"}
+                    className="min-w-0 flex-1 rounded border border-slate-200 px-2.5 py-1.5 text-xs outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-100"
+                  />
+                  {availableColumns.length > 0 && (
+                    <select
+                      value=""
+                      onChange={(e) => { if (e.target.value) setExpected(`{{${e.target.value}}}`); }}
+                      className="rounded border border-purple-200 bg-purple-50 px-1.5 text-xs text-purple-600 outline-none focus:ring-1 focus:ring-purple-100"
+                    >
+                      <option value="">col</option>
+                      {availableColumns.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <label className="flex cursor-pointer items-center gap-1.5 text-[10px] text-slate-400">
+              <input
+                type="checkbox"
+                checked={continueOnError}
+                onChange={(e) => setContinueOnError(e.target.checked)}
+                className="accent-purple-500"
+              />
+              Continue on failure
+            </label>
+            <button
+              type="button"
+              disabled={!canAdd || disabled}
+              onClick={handleAdd}
+              className="flex items-center gap-1.5 rounded bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-40 transition-colors"
+            >
+              <Check className="size-3" />
+              Add to script
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -240,52 +332,50 @@ export default function ScriptStepEditor({
   readOnly = false,
   availableColumns = [],
   columnValues = {},
-  // Controlled bindings: { pkey → colName }
   bindings: bindingsProp = null,
   onBindingsChange = null,
-  // Called when user parameterizes a step: (stepNo, fieldKey, varName) => void
   onParameterize = null,
   parameterizeDisabled = false,
+  onAddAssertionStep = null,
 }) {
-  // pkey → column name (controlled if bindingsProp provided, otherwise local)
   const [localBindings, setLocalBindings] = useState({});
   const bindings = bindingsProp !== null ? bindingsProp : localBindings;
 
   function setBindings(next) {
-    if (bindingsProp !== null) {
-      onBindingsChange?.(next);
-    } else {
-      setLocalBindings(next);
-    }
+    if (bindingsProp !== null) onBindingsChange?.(next);
+    else setLocalBindings(next);
   }
 
-  // Reset bindings when the script changes (new steps)
+  // Reset bindings when steps change
+  /* eslint-disable react-hooks/refs */
   const stepsKeyRef = useRef(null);
   const stepsKey = steps.map((s) => s.stepNo ?? 0).join(",");
   if (stepsKeyRef.current !== stepsKey) {
     stepsKeyRef.current = stepsKey;
     if (Object.keys(bindings).length > 0) setBindings({});
   }
+  /* eslint-enable react-hooks/refs */
 
-  // When columnValues changes, re-apply all bindings
+  // Refs keep latest values so the columnValues effect below doesn't re-run on every render
+  /* eslint-disable react-hooks/refs */
   const bindingsRef = useRef(bindings);
   bindingsRef.current = bindings;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const paramsRef = useRef(params);
   paramsRef.current = params;
+  /* eslint-enable react-hooks/refs */
 
+  // When selected row changes, update each bound template var with the new column value
   useEffect(() => {
-    const entries = Object.entries(bindingsRef.current);
+    const entries = Object.entries(bindingsRef.current); // [[pkey, colName], ...]
     if (!entries.length) return;
-    // When the selected row changes, update the column value params so templates resolve correctly.
-    // The _step_N_key holds "{{col}}" (a template), so we update "col" → new row value.
     const updates = {};
-    entries.forEach(([, col]) => {
-      updates[col] = columnValues?.[col] ?? "";
-    });
+    // Must update params[pkey] (the template var name), NOT params[col] (the column name).
+    // The worker resolves {{pkey}} from params[pkey] in a single pass — a nested "{{col}}"
+    // string would NOT be resolved further.
+    entries.forEach(([pkey, col]) => { updates[pkey] = columnValues?.[col] ?? ""; });
     onChangeRef.current({ ...paramsRef.current, ...updates });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [columnValues]);
 
   function setParam(pkey, value) {
@@ -293,11 +383,10 @@ export default function ScriptStepEditor({
   }
 
   function bindParam(pkey, col) {
-    const next = { ...bindings, [pkey]: col };
-    setBindings(next);
-    // Store "{{col}}" as the step override so it resolves via render_template on the worker.
-    // Also store the current column value so single-row replay resolves it immediately.
-    onChange({ ...params, [pkey]: `{{${col}}}`, [col]: columnValues?.[col] ?? "" });
+    setBindings({ ...bindings, [pkey]: col });
+    // Store the actual column value so the worker receives params[pkey] = "john@test.com"
+    // and can resolve {{pkey}} in a single pass. Storing "{{col}}" would leave it unresolved.
+    onChange({ ...params, [pkey]: columnValues?.[col] ?? "" });
   }
 
   function unbindParam(pkey) {
@@ -314,107 +403,121 @@ export default function ScriptStepEditor({
     );
   }
 
+  const assertionCount = steps.filter(
+    (s) => s.actionName?.startsWith("assert_") || s.actionName?.startsWith("verify_"),
+  ).length;
+
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       {/* Header */}
-      <div className="grid grid-cols-[52px_1fr] border-b-2 border-slate-200 bg-slate-50">
-        <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-300">#</div>
-        <div className="grid grid-cols-[180px_1fr] border-l border-slate-200">
-          <div className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Action</div>
-          <div className="border-l border-slate-200 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            Input
-            {availableColumns.length > 0 && (
-              <span className="ml-2 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[9px] font-bold text-violet-600 normal-case tracking-normal">
-                {availableColumns.length} column{availableColumns.length > 1 ? "s" : ""} available
-              </span>
-            )}
-          </div>
+      <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-4 py-2">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          {steps.length} step{steps.length !== 1 ? "s" : ""}
+        </span>
+        <div className="flex items-center gap-2">
+          {assertionCount > 0 && (
+            <span className="flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-600">
+              <ShieldCheck className="size-3" />
+              {assertionCount} assertion{assertionCount > 1 ? "s" : ""}
+            </span>
+          )}
+          {availableColumns.length > 0 && (
+            <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[9px] font-bold text-violet-600">
+              {availableColumns.length} col{availableColumns.length > 1 ? "s" : ""}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Rows */}
-      {steps.map((step, i) => {
-        const sno = step.stepNo ?? i + 1;
-        const isLast = i === steps.length - 1;
-        const isEven = i % 2 === 1;
-        const desc = stepDescription(step);
+      {/* Step list */}
+      <div className="divide-y divide-slate-100">
+        {steps.map((step, i) => {
+          const sno = step.stepNo ?? i + 1;
+          const desc = stepDescription(step);
 
-        // Collect editable input fields
-        const inputRows = [];
-        Object.entries(step.actionInput || {}).forEach(([key, val]) => {
-          const vars = extractTemplateVars(String(val));
-          if (vars.length > 0) {
-            vars.forEach((varName) =>
-              inputRows.push({ key, pkey: varName, example: String(val), isTemplate: true }),
-            );
-          } else if (USER_INPUT_KEYS.has(key)) {
-            inputRows.push({ key, pkey: stepParamKey(sno, key), example: String(val), isTemplate: false });
-          }
-        });
+          // Collect fields: template vars and hardcoded user-input fields
+          const fields = [];
+          Object.entries(step.actionInput || {}).forEach(([key, val]) => {
+            const vars = extractTemplateVars(String(val));
+            if (vars.length > 0) {
+              vars.forEach((varName) =>
+                fields.push({ key, pkey: varName, isTemplate: true, rawValue: String(val) }),
+              );
+            } else if (USER_INPUT_KEYS.has(key)) {
+              fields.push({ key, pkey: key, isTemplate: false, rawValue: String(val) });
+            }
+          });
 
-        const hasInput = inputRows.length > 0;
-
-        return (
-          <div
-            key={i}
-            className={`grid grid-cols-[52px_1fr] transition-colors ${!isLast ? "border-b border-slate-100" : ""} ${isEven ? "bg-slate-50/40" : "bg-white"}`}
-          >
-            {/* Step number */}
-            <div className="flex items-start justify-center pt-4 pb-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-500">
-                {sno}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-[180px_1fr] border-l border-slate-100">
-              {/* Action column */}
-              <div className="flex flex-col gap-1.5 px-4 py-3">
-                <div className="flex items-center gap-1.5">
-                  <span className={`rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${ACTION_COLORS[step.actionName] ?? "border-slate-200 bg-slate-100 text-slate-600"}`}>
-                    {step.actionName}
-                  </span>
-                </div>
-                {desc && (
-                  <p className="text-[11px] leading-tight text-slate-400 line-clamp-2">{desc}</p>
-                )}
-                {step.expectedUrl && (
-                  <p className="truncate text-[10px] font-mono text-slate-300" title={step.expectedUrl}>
-                    → {step.expectedUrl}
-                  </p>
-                )}
+          return (
+            <div key={i} className="flex hover:bg-slate-50/40 transition-colors">
+              {/* Step number */}
+              <div className="flex w-10 shrink-0 items-start justify-center pt-3">
+                <span className="flex size-5 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-500">
+                  {sno}
+                </span>
               </div>
 
-              {/* Input column */}
-              <div className="border-l border-slate-100 px-4 py-3">
-                {hasInput ? (
-                  <div className="space-y-3">
-                    {inputRows.map(({ key, pkey, example, isTemplate }) => (
-                      <BoundInput
-                        key={pkey}
-                        pkey={pkey}
+              {/* Content */}
+              <div className="flex min-w-0 flex-1 flex-col gap-2 border-l border-slate-100 py-2.5 pl-3 pr-4">
+                {/* Action + description */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`shrink-0 rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${actionColorClass(step.actionName)}`}>
+                    {step.actionName}
+                  </span>
+                  {desc && (
+                    <span className="min-w-0 truncate text-[11px] text-slate-400" title={desc}>
+                      {desc}
+                    </span>
+                  )}
+                  {step.expectedUrl && (
+                    <span className="min-w-0 truncate text-[10px] font-mono text-slate-300" title={step.expectedUrl}>
+                      → {step.expectedUrl}
+                    </span>
+                  )}
+                </div>
+
+                {/* Input fields */}
+                {fields.length > 0 && (
+                  <div className="space-y-1.5 rounded bg-slate-50/70 px-2.5 py-2">
+                    {fields.map(({ key, pkey, isTemplate, rawValue }) => (
+                      <FieldRow
+                        key={`${sno}-${pkey}`}
                         fieldKey={key}
-                        example={example}
+                        pkey={pkey}
                         isTemplate={isTemplate}
-                        value={params[pkey] ?? ""}
+                        rawValue={rawValue}
+                        paramValue={params[pkey] ?? ""}
                         onChangeValue={(v) => setParam(pkey, v)}
                         readOnly={readOnly}
                         availableColumns={availableColumns}
                         columnValues={columnValues}
-                        binding={bindings[pkey]}
+                        binding={isTemplate ? bindings[pkey] : null}
                         onBind={(col) => bindParam(pkey, col)}
                         onUnbind={() => unbindParam(pkey)}
-                        onParameterize={onParameterize && !parameterizeDisabled ? (fieldKey, varName) => onParameterize(sno, fieldKey, varName) : null}
+                        onParameterize={
+                          !readOnly && !isTemplate && onParameterize && !parameterizeDisabled
+                            ? (col) => onParameterize(sno, key, col)
+                            : null
+                        }
                       />
                     ))}
                   </div>
-                ) : (
-                  <span className="text-[12px] text-slate-300 italic">no input</span>
                 )}
               </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+
+      {/* Add assertion */}
+      {!readOnly && onAddAssertionStep && (
+        <AddAssertionPanel
+          nextStepNo={steps.reduce((m, s) => Math.max(m, s.stepNo ?? 0), 0) + 1}
+          availableColumns={availableColumns}
+          onAdd={onAddAssertionStep}
+          disabled={parameterizeDisabled}
+        />
+      )}
     </div>
   );
 }

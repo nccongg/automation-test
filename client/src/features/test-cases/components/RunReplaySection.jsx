@@ -38,6 +38,8 @@ import {
 } from "../utils/testCaseUtils";
 import ScriptStepEditor from "./ScriptStepEditor";
 
+const USER_INPUT_KEYS_FOR_WARN = new Set(["text", "url", "value", "contains"]);
+
 function safeParseJson(text) {
   try {
     const v = JSON.parse(text);
@@ -244,7 +246,7 @@ function DatasetPicker({ projectId, onSelectRow, onDetailLoaded, selectedRowInde
   );
 }
 
-export default function RunReplaySection({ tc, projectId, scripts, scriptsLoading, scriptsError, onRunCreated }) {
+export default function RunReplaySection({ tc, projectId, scripts, scriptsLoading, scriptsError, onRunCreated, onScriptStepsUpdated }) {
   const navigate = useNavigate();
   const [datasetId, setDatasetId] = useState("");
   const [datasetAlias, setDatasetAlias] = useState("");
@@ -264,8 +266,10 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
   const [datasetDetail, setDatasetDetail] = useState(null); // full dataset detail
   // pkey → column name bindings (lifted from ScriptStepEditor)
   const [stepBindings, setStepBindings] = useState({});
-  // Inline batch column mapping: "_step_N_text" → "column_name"
-  const [batchBindings, setBatchBindings] = useState({});
+  // scriptVar → datasetColumn explicit mapping (for name mismatches)
+  const [variableMapping, setVariableMapping] = useState({});
+  // "stepNo_fieldKey" → colName: quick-parameterize assignments from Dataset tab
+  const [quickParamMap, setQuickParamMap] = useState({});
   const [paramSaving, setParamSaving] = useState(false);
   const [confirmBatch, setConfirmBatch] = useState(false);
   const statusTimerRef = useRef(null);
@@ -317,16 +321,6 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
     [replayParams],
   );
 
-  // Fill steps that still have hardcoded (non-template) text — need legacy column mapping
-  const hardcodedFillSteps = useMemo(
-    () => scriptSteps.filter(
-      (s) => s.actionName === "fill" &&
-        s.actionInput?.text !== undefined &&
-        !/\{\{[^}]+\}\}/.test(String(s.actionInput.text)),
-    ),
-    [scriptSteps],
-  );
-
   // Template variables already in the script
   const scriptTemplateVars = useMemo(() => {
     const re = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g;
@@ -337,11 +331,59 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
     return [...vars];
   }, [scriptSteps]);
 
-  // Which template vars are NOT in the selected dataset columns
-  const unresolvedVars = useMemo(
-    () => scriptTemplateVars.filter((v) => !availableColumns.includes(v)),
-    [scriptTemplateVars, availableColumns],
-  );
+  // Template vars that appear inside assertion steps (assert_*, verify_*)
+  const assertionTemplateVars = useMemo(() => {
+    const re = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g;
+    const vars = new Set();
+    const assertSteps = scriptSteps.filter(
+      (s) => s.actionName?.startsWith("assert_") || s.actionName?.startsWith("verify_"),
+    );
+    const src = JSON.stringify(assertSteps);
+    let m;
+    while ((m = re.exec(src)) !== null) vars.add(m[1]);
+    return [...vars];
+  }, [scriptSteps]);
+
+  // Input fields still hardcoded (not yet replaced with {{var}} templates).
+  // Batch replay relies on render_template() substituting {{var}} per row —
+  // if steps have literal values, every row will replay with the same original data.
+  // navigate steps are excluded — their URL is the same for all rows (constant).
+  const hardcodedInputFields = useMemo(() => {
+    const fields = [];
+    scriptSteps.forEach((step) => {
+      const sno = step.stepNo ?? 0;
+      if (!["fill", "select"].includes(step.actionName)) return;
+      Object.entries(step.actionInput || {}).forEach(([fieldKey, val]) => {
+        if (USER_INPUT_KEYS_FOR_WARN.has(fieldKey) && !/\{\{[^}]+\}\}/.test(String(val))) {
+          fields.push({ sno, fieldKey, value: String(val) });
+        }
+      });
+    });
+    return fields;
+  }, [scriptSteps]);
+
+
+  // Re-apply mapping when it changes and a row is already selected
+  const prevMappingRef = useRef(variableMapping);
+  useEffect(() => {
+    if (prevMappingRef.current === variableMapping) return;
+    prevMappingRef.current = variableMapping;
+    if (selectedDatasetRow) {
+      const mapped = applyMapping(selectedDatasetRow, variableMapping);
+      setReplayParamsText(JSON.stringify(mapped, null, 2));
+    }
+  }, [variableMapping]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function applyMapping(row, mapping) {
+    if (!row) return row;
+    const result = { ...row };
+    for (const [scriptVar, colName] of Object.entries(mapping)) {
+      if (colName && Object.prototype.hasOwnProperty.call(row, colName)) {
+        result[scriptVar] = row[colName];
+      }
+    }
+    return result;
+  }
 
   function handleScriptChange(v) {
     setSelectedScriptId(v);
@@ -349,42 +391,30 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
     setSelectedDatasetRowIndex(null);
     setSelectedDatasetRow(null);
     setStepBindings({});
-    setBatchBindings({});
+    setVariableMapping({});
+    setQuickParamMap({});
     setActiveReplayTab("steps");
   }
 
   function handleSelectDatasetRow(row, idx) {
     setSelectedDatasetRowIndex(idx);
     setSelectedDatasetRow(row);
-    if (row === null) {
-      // Keep _step_N_key template bindings, clear column values
-      setReplayParamsText((prev) => {
-        const existing = safeParseJson(prev);
-        const stepEntries = Object.fromEntries(
-          Object.entries(existing).filter(([k]) => k.startsWith("_step_")),
-        );
-        return JSON.stringify(stepEntries, null, 2);
-      });
-    } else {
-      // Merge new row columns with existing _step_N_key template refs
-      setReplayParamsText((prev) => {
-        const existing = safeParseJson(prev);
-        const stepEntries = Object.fromEntries(
-          Object.entries(existing).filter(([k]) => k.startsWith("_step_")),
-        );
-        return JSON.stringify({ ...row, ...stepEntries }, null, 2);
-      });
-    }
+    const mapped = row === null ? null : applyMapping(row, variableMapping);
+    setReplayParamsText(mapped === null ? "{}" : JSON.stringify(mapped, null, 2));
   }
 
   function handleDetailLoaded(detail) {
     setDatasetDetail(detail);
-    setSelectedDatasetRowIndex(null);
-    setSelectedDatasetRow(null);
-    setReplayParamsText("{}");
     setStepBindings({});
-    setBatchBindings({});
-    // Reset _step_N_key entries too since column names may differ across datasets
+    setVariableMapping({});
+    setQuickParamMap({});
+    // Auto-select the first row so params are immediately populated for replay.
+    // Without this, columnValues shows first-row preview but replayParamsText stays "{}"
+    // and the worker receives empty params → template vars like {{email}} stay unresolved.
+    const firstRow = detail?.rows?.[0] ?? null;
+    setSelectedDatasetRowIndex(firstRow ? 0 : null);
+    setSelectedDatasetRow(firstRow);
+    setReplayParamsText(firstRow ? JSON.stringify(firstRow, null, 2) : "{}");
   }
 
   async function handleCreateRun() {
@@ -439,6 +469,13 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
   }
 
   function requestBatchReplay() {
+    if (hardcodedInputFields.length > 0) {
+      setActionError(
+        `Script has ${hardcodedInputFields.length} hardcoded field${hardcodedInputFields.length > 1 ? "s" : ""} — each row would replay with the same data. ` +
+        `Use the "Apply" button in the Dataset tab to convert them to {{variables}} first.`
+      );
+      return;
+    }
     setConfirmBatch(true);
   }
 
@@ -451,26 +488,74 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
       const executionScriptId = toNullablePositiveInt(selectedScriptId);
       if (!executionScriptId) throw new Error("Please select an execution script before batch replay.");
       if (!datasetDetail) throw new Error("Please select a dataset first.");
-      const columnBindings = Object.keys(batchBindings).length > 0 ? batchBindings : null;
       const result = await batchReplayTestRun({
         testCaseId: tc.id,
         testCaseVersionId: getCurrentVersionId(tc),
         runtimeConfigId: getRuntimeConfigId(tc),
         executionScriptId,
         datasetId: datasetDetail.id,
-        columnBindings,
+        variableMapping: Object.keys(variableMapping).length > 0 ? variableMapping : null,
       });
-      setActionSuccess(
-        `Batch started: ${result?.totalRows ?? "?"} rows queued (batch #${result?.batchId ?? "?"}).`,
-      );
-      // Chuyển sang trang test-runs sau 800ms để user thấy message rồi mới redirect
-      setTimeout(() => {
-        navigate(`/projects/${projectId}/test-runs`);
-      }, 800);
+      if (result?.batchId) {
+        navigate(`/projects/${projectId}/test-runs/batches/${result.batchId}`);
+      }
     } catch (e) {
       setActionError(e?.message || "Failed to start batch replay.");
     } finally {
       setBusyAction("");
+    }
+  }
+
+  async function handleQuickParameterize() {
+    if (!selectedScript || Object.keys(quickParamMap).length === 0) return;
+    const updatedSteps = (selectedScript.scriptJson?.steps ?? []).map((step) => {
+      const sno = step.stepNo ?? 0;
+      const updatedInput = { ...step.actionInput };
+      let changed = false;
+      for (const [stateKey, colName] of Object.entries(quickParamMap)) {
+        const [stepNoStr, ...fieldParts] = stateKey.split("_");
+        const fieldKey = fieldParts.join("_");
+        if (Number(stepNoStr) === sno && colName) {
+          updatedInput[fieldKey] = `{{${colName}}}`;
+          changed = true;
+        }
+      }
+      return changed ? { ...step, actionInput: updatedInput } : step;
+    });
+    setParamSaving(true);
+    setActionError("");
+    try {
+      const result = await parameterizeScript({ scriptId: selectedScript.id, steps: updatedSteps });
+      if (result?.steps) {
+        onScriptStepsUpdated?.(selectedScript.id, result.steps);
+        setQuickParamMap({});
+        setActionSuccess("Steps parameterized. Variable mapping is now active.");
+      }
+    } catch (e) {
+      setActionError(e?.message || "Failed to parameterize steps.");
+    } finally {
+      setParamSaving(false);
+    }
+  }
+
+  async function handleAddAssertionStep(assertionStep) {
+    if (!selectedScript) return;
+    const currentSteps = selectedScript.scriptJson?.steps ?? [];
+    const maxStepNo = currentSteps.reduce((m, s) => Math.max(m, s.stepNo ?? 0), 0);
+    const newStep = { ...assertionStep, stepNo: maxStepNo + 1 };
+    const updatedSteps = [...currentSteps, newStep];
+    setParamSaving(true);
+    setActionError("");
+    try {
+      const result = await parameterizeScript({ scriptId: selectedScript.id, steps: updatedSteps });
+      if (result?.steps) {
+        onScriptStepsUpdated?.(selectedScript.id, result.steps);
+        setActionSuccess(`Assertion step added (step ${maxStepNo + 1}).`);
+      }
+    } catch (e) {
+      setActionError(e?.message || "Failed to add assertion step.");
+    } finally {
+      setParamSaving(false);
     }
   }
 
@@ -487,9 +572,8 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
     setActionError("");
     try {
       const result = await parameterizeScript({ scriptId: selectedScript.id, steps: updatedSteps });
-      // Patch the local scripts list so UI reflects {{var}} immediately without refetch
       if (result?.steps) {
-        selectedScript.scriptJson = { ...selectedScript.scriptJson, steps: result.steps };
+        onScriptStepsUpdated?.(selectedScript.id, result.steps);
         setActionSuccess(`Step ${stepNo}.${fieldKey} → {{${varName}}} saved.`);
       }
     } catch (e) {
@@ -682,7 +766,7 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
                             {selectedDatasetRowIndex + 1}
                           </div>
                           <span className="text-xs text-amber-700 flex-1">
-                            Row {selectedDatasetRowIndex + 1} active — use <strong>bind</strong> on each step to map columns
+                            Previewing row {selectedDatasetRowIndex + 1} — template fields show column values
                           </span>
                           <button
                             type="button"
@@ -693,18 +777,9 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
                           </button>
                         </>
                       ) : (
-                        <>
-                          <span className="text-xs text-amber-700 flex-1">
-                            Select a row from <strong>Dataset</strong> tab to bind column values to steps
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setActiveReplayTab("dataset")}
-                            className="ml-auto shrink-0 rounded-md bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-700 hover:bg-amber-200 transition-colors"
-                          >
-                            Go to Dataset →
-                          </button>
-                        </>
+                        <span className="text-xs text-amber-700">
+                          Dataset loaded — pick a column for each hardcoded field below, then click <strong>Use</strong>
+                        </span>
                       )}
                     </div>
                   )}
@@ -720,6 +795,7 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
                     onBindingsChange={setStepBindings}
                     onParameterize={handleParameterize}
                     parameterizeDisabled={paramSaving}
+                    onAddAssertionStep={handleAddAssertionStep}
                   />
 
                   <RawJsonToggle
@@ -781,64 +857,56 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
                         </div>
                       </div>
 
-                      {/* Template vars resolved status */}
+                      {/* Variable → Column mapping */}
                       {scriptTemplateVars.length > 0 && (
-                        <div className="rounded-lg border border-slate-100 bg-white px-3 py-2 space-y-1">
+                        <div className="rounded-lg border border-slate-100 bg-white px-3 py-2 space-y-2">
                           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                            Variables in script
+                            Variable mapping
                           </p>
                           {scriptTemplateVars.map((v) => {
-                            const ok = availableColumns.includes(v);
+                            const autoMatch = availableColumns.includes(v);
+                            const explicitCol = variableMapping[v] || "";
+                            const resolved = explicitCol || (autoMatch ? v : "");
+                            const isMapped = !!resolved;
                             return (
-                              <div key={v} className="flex items-center gap-2 text-[11px]">
-                                <span className={`font-mono ${ok ? "text-emerald-700" : "text-amber-600"}`}>
+                              <div key={v} className="flex items-center gap-2">
+                                <span className="font-mono text-[11px] text-slate-600 w-28 shrink-0 truncate" title={`{{${v}}}`}>
                                   {`{{${v}}}`}
                                 </span>
-                                <span className={ok ? "text-emerald-500" : "text-amber-400"}>
-                                  {ok ? "✓ mapped" : "⚠ not in dataset"}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* Legacy column mapping for hardcoded fill steps */}
-                      {hardcodedFillSteps.length > 0 && availableColumns.length > 0 && (
-                        <div className="rounded-lg border border-amber-100 bg-amber-50/60 px-3 py-2 space-y-2">
-                          {hardcodedFillSteps.map((step) => {
-                            const pkey = `_step_${step.stepNo}_text`;
-                            const boundCol = batchBindings[pkey] || "";
-                            return (
-                              <div key={step.stepNo} className="flex items-center gap-2">
-                                <span className="shrink-0 text-[10px] text-slate-500 w-12">Step {step.stepNo}</span>
-                                <span className="shrink-0 text-[10px] font-mono text-slate-400 truncate max-w-[80px]" title={String(step.actionInput.text)}>
-                                  "{String(step.actionInput.text).slice(0, 14)}{String(step.actionInput.text).length > 14 ? "…" : ""}"
-                                </span>
-                                <span className="text-[10px] text-slate-300">→</span>
-                                <Select
-                                  value={boundCol || "__none__"}
-                                  onValueChange={(col) =>
-                                    setBatchBindings((prev) => {
-                                      const next = { ...prev };
-                                      if (col === "__none__") delete next[pkey];
-                                      else next[pkey] = col;
-                                      return next;
-                                    })
-                                  }
-                                >
-                                  <SelectTrigger className="h-7 flex-1 text-xs bg-white">
-                                    <SelectValue placeholder="column…" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="__none__">— none —</SelectItem>
+                                <span className="text-slate-300 text-[10px]">→</span>
+                                {autoMatch && !explicitCol ? (
+                                  <span className="flex items-center gap-1 text-[11px] text-emerald-600">
+                                    <span className="font-mono">{v}</span>
+                                    <span className="text-emerald-400 text-[9px]">auto</span>
+                                  </span>
+                                ) : (
+                                  <select
+                                    value={explicitCol || "__none__"}
+                                    onChange={(e) => {
+                                      const col = e.target.value === "__none__" ? "" : e.target.value;
+                                      setVariableMapping((prev) => {
+                                        const next = { ...prev };
+                                        if (!col) delete next[v];
+                                        else next[v] = col;
+                                        return next;
+                                      });
+                                    }}
+                                    className={`flex-1 min-w-0 rounded-lg border px-2 py-1 text-xs outline-none focus:ring-2 ${
+                                      isMapped
+                                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 focus:ring-emerald-100"
+                                        : "border-amber-200 bg-amber-50 text-amber-700 focus:ring-amber-100"
+                                    }`}
+                                  >
+                                    <option value="__none__">— pick column —</option>
                                     {availableColumns.map((col) => (
-                                      <SelectItem key={col} value={col}>{col}</SelectItem>
+                                      <option key={col} value={col}>{col}</option>
                                     ))}
-                                  </SelectContent>
-                                </Select>
-                                {boundCol && (
-                                  <span className="text-[10px] text-emerald-600 font-mono shrink-0">✓</span>
+                                  </select>
+                                )}
+                                {autoMatch && !explicitCol ? null : isMapped ? (
+                                  <span className="text-[10px] text-emerald-500 shrink-0">✓</span>
+                                ) : (
+                                  <span className="text-[10px] text-amber-400 shrink-0">⚠</span>
                                 )}
                               </div>
                             );
@@ -846,9 +914,101 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
                         </div>
                       )}
 
-                      {unresolvedVars.length > 0 && (
+                      {/* Assertion columns indicator */}
+                      {assertionTemplateVars.length > 0 && (
+                        <div className="rounded-lg border border-purple-100 bg-purple-50/60 px-3 py-2 space-y-1">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-purple-500">
+                            Assertion columns
+                          </p>
+                          <p className="text-[10px] text-purple-400">
+                            These columns will be used as expected values in assertion steps
+                          </p>
+                          {assertionTemplateVars.map((v) => {
+                            const ok = availableColumns.includes(v);
+                            return (
+                              <div key={v} className="flex items-center gap-2 text-[11px]">
+                                <span className={`font-mono ${ok ? "text-purple-700" : "text-amber-600"}`}>
+                                  {`{{${v}}}`}
+                                </span>
+                                <span className={ok ? "text-purple-500" : "text-amber-400"}>
+                                  {ok ? "✓ in dataset" : "⚠ add this column to dataset"}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Quick Parameterize — map hardcoded steps to dataset columns inline */}
+                      {(() => {
+                        if (hardcodedInputFields.length === 0) return null;
+                        const hasSomeAssigned = hardcodedInputFields.some(
+                          ({ sno, fieldKey }) => !!quickParamMap[`${sno}_${fieldKey}`]
+                        );
+                        return (
+                          <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2.5 space-y-2.5">
+                            <p className="text-[10px] font-semibold text-amber-700">
+                              {hardcodedInputFields.length} field{hardcodedInputFields.length > 1 ? "s" : ""} still hardcoded — fields without a column mapping will stay the same for every row
+                            </p>
+                            <div className="space-y-1.5">
+                              {hardcodedInputFields.map(({ sno, fieldKey, value }) => {
+                                const stateKey = `${sno}_${fieldKey}`;
+                                const picked = quickParamMap[stateKey] || "";
+                                return (
+                                  <div key={stateKey} className="flex items-center gap-2">
+                                    <span className="text-[10px] text-slate-500 w-10 shrink-0">Step {sno}</span>
+                                    <span className="text-[10px] font-semibold text-slate-400 w-8 shrink-0">{fieldKey}</span>
+                                    <span className="flex-1 truncate text-[10px] font-mono text-slate-400 max-w-[80px]" title={value}>
+                                      "{value.slice(0, 12)}{value.length > 12 ? "…" : ""}"
+                                    </span>
+                                    <span className="text-slate-300 text-[10px]">→</span>
+                                    <select
+                                      value={picked || "__none__"}
+                                      onChange={(e) => {
+                                        const col = e.target.value === "__none__" ? "" : e.target.value;
+                                        setQuickParamMap((prev) => {
+                                          const next = { ...prev };
+                                          if (!col) delete next[stateKey];
+                                          else next[stateKey] = col;
+                                          return next;
+                                        });
+                                      }}
+                                      className={`flex-1 min-w-0 rounded-lg border px-2 py-1 text-xs outline-none focus:ring-2 ${
+                                        picked
+                                          ? "border-emerald-200 bg-emerald-50 text-emerald-700 focus:ring-emerald-100"
+                                          : "border-amber-200 bg-white text-slate-600 focus:ring-amber-100"
+                                      }`}
+                                    >
+                                      <option value="__none__">— column —</option>
+                                      {availableColumns.map((col) => (
+                                        <option key={col} value={col}>{col}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <button
+                              type="button"
+                              disabled={!hasSomeAssigned || paramSaving}
+                              onClick={handleQuickParameterize}
+                              className="w-full rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-40 transition-colors"
+                            >
+                              {paramSaving ? "Saving…" : `Apply — convert mapped field${Object.keys(quickParamMap).length > 1 ? "s" : ""} to {{var}}`}
+                            </button>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Warn about vars with no auto-match AND no explicit mapping */}
+                      {scriptTemplateVars.filter(
+                        (v) => !availableColumns.includes(v) && !variableMapping[v]
+                      ).length > 0 && (
                         <p className="text-[11px] text-amber-600">
-                          ⚠ {unresolvedVars.map((v) => `{{${v}}}`).join(", ")} not found in dataset columns — those steps may fail.
+                          ⚠ {scriptTemplateVars
+                            .filter((v) => !availableColumns.includes(v) && !variableMapping[v])
+                            .map((v) => `{{${v}}}`)
+                            .join(", ")} — pick a column above before running.
                         </p>
                       )}
 
@@ -883,11 +1043,17 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
                       ) : (
                         <Button
                           onClick={requestBatchReplay}
-                          disabled={busyAction === "run" || busyAction === "replay" || busyAction === "batch"}
-                          className="w-full bg-sky-600 hover:bg-sky-700 h-10"
+                          disabled={busyAction === "run" || busyAction === "replay" || busyAction === "batch" || hardcodedInputFields.length > 0}
+                          className="w-full bg-sky-600 hover:bg-sky-700 h-10 disabled:opacity-50"
+                          title={hardcodedInputFields.length > 0 ? "Apply parameterization above before running batch" : undefined}
                         >
                           <Layers className="mr-2 size-4" />
                           Run all {datasetDetail.rows?.length ?? 0} rows
+                          {hardcodedInputFields.length > 0 && (
+                            <span className="ml-2 rounded bg-amber-400/30 px-1.5 py-0.5 text-[10px] font-semibold text-amber-100">
+                              parameterize first
+                            </span>
+                          )}
                         </Button>
                       )}
                     </div>

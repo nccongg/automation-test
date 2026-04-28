@@ -142,6 +142,14 @@ export default function TestCaseDetailPage() {
     if (newRunId) navigate(`/projects/${projectId}/test-runs/${newRunId}`);
   }
 
+  function handleScriptStepsUpdated(scriptId, steps) {
+    setScripts((prev) =>
+      prev.map((s) =>
+        s.id === scriptId ? { ...s, scriptJson: { ...s.scriptJson, steps } } : s,
+      ),
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
@@ -329,6 +337,7 @@ export default function TestCaseDetailPage() {
         scriptsLoading={scriptsLoading}
         scriptsError={scriptsError}
         onRunCreated={handleRunCreated}
+        onScriptStepsUpdated={handleScriptStepsUpdated}
       />
 
       <RefineSection tc={tc} onApplied={load} />

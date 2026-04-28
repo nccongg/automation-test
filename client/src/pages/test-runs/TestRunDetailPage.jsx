@@ -7,6 +7,27 @@ import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import { Badge } from "@/components/ui/badge";
 import { parseAgentError } from "@/shared/utils/parseAgentError";
 
+const FAILURE_REASON_META = {
+  assertion_mismatch:  { label: "Assertion mismatch", color: "bg-red-100 text-red-700" },
+  element_not_found:   { label: "Element not found",  color: "bg-orange-100 text-orange-700" },
+  element_not_visible: { label: "Not visible",        color: "bg-orange-100 text-orange-700" },
+  timeout:             { label: "Timeout",             color: "bg-yellow-100 text-yellow-700" },
+  navigation_failed:   { label: "Navigation failed",  color: "bg-red-100 text-red-700" },
+  value_not_set:       { label: "Value not set",       color: "bg-amber-100 text-amber-700" },
+  selector_invalid:    { label: "Invalid selector",   color: "bg-purple-100 text-purple-700" },
+  unexpected_error:    { label: "Unexpected error",   color: "bg-slate-100 text-slate-600" },
+};
+
+function FailureReasonBadge({ reason }) {
+  if (!reason) return null;
+  const meta = FAILURE_REASON_META[reason] ?? { label: reason, color: "bg-slate-100 text-slate-500" };
+  return (
+    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.color}`}>
+      {meta.label}
+    </span>
+  );
+}
+
 function getStepStyle(status) {
   const s = (status || "").toLowerCase();
   if (s === "passed" || s === "success" || s === "completed")
@@ -67,9 +88,12 @@ function StepItem({ step, stepIndex, isLast }) {
       <div className="mb-4 flex-1 rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <p className="text-sm font-semibold text-slate-700">{step.title}</p>
-          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${style.tag}`}>
-            {step.status}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {step.failureReason && <FailureReasonBadge reason={step.failureReason} />}
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${style.tag}`}>
+              {step.status}
+            </span>
+          </div>
         </div>
         {(step.action || step.message || step.currentUrl) && (
           <div className="mt-2 space-y-1.5 text-sm text-slate-600">

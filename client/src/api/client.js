@@ -92,6 +92,9 @@ export const apiClient = {
    * @param {string} path - Endpoint path
    * @param {Object} options - Additional options
    */
+  patch: (path, body, options) =>
+    request(path, { method: 'PATCH', body: JSON.stringify(body), ...options }),
+
   del: (path, options) => request(path, { method: 'DELETE', ...options }),
   delete: (path, options) => request(path, { method: 'DELETE', ...options }),
 };

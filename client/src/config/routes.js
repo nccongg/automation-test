@@ -22,4 +22,5 @@ export const ROUTES = {
   TEST_RUNNER: '/test-runner',
   TEST_RESULTS: '/results',
   SETTINGS: '/settings',
+  DATASET_RUN_DETAIL: '/projects/:projectId/dataset-runs/:batchId',
 };

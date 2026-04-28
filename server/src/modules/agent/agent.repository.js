@@ -180,6 +180,7 @@ async function insertOrUpdateRunStepLog({
   actionOutputJson = null,
   modelOutputJson = null,
   durationMs = null,
+  failureReason = null,
 }) {
   const sql = `
     INSERT INTO public.run_step_logs (
@@ -198,13 +199,14 @@ async function insertOrUpdateRunStepLog({
       action_input_json,
       action_output_json,
       model_output_json,
-      duration_ms
+      duration_ms,
+      failure_reason
     )
     VALUES (
       $1, $2, $3, $4, $5, $6, $7,
       NOW(), NOW(),
       $8, $9, $10,
-      $11::jsonb, $12::jsonb, $13::jsonb, $14
+      $11::jsonb, $12::jsonb, $13::jsonb, $14, $15
     )
     ON CONFLICT (test_run_attempt_id, step_no)
     DO UPDATE SET
@@ -219,7 +221,8 @@ async function insertOrUpdateRunStepLog({
       action_input_json = EXCLUDED.action_input_json,
       action_output_json = EXCLUDED.action_output_json,
       model_output_json = EXCLUDED.model_output_json,
-      duration_ms = EXCLUDED.duration_ms
+      duration_ms = EXCLUDED.duration_ms,
+      failure_reason = EXCLUDED.failure_reason
     RETURNING *
   `;
 
@@ -238,6 +241,7 @@ async function insertOrUpdateRunStepLog({
     actionOutputJson ? JSON.stringify(actionOutputJson) : null,
     modelOutputJson ? JSON.stringify(modelOutputJson) : null,
     durationMs,
+    failureReason || null,
   ]);
 
   return result.rows[0];
@@ -692,19 +696,19 @@ async function createTestRunBatch({ projectId, testCaseId, datasetId, executionS
   return result.rows[0];
 }
 
-async function updateTestRunBatchProgress({ batchId, completedRows, passedRows, failedRows }) {
+async function incrementTestRunBatchProgress({ batchId, isPassed }) {
   const sql = `
     UPDATE public.test_run_batches
     SET
-      completed_rows = $2,
-      passed_rows    = $3,
-      failed_rows    = $4,
-      status         = CASE WHEN $2 >= total_rows THEN 'completed' ELSE 'running' END,
-      completed_at   = CASE WHEN $2 >= total_rows THEN NOW() ELSE NULL END
+      completed_rows = completed_rows + 1,
+      passed_rows    = passed_rows + $2,
+      failed_rows    = failed_rows + $3,
+      status         = CASE WHEN completed_rows + 1 >= total_rows THEN 'completed' ELSE 'running' END,
+      completed_at   = CASE WHEN completed_rows + 1 >= total_rows THEN NOW() ELSE NULL END
     WHERE id = $1
     RETURNING *
   `;
-  const result = await query(sql, [batchId, completedRows, passedRows, failedRows]);
+  const result = await query(sql, [batchId, isPassed ? 1 : 0, isPassed ? 0 : 1]);
   return result.rows[0];
 }
 
@@ -733,6 +737,58 @@ async function setTestRunBatchId({ testRunId, batchId }) {
   await query(sql, [testRunId, batchId]);
 }
 
+async function getBatchDetail(batchId) {
+  const batchSql = `
+    SELECT
+      b.*,
+      tc.title   AS test_case_title,
+      d.name     AS dataset_name
+    FROM public.test_run_batches b
+    LEFT JOIN public.test_cases tc ON tc.id = b.test_case_id
+    LEFT JOIN public.test_datasets d ON d.id = b.dataset_id
+    WHERE b.id = $1
+  `;
+  const batchResult = await query(batchSql, [batchId]);
+  const batch = batchResult.rows[0] || null;
+  if (!batch) return null;
+
+  const runsSql = `
+    SELECT
+      tr.id                            AS run_id,
+      tr.status,
+      tr.verdict,
+      tr.started_at,
+      tr.finished_at,
+      tr.error_message,
+      trdb.row_index,
+      trdb.row_key,
+      trdb.dataset_snapshot,
+      (
+        SELECT rsl.step_title
+        FROM public.run_step_logs rsl
+        WHERE rsl.test_run_id = tr.id
+          AND rsl.status IN ('failed', 'error')
+        ORDER BY rsl.step_no ASC
+        LIMIT 1
+      ) AS failed_step,
+      (
+        SELECT rsl.failure_reason
+        FROM public.run_step_logs rsl
+        WHERE rsl.test_run_id = tr.id
+          AND rsl.status IN ('failed', 'error')
+        ORDER BY rsl.step_no ASC
+        LIMIT 1
+      ) AS failure_reason
+    FROM public.test_runs tr
+    LEFT JOIN public.test_run_dataset_bindings trdb ON trdb.test_run_id = tr.id
+    WHERE tr.batch_id = $1
+    ORDER BY COALESCE(trdb.row_index, tr.id) ASC
+  `;
+  const runsResult = await query(runsSql, [batchId]);
+
+  return { batch, runs: runsResult.rows || [] };
+}
+
 module.exports = {
   query,
   findTestCaseBundle,
@@ -757,8 +813,9 @@ module.exports = {
   insertTestRunDatasetBinding,
   listTestRunDatasetBindings,
   createTestRunBatch,
-  updateTestRunBatchProgress,
+  incrementTestRunBatchProgress,
   findTestRunBatchById,
   listTestRunBatches,
   setTestRunBatchId,
+  getBatchDetail,
 };

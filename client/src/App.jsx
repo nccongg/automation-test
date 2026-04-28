@@ -23,6 +23,7 @@ import TestCaseDetailPage from "@/pages/test-cases/TestCaseDetailPage";
 import TestResultsPage from "@/pages/test-runs/TestResultsPage";
 import TestRunDetailPage from "@/pages/test-runs/TestRunDetailPage";
 import TestSuiteRunDetailPage from "@/pages/test-runs/TestSheetRunDetailPage";
+import DatasetRunDetailPage from "@/pages/test-runs/DatasetRunDetailPage";
 import TestSuitesPage from "@/pages/test-suites/TestCollectionPage";
 import TestSuiteDetailPage from "@/pages/test-suites/TestSheetDetailPage";
 import TestCollectionDetailPage from "@/pages/collections/TestCollectionDetailPage";
@@ -59,6 +60,7 @@ export default function App() {
               <Route path="test-cases" element={<TestCasesPage />} />
               <Route path="test-cases/:testCaseId" element={<TestCaseDetailPage />} />
               <Route path="test-runs" element={<TestResultsPage />} />
+              <Route path="test-runs/batches/:batchId" element={<DatasetRunDetailPage />} />
               <Route path="test-runs/:runId" element={<TestRunDetailPage />} />
               <Route path="test-runs/sheet/:runId" element={<TestSuiteRunDetailPage />} />
               {/* Test Suites — execution unit with ordering and batch run */}

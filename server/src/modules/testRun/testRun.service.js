@@ -269,7 +269,7 @@ async function batchReplayTestRun({
   executionScriptId = null,
   datasetId = null,
   rowIndexes = null,
-  columnBindings = null,
+  variableMapping = null,
   triggeredBy = null,
 }) {
   if (!testCaseId || !toPositiveNumber(testCaseId)) {
@@ -292,9 +292,46 @@ async function batchReplayTestRun({
     executionScriptId: Number(executionScriptId),
     datasetId: Number(datasetId),
     rowIndexes: Array.isArray(rowIndexes) ? rowIndexes.map(Number).filter(Number.isInteger) : null,
-    columnBindings: columnBindings && typeof columnBindings === "object" ? columnBindings : null,
+    variableMapping: variableMapping && typeof variableMapping === "object" && !Array.isArray(variableMapping) ? variableMapping : null,
     triggeredBy,
   });
+}
+
+async function getBatchDetail(batchId, userId) {
+  const id = toPositiveNumber(batchId);
+  if (!id) return null;
+
+  const result = await agentRepository.getBatchDetail(id);
+  if (!result) return null;
+
+  // Verify ownership via project
+  const proj = await query(
+    `SELECT p.user_id
+       FROM public.projects p
+       JOIN public.test_cases tc ON tc.project_id = p.id
+      WHERE tc.id = $1
+      LIMIT 1`,
+    [result.batch.test_case_id],
+  );
+  if (!proj.rows[0] || proj.rows[0].user_id !== userId) return null;
+
+  return result;
+}
+
+async function listBatchesForTestCase({ testCaseId, userId, limit = 20, offset = 0 }) {
+  const id = toPositiveNumber(testCaseId);
+  if (!id) return [];
+
+  // Verify ownership
+  const proj = await query(
+    `SELECT p.user_id FROM public.projects p
+       JOIN public.test_cases tc ON tc.project_id = p.id
+      WHERE tc.id = $1 LIMIT 1`,
+    [id],
+  );
+  if (!proj.rows[0] || proj.rows[0].user_id !== userId) return [];
+
+  return agentRepository.listTestRunBatches({ testCaseId: id, limit, offset });
 }
 
 module.exports = {
@@ -304,4 +341,6 @@ module.exports = {
   replayTestRun,
   batchReplayTestRun,
   analyzeTestRun,
+  getBatchDetail,
+  listBatchesForTestCase,
 };

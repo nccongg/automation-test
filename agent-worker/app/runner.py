@@ -47,6 +47,44 @@ class StepResult:
     action_output: Optional[Dict[str, Any]] = None
     screenshot_path: Optional[str] = None
     duration_ms: Optional[int] = None
+    failure_reason: Optional[str] = None
+
+
+def classify_failure(action_name: str, exc: Exception) -> str:
+    """Map an exception to a structured failure reason for taxonomy/analytics."""
+    exc_msg = str(exc).lower()
+    exc_class = type(exc).__name__.lower()
+
+    # Our own AssertionErrors
+    if isinstance(exc, AssertionError):
+        if "fill verification" in exc_msg:
+            return "value_not_set"
+        return "assertion_mismatch"
+
+    # Playwright TimeoutError — locator not found within timeout
+    if "timeouterror" in exc_class:
+        if "waiting for locator" in exc_msg or "locator" in exc_msg:
+            return "element_not_found"
+        if action_name in {"goto", "go_to_url", "open_url", "navigate"}:
+            return "navigation_failed"
+        return "timeout"
+
+    # String-based detection for wrapped exceptions
+    if "timeout" in exc_msg:
+        if "locator" in exc_msg or "element" in exc_msg or "waiting for" in exc_msg:
+            return "element_not_found"
+        return "timeout"
+
+    if "not visible" in exc_msg or ("visible" in exc_msg and "false" in exc_msg):
+        return "element_not_visible"
+
+    if action_name in {"goto", "go_to_url", "open_url", "navigate"}:
+        return "navigation_failed"
+
+    if "invalid selector" in exc_msg or "syntaxerror" in exc_class:
+        return "selector_invalid"
+
+    return "unexpected_error"
 
 
 def safe_to_jsonable(value: Any) -> Any:
@@ -806,15 +844,6 @@ async def execute_replay_step(
 ) -> StepResult:
     started_at = time.perf_counter()
     action_input = render_template(step.actionInput, params)
-    # Apply per-step field overrides: params["_step_N_key"] → action_input["key"]
-    step_prefix = f"_step_{step.stepNo}_"
-    for param_key, param_val in params.items():
-        if isinstance(param_key, str) and param_key.startswith(step_prefix):
-            field_key = param_key[len(step_prefix):]
-            if field_key:
-                action_input[field_key] = param_val
-    # Re-render after overrides so override values containing {{var}} are resolved
-    action_input = render_template(action_input, params)
     action_name = step.actionName.lower().strip()
     timeout_ms = step.timeoutMs or 30000
     screenshot_path: Optional[str] = None
@@ -1076,14 +1105,21 @@ async def execute_replay_step(
         else:
             raise ValueError(f"Unsupported replay actionName: {step.actionName}")
 
-        # Skip URL check for navigate and click actions:
-        # - navigate: pre-nav URL is meaningless as a post-nav assertion
-        # - click: post-click URL depends on data (DDT) and must not be hardcoded
-        is_navigate = action_name in {"goto", "go_to_url", "open_url", "navigate"}
-        is_click = action_name in {"click", "tap"}
-        # Render expectedUrl through template so {{param}} placeholders are substituted
+        # expectedUrl check: skip for actions that don't cause navigation.
+        # - navigate/click: already handled or URL depends on data (DDT)
+        # - fill/select/press/scroll/hover: don't navigate, recorded expectedUrl is the
+        #   same page and adds no value; checking it would cause false failures in DDT
+        #   when the URL contains query params that differ per dataset row.
+        _skip_url_check = action_name in {
+            "goto", "go_to_url", "open_url", "navigate",
+            "click", "tap",
+            "fill", "type", "input_text", "enter_text", "input",
+            "select", "check", "uncheck",
+            "press", "press_key", "keyboard_press",
+            "scroll", "hover",
+        }
         expected_url = render_template(step.expectedUrl, params) if step.expectedUrl else None
-        if expected_url and not is_navigate and not is_click and expected_url not in page.url:
+        if expected_url and not _skip_url_check and expected_url not in page.url:
             raise AssertionError(f"Expected URL to contain '{expected_url}', actual '{page.url}'")
 
         if step.captureScreenshot and screenshot_path is None:
@@ -1122,6 +1158,7 @@ async def execute_replay_step(
             current_url=page.url,
             screenshot_path=screenshot_path,
             duration_ms=duration_ms,
+            failure_reason=classify_failure(action_name, exc),
         )
 
 
@@ -1166,6 +1203,7 @@ async def execute_replay_run(run_req: RunRequest) -> None:
         page = await context.new_page()
 
         last_extracted: Optional[str] = None
+        any_step_failed = False
 
         for step in script_steps:
             result = await execute_replay_step(page, step, params, artifacts_dir, screenshots_dir)
@@ -1173,6 +1211,8 @@ async def execute_replay_run(run_req: RunRequest) -> None:
                 screenshots_count += 1
             if result.extracted_content:
                 last_extracted = result.extracted_content
+            if result.status == "failed":
+                any_step_failed = True
 
             await post_step_event(
                 {
@@ -1191,18 +1231,20 @@ async def execute_replay_run(run_req: RunRequest) -> None:
                     "modelOutputJson": None,
                     "durationMs": result.duration_ms,
                     "screenshotPath": result.screenshot_path,
+                    "failureReason": result.failure_reason,
                 }
             )
 
             if result.status == "failed" and not step.continueOnError:
-                raise RuntimeError(f"Replay failed at step {step.stepNo}: {result.message}")
+                raise RuntimeError(f"Step {step.stepNo} failed: {result.message}")
 
+        verdict = "fail" if any_step_failed else "pass"
         await post_final_event(
             {
                 "testRunId": run_req.testRunId,
                 "attemptId": run_req.attemptId,
                 "status": "completed",
-                "verdict": "pass",
+                "verdict": verdict,
                 "finalResult": last_extracted or "Replay completed successfully",
                 "structuredOutput": None,
                 "errorMessage": None,
@@ -1220,12 +1262,15 @@ async def execute_replay_run(run_req: RunRequest) -> None:
 
     except Exception as exc:
         logger.exception("Replay run failed")
+        # any_step_failed=True → a test assertion/action failed → verdict "fail"
+        # any_step_failed=False → infra error (browser crash, timeout, config) → verdict "error"
+        verdict = "fail" if any_step_failed else "error"
         await post_final_event(
             {
                 "testRunId": run_req.testRunId,
                 "attemptId": run_req.attemptId,
                 "status": "failed",
-                "verdict": "error",
+                "verdict": verdict,
                 "finalResult": None,
                 "structuredOutput": None,
                 "errorMessage": str(exc),
