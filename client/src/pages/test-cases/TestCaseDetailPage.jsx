@@ -296,6 +296,7 @@ export default function TestCaseDetailPage() {
               )}
 
               {tc.steps?.length > 0 && <TestPlanSection steps={tc.steps} />}
+              <RefineSection tc={tc} onApplied={load} />
             </div>
             <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400 mt-1">
               <Hash className="size-3" /> {tc.id}
@@ -339,8 +340,6 @@ export default function TestCaseDetailPage() {
         onRunCreated={handleRunCreated}
         onScriptStepsUpdated={handleScriptStepsUpdated}
       />
-
-      <RefineSection tc={tc} onApplied={load} />
 
       {/* Run history */}
       <section>
