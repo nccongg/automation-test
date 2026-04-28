@@ -28,6 +28,7 @@ import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import { createTestRun, replayTestRun, batchReplayTestRun, parameterizeScript } from "@/features/test-results/api/testResultsApi";
 import { listDatasets, getDataset } from "@/features/datasets/api/datasetsApi";
 import DatasetTable from "@/features/datasets/components/DatasetTable";
+import AIDatasetGenerator from "@/features/datasets/components/AIDatasetGenerator";
 import {
   getCurrentVersionId,
   getRuntimeConfigId,
@@ -162,7 +163,7 @@ function RawJsonToggle({ label, value, onChange, focusRingClass = "focus:ring-em
 }
 
 // Dataset tab — pick a project dataset and select a row
-function DatasetPicker({ projectId, onSelectRow, onDetailLoaded, selectedRowIndex }) {
+function DatasetPicker({ projectId, onSelectRow, onDetailLoaded, selectedRowIndex, autoSelectId }) {
   const [datasets, setDatasets] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [selectedDatasetId, setSelectedDatasetId] = useState("");
@@ -173,11 +174,19 @@ function DatasetPicker({ projectId, onSelectRow, onDetailLoaded, selectedRowInde
     let cancelled = false;
     setLoadingList(true);
     listDatasets(projectId)
-      .then((data) => { if (!cancelled) setDatasets(data); })
+      .then((data) => {
+        if (!cancelled) {
+          setDatasets(data);
+          if (autoSelectId) {
+            const found = data.find((d) => String(d.id) === String(autoSelectId));
+            if (found) handleSelectDataset(String(found.id));
+          }
+        }
+      })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingList(false); });
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSelectDataset(id) {
     setSelectedDatasetId(id);
@@ -271,8 +280,11 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
   // "stepNo_fieldKey" → colName: quick-parameterize assignments from Dataset tab
   const [quickParamMap, setQuickParamMap] = useState({});
   const [paramSaving, setParamSaving] = useState(false);
+  const [datasetPickerKey, setDatasetPickerKey] = useState(0);
+  const [autoSelectDatasetId, setAutoSelectDatasetId] = useState(null);
   const [confirmBatch, setConfirmBatch] = useState(false);
   const statusTimerRef = useRef(null);
+  const pendingMappingRef = useRef(null);
 
   // Auto-dismiss status messages after 5s
   useEffect(() => {
@@ -380,6 +392,7 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
     for (const [scriptVar, colName] of Object.entries(mapping)) {
       if (colName && Object.prototype.hasOwnProperty.call(row, colName)) {
         result[scriptVar] = row[colName];
+        if (colName !== scriptVar) delete result[colName];
       }
     }
     return result;
@@ -406,15 +419,28 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
   function handleDetailLoaded(detail) {
     setDatasetDetail(detail);
     setStepBindings({});
-    setVariableMapping({});
     setQuickParamMap({});
-    // Auto-select the first row so params are immediately populated for replay.
-    // Without this, columnValues shows first-row preview but replayParamsText stays "{}"
-    // and the worker receives empty params → template vars like {{email}} stay unresolved.
-    const firstRow = detail?.rows?.[0] ?? null;
+    if (!detail) return; // called with null while loading starts — skip mapping logic
+    // Preserve AI mapping if one was queued; otherwise reset
+    if (pendingMappingRef.current) {
+      setVariableMapping(pendingMappingRef.current);
+      pendingMappingRef.current = null;
+    } else {
+      setVariableMapping({});
+    }
+    const firstRow = detail.rows?.[0] ?? null;
     setSelectedDatasetRowIndex(firstRow ? 0 : null);
     setSelectedDatasetRow(firstRow);
     setReplayParamsText(firstRow ? JSON.stringify(firstRow, null, 2) : "{}");
+  }
+
+  function handleDatasetSaved(dataset, aiVariableMapping) {
+    if (aiVariableMapping && Object.keys(aiVariableMapping).length > 0) {
+      pendingMappingRef.current = aiVariableMapping;
+    }
+    setAutoSelectDatasetId(dataset?.id ?? null);
+    setDatasetPickerKey((k) => k + 1);
+    setActionSuccess(`Dataset "${dataset?.name}" saved and mapping applied.`);
   }
 
   async function handleCreateRun() {
@@ -837,8 +863,19 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
                       </div>
                     );
                   })()}
-                  <DatasetPicker
+                  <AIDatasetGenerator
                     projectId={projectId}
+                    goal={tc.goal}
+                    scriptSteps={scriptSteps}
+                    existingDatasetId={datasetDetail?.id}
+                    existingDatasetName={datasetDetail?.name}
+                    onDatasetSaved={handleDatasetSaved}
+                  />
+
+                  <DatasetPicker
+                    key={datasetPickerKey}
+                    projectId={projectId}
+                    autoSelectId={autoSelectDatasetId}
                     onSelectRow={handleSelectDatasetRow}
                     onDetailLoaded={handleDetailLoaded}
                     selectedRowIndex={selectedDatasetRowIndex}
@@ -874,7 +911,7 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
                                   {`{{${v}}}`}
                                 </span>
                                 <span className="text-slate-300 text-[10px]">→</span>
-                                {autoMatch && !explicitCol ? (
+                                {autoMatch && (!explicitCol || explicitCol === v) ? (
                                   <span className="flex items-center gap-1 text-[11px] text-emerald-600">
                                     <span className="font-mono">{v}</span>
                                     <span className="text-emerald-400 text-[9px]">auto</span>

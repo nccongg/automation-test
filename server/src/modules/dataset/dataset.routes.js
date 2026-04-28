@@ -7,6 +7,7 @@ const authMiddleware = require("../../middleware/auth.middleware");
 const router = Router();
 router.use(authMiddleware);
 
+router.post("/generate", ctrl.generate);
 router.get("/",        ctrl.list);
 router.get("/:id",     ctrl.get);
 router.post("/",       ctrl.create);

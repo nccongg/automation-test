@@ -64,4 +64,19 @@ async function deleteDataset(id, projectId) {
   await repo.softDelete(id);
 }
 
-module.exports = { listDatasets, getDataset, createDataset, updateDataset, deleteDataset };
+async function generateDatasetWithAI({ projectId, prompt, rowCount, scriptSteps, goal }) {
+  if (!prompt?.trim()) throw { status: 400, message: "prompt is required" };
+  if (!projectId) throw { status: 400, message: "projectId is required" };
+
+  const { generateDataset } = require("../llm/llm.service");
+  const result = await generateDataset({
+    goal: goal || "",
+    scriptSteps: Array.isArray(scriptSteps) ? scriptSteps : [],
+    userPrompt: prompt.trim(),
+    rowCount: Math.min(Math.max(parseInt(rowCount) || 5, 1), 50),
+  });
+
+  return result;
+}
+
+module.exports = { listDatasets, getDataset, createDataset, updateDataset, deleteDataset, generateDatasetWithAI };

@@ -378,6 +378,104 @@ Revise the test case accordingly and return JSON.`,
   };
 }
 
+/**
+ * Generate a test dataset from script steps + user prompt.
+ *
+ * @param {{ goal: string, scriptSteps: Array, userPrompt: string, rowCount: number }} opts
+ * @returns {Promise<{ analysis: object, datasetName: string, columns: string[], rows: object[], variableMapping: object }>}
+ */
+async function generateDataset({ goal, scriptSteps, userPrompt, rowCount = 5 }) {
+  // Extract template variables from steps
+  const re = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g;
+  const varSet = new Set();
+  let m;
+  const stepsSrc = JSON.stringify(scriptSteps || []);
+  while ((m = re.exec(stepsSrc)) !== null) varSet.add(m[1]);
+  const templateVars = [...varSet];
+
+  // Build a human-readable step summary
+  const stepsText = (scriptSteps || [])
+    .map((s, i) => {
+      const no = s.stepNo ?? s.step_no ?? i + 1;
+      const name = s.actionName || s.action_name || "action";
+      const input = s.actionInput || s.action_input || {};
+      return `  ${no}. [${name}] ${JSON.stringify(input)}`;
+    })
+    .join("\n");
+
+  const varsInstruction = templateVars.length > 0
+    ? `The dataset columns MUST be named exactly after these template variables: ${templateVars.map((v) => `"${v}"`).join(", ")}. Do not invent other column names.`
+    : "Infer appropriate column names from the script steps and user request.";
+
+  const columnsExample = templateVars.length > 0
+    ? templateVars.reduce((acc, v) => { acc[v] = "value"; return acc; }, {})
+    : { col1: "value", col2: "value" };
+
+  const messages = [
+    {
+      role: "system",
+      content: `You are a QA data engineer specializing in test data generation.
+Given a test goal, automation script steps, and a user description, generate realistic diverse test data rows.
+
+${varsInstruction}
+
+Return ONLY valid JSON in this exact shape — no markdown, no code fences, no explanation:
+{
+  "analysis": {
+    "context": "one sentence describing what this test does",
+    "variableRoles": { "varName": "purpose of this variable" },
+    "coverageSummary": "brief description of what scenarios the generated data covers",
+    "warnings": []
+  },
+  "datasetName": "short descriptive name",
+  "rows": [
+    ${JSON.stringify(columnsExample)}
+  ]
+}
+
+Rules:
+- Generate exactly ${rowCount} rows
+- Cover diverse scenarios: happy path, error cases, boundary values, edge cases
+- warnings should note anything ambiguous or missing
+- Do NOT add any text outside the JSON object`,
+    },
+    {
+      role: "user",
+      content: `## Test Goal
+${goal || "(not specified)"}
+
+## Script Steps
+${stepsText || "(no steps provided)"}
+
+## Variables to use as column names
+${templateVars.length > 0 ? templateVars.map((v) => `- ${v}`).join("\n") : "(none — infer from steps)"}
+
+## User Request
+${userPrompt}
+
+Generate ${rowCount} rows and return JSON.`,
+    },
+  ];
+
+  const raw = await generateFromLLM(messages, { maxOutputTokens: 2048 });
+  const parsed = cleanJSON(raw);
+
+  if (!parsed || !Array.isArray(parsed.rows) || parsed.rows.length === 0) {
+    throw { status: 502, message: "LLM returned an invalid response. Please try again." };
+  }
+
+  const columns = templateVars.length > 0 ? templateVars : Object.keys(parsed.rows[0] || {});
+  // Columns are named exactly after template variables → autoMatch handles binding,
+  // no explicit variableMapping needed.
+  return {
+    analysis: parsed.analysis || {},
+    datasetName: String(parsed.datasetName || "AI Generated Dataset").trim(),
+    columns,
+    rows: parsed.rows,
+    variableMapping: {},
+  };
+}
+
 module.exports = {
   generateTestCases,
   generateFromLLM,
@@ -385,4 +483,5 @@ module.exports = {
   generateRunAnalysis,
   generateSheetRunAnalysis,
   refineTestCase,
+  generateDataset,
 };

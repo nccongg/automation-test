@@ -679,6 +679,8 @@ async function startBatchReplayRun({
           for (const [scriptVar, colName] of Object.entries(variableMapping)) {
             if (typeof colName === "string" && Object.prototype.hasOwnProperty.call(row, colName)) {
               rowParams[scriptVar] = row[colName];
+              // Remove the source column if it was remapped to a different variable name
+              if (colName !== scriptVar) delete rowParams[colName];
             }
           }
         }

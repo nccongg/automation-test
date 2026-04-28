@@ -27,3 +27,8 @@ export async function updateDataset({ id, projectId, name, description, rows }) 
 export async function deleteDataset(id, projectId) {
   await apiClient.delete(`/datasets/${id}`, { params: { projectId } });
 }
+
+export async function generateDatasetWithAI({ projectId, prompt, rowCount, scriptSteps, goal }) {
+  const res = await apiClient.post("/datasets/generate", { projectId, prompt, rowCount, scriptSteps, goal });
+  return normalize(res);
+}
