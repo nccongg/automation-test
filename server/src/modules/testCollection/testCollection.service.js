@@ -9,7 +9,7 @@ function toInt(value) {
 
 // ─── Collections CRUD ─────────────────────────────────────────────────────────
 
-async function createCollection({ projectId, name, description, color, userId }) {
+async function createCollection({ projectId, name, description, color, parentId, userId }) {
   if (!name || !name.trim()) {
     throw { status: 400, message: "Collection name is required" };
   }
@@ -18,6 +18,7 @@ async function createCollection({ projectId, name, description, color, userId })
     name: name.trim(),
     description: description || null,
     color: color || "indigo",
+    parentId: parentId || null,
     createdBy: userId,
   });
 }
@@ -46,6 +47,49 @@ async function deleteCollection(collectionId, userId) {
   if (!collection) throw { status: 404, message: "Collection not found" };
 
   await repo.softDeleteCollection(collectionId);
+}
+
+// ─── Tree ─────────────────────────────────────────────────────────────────────
+
+async function getTree(projectId) {
+  const [cols, items] = await Promise.all([
+    repo.findCollectionsByProject(projectId),
+    repo.findAllItemsByProject(projectId),
+  ]);
+
+  // group items by collectionId
+  const itemsByCol = {};
+  const categorizedTestCaseIds = new Set();
+  for (const item of items) {
+    if (!itemsByCol[item.collectionId]) itemsByCol[item.collectionId] = [];
+    itemsByCol[item.collectionId].push(item);
+    categorizedTestCaseIds.add(item.testCaseId);
+  }
+
+  // build node map
+  const nodes = {};
+  for (const col of cols) {
+    nodes[col.id] = {
+      ...col,
+      items: itemsByCol[col.id] || [],
+      children: [],
+    };
+  }
+
+  // build tree (attach children to parents)
+  const roots = [];
+  for (const col of cols) {
+    if (col.parentId && nodes[col.parentId]) {
+      nodes[col.parentId].children.push(nodes[col.id]);
+    } else {
+      roots.push(nodes[col.id]);
+    }
+  }
+
+  return {
+    tree: roots,
+    categorizedTestCaseIds: [...categorizedTestCaseIds],
+  };
 }
 
 // ─── Items Management ─────────────────────────────────────────────────────────
@@ -78,6 +122,7 @@ module.exports = {
   createCollection,
   listCollections,
   getCollection,
+  getTree,
   updateCollection,
   deleteCollection,
   addItems,

@@ -17,8 +17,13 @@ export async function getCollection(collectionId) {
   return normalize(response);
 }
 
-export async function createCollection({ projectId, name, description, color }) {
-  const response = await apiClient.post("/test-collections", { projectId, name, description, color });
+export async function getCollectionTree(projectId) {
+  const response = await apiClient.get("/test-collections/tree", { params: { projectId } });
+  return normalize(response);
+}
+
+export async function createCollection({ projectId, name, description, color, parentId }) {
+  const response = await apiClient.post("/test-collections", { projectId, name, description, color, parentId: parentId || null });
   return normalize(response);
 }
 

@@ -2,15 +2,21 @@
 
 const { pool } = require("../../config/database");
 
-// ─── Collections ─────────────────────────────────────────────────────────────
+// ─── Collections ──────────────────────────────────────────────────────────────
 
-async function createCollection({ projectId, name, description, color, createdBy }) {
+async function createCollection({ projectId, name, description, color, parentId, createdBy }) {
   const result = await pool.query(
-    `INSERT INTO test_collections (project_id, name, description, color, created_by)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, project_id AS "projectId", name, description, color,
-               created_at AS "createdAt", updated_at AS "updatedAt"`,
-    [projectId, name, description || null, color || "indigo", createdBy]
+    `INSERT INTO test_collections (project_id, parent_id, name, description, color, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id,
+               project_id  AS "projectId",
+               parent_id   AS "parentId",
+               name,
+               description,
+               color,
+               created_at  AS "createdAt",
+               updated_at  AS "updatedAt"`,
+    [projectId, parentId || null, name, description || null, color || "indigo", createdBy]
   );
   return result.rows[0];
 }
@@ -19,18 +25,39 @@ async function findCollectionsByProject(projectId) {
   const result = await pool.query(
     `SELECT
        tc.id,
-       tc.project_id AS "projectId",
+       tc.project_id  AS "projectId",
+       tc.parent_id   AS "parentId",
        tc.name,
        tc.description,
        tc.color,
-       tc.created_at AS "createdAt",
-       tc.updated_at AS "updatedAt",
+       tc.created_at  AS "createdAt",
+       tc.updated_at  AS "updatedAt",
        COUNT(tci.id)::int AS "itemCount"
      FROM test_collections tc
      LEFT JOIN test_collection_items tci ON tci.collection_id = tc.id
      WHERE tc.project_id = $1 AND tc.deleted_at IS NULL
      GROUP BY tc.id
-     ORDER BY tc.updated_at DESC`,
+     ORDER BY tc.name ASC`,
+    [projectId]
+  );
+  return result.rows;
+}
+
+async function findAllItemsByProject(projectId) {
+  const result = await pool.query(
+    `SELECT
+       tci.id,
+       tci.collection_id  AS "collectionId",
+       tci.test_case_id   AS "testCaseId",
+       t.title,
+       t.goal,
+       t.status
+     FROM test_collection_items tci
+     JOIN test_cases t
+       ON t.id = tci.test_case_id AND t.deleted_at IS NULL
+     JOIN test_collections col
+       ON col.id = tci.collection_id AND col.deleted_at IS NULL AND col.project_id = $1
+     ORDER BY tci.added_at ASC`,
     [projectId]
   );
   return result.rows;
@@ -38,7 +65,12 @@ async function findCollectionsByProject(projectId) {
 
 async function findCollectionWithOwner(collectionId, userId) {
   const result = await pool.query(
-    `SELECT tc.id, tc.project_id AS "projectId", tc.name, tc.description, tc.color
+    `SELECT tc.id,
+            tc.project_id AS "projectId",
+            tc.parent_id  AS "parentId",
+            tc.name,
+            tc.description,
+            tc.color
      FROM test_collections tc
      JOIN projects p ON p.id = tc.project_id
      WHERE tc.id = $1 AND tc.deleted_at IS NULL AND p.user_id = $2
@@ -56,7 +88,13 @@ async function updateCollection(collectionId, { name, description, color }) {
          color       = COALESCE($4, color),
          updated_at  = NOW()
      WHERE id = $1 AND deleted_at IS NULL
-     RETURNING id, project_id AS "projectId", name, description, color, updated_at AS "updatedAt"`,
+     RETURNING id,
+               project_id AS "projectId",
+               parent_id  AS "parentId",
+               name,
+               description,
+               color,
+               updated_at AS "updatedAt"`,
     [collectionId, name || null, description !== undefined ? description : null, color || null]
   );
   return result.rows[0] || null;
@@ -75,9 +113,9 @@ async function findItemsByCollection(collectionId) {
   const result = await pool.query(
     `SELECT
        tci.id,
-       tci.collection_id AS "collectionId",
-       tci.test_case_id AS "testCaseId",
-       tci.added_at AS "addedAt",
+       tci.collection_id  AS "collectionId",
+       tci.test_case_id   AS "testCaseId",
+       tci.added_at       AS "addedAt",
        tc.title,
        tc.goal,
        tc.status
@@ -117,7 +155,7 @@ async function removeItemFromCollection(collectionId, itemId) {
   return result.rowCount > 0;
 }
 
-// ─── Utility: collections a test case belongs to ─────────────────────────────
+// ─── Utility ──────────────────────────────────────────────────────────────────
 
 async function findCollectionsByTestCase(testCaseId, projectId) {
   const result = await pool.query(
@@ -134,6 +172,7 @@ async function findCollectionsByTestCase(testCaseId, projectId) {
 module.exports = {
   createCollection,
   findCollectionsByProject,
+  findAllItemsByProject,
   findCollectionWithOwner,
   updateCollection,
   softDeleteCollection,

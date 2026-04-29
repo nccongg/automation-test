@@ -232,7 +232,13 @@ export default function AIDatasetGenerator({
         goal,
       });
       setResult(data);
-      setEditableMapping(data.variableMapping || {});
+      // Auto-map variables whose name exactly matches a generated column
+      const autoMapping = {};
+      const vars = extractTemplateVars(scriptSteps || []);
+      (data.columns || []).forEach((col) => {
+        if (vars.includes(col)) autoMapping[col] = col;
+      });
+      setEditableMapping({ ...autoMapping, ...(data.variableMapping || {}) });
     } catch (e) {
       setError(e?.message || "Generation failed. Please try again.");
     } finally {

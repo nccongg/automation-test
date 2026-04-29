@@ -223,7 +223,7 @@ function DatasetPicker({ projectId, onSelectRow, onDetailLoaded, selectedRowInde
   return (
     <div className="space-y-3">
       <Select value={selectedDatasetId} onValueChange={handleSelectDataset}>
-        <SelectTrigger className="w-full bg-white">
+        <SelectTrigger className="w-full bg-white mt-4">
           <SelectValue placeholder="Select a dataset…" />
         </SelectTrigger>
         <SelectContent>

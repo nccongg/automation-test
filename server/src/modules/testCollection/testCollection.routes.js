@@ -37,6 +37,7 @@ router.use(authMiddleware);
  *         description: projectId is required
  */
 router.get("/", ctrl.listCollections);
+router.get("/tree", ctrl.getTree);
 
 /**
  * @swagger

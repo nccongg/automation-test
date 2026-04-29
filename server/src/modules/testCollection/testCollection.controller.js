@@ -20,6 +20,19 @@ async function listCollections(req, res, next) {
   }
 }
 
+async function getTree(req, res, next) {
+  try {
+    const projectId = toInt(req.query?.projectId);
+    if (!projectId) {
+      return res.status(400).json({ success: false, message: "projectId is required" });
+    }
+    const data = await service.getTree(projectId);
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function createCollection(req, res, next) {
   try {
     const userId = req.user?.userId;
@@ -32,6 +45,7 @@ async function createCollection(req, res, next) {
       name: req.body?.name,
       description: req.body?.description,
       color: req.body?.color,
+      parentId: toInt(req.body?.parentId) || null,
       userId,
     });
     return res.status(201).json({ success: true, data });
@@ -117,6 +131,7 @@ async function removeItem(req, res, next) {
 
 module.exports = {
   listCollections,
+  getTree,
   createCollection,
   getCollection,
   updateCollection,
