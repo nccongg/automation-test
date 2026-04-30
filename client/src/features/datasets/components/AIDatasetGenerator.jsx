@@ -202,6 +202,7 @@ export default function AIDatasetGenerator({
   projectId,
   goal,
   scriptSteps,
+  initialRow,
   existingDatasetId,
   existingDatasetName,
   onDatasetSaved,
@@ -230,6 +231,7 @@ export default function AIDatasetGenerator({
         rowCount,
         scriptSteps,
         goal,
+        initialRow: initialRow && Object.keys(initialRow).length > 0 ? initialRow : undefined,
       });
       setResult(data);
       // Auto-map variables whose name exactly matches a generated column

@@ -343,11 +343,17 @@ async function listBatchesForTestCase(req, res, next) {
   try {
     const userId = req.user?.userId;
     const testCaseId = toPositiveNumber(req.query?.testCaseId);
-    const limit = Math.min(parseInt(req.query?.limit ?? "20", 10) || 20, 100);
+    const projectId = toPositiveNumber(req.query?.projectId);
+    const limit = Math.min(parseInt(req.query?.limit ?? "50", 10) || 50, 100);
     const offset = Math.max(parseInt(req.query?.offset ?? "0", 10) || 0, 0);
 
+    if (projectId) {
+      const data = await testRunService.listBatchesForProject({ projectId, userId, limit, offset });
+      return res.status(200).json({ success: true, data });
+    }
+
     if (!testCaseId) {
-      return res.status(400).json({ success: false, message: "testCaseId is required" });
+      return res.status(400).json({ success: false, message: "testCaseId or projectId is required" });
     }
 
     const data = await testRunService.listBatchesForTestCase({ testCaseId, userId, limit, offset });

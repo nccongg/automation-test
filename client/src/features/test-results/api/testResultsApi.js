@@ -32,7 +32,9 @@ function formatStepStatus(status) {
 
 function mapVerdictToResult(verdict, status) {
   if (verdict === "pass") return "Passed";
+  if (verdict === "pass_with_warning") return "Pass (no assertion)";
   if (verdict === "fail") return "Failed";
+  if (verdict === "error") return "Error";
 
   if (status === "queued" || status === "running") return "Running";
   if (status === "completed") return "Completed";
@@ -298,6 +300,11 @@ export async function getBatchDetail(batchId) {
 
 export async function listBatchesForTestCase(testCaseId, { limit = 20, offset = 0 } = {}) {
   const response = await apiClient.get("/test-runs/batches", { params: { testCaseId, limit, offset } });
+  return normalizeApiPayload(response);
+}
+
+export async function listBatchesForProject(projectId, { limit = 50, offset = 0 } = {}) {
+  const response = await apiClient.get("/test-runs/batches", { params: { projectId, limit, offset } });
   return normalizeApiPayload(response);
 }
 

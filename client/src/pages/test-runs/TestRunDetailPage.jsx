@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, Sparkles, Lightbulb } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, ShieldAlert, Sparkles, Lightbulb } from "lucide-react";
 import { getTestRunDetail, analyzeTestRun } from "@/features/test-results/api/testResultsApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
@@ -136,15 +136,24 @@ function StepItem({ step, stepIndex, isLast }) {
 }
 
 const VERDICT_BADGE = {
-  pass:  "bg-emerald-100 text-emerald-700 border-emerald-200",
-  fail:  "bg-red-100 text-red-700 border-red-200",
-  error: "bg-orange-100 text-orange-700 border-orange-200",
+  pass:              "bg-emerald-100 text-emerald-700 border-emerald-200",
+  pass_with_warning: "bg-amber-100 text-amber-700 border-amber-200",
+  fail:              "bg-red-100 text-red-700 border-red-200",
+  error:             "bg-orange-100 text-orange-700 border-orange-200",
+};
+
+const VERDICT_LABEL = {
+  pass:              "Pass",
+  pass_with_warning: "Pass (no assertion)",
+  fail:              "Fail",
+  error:             "Error",
 };
 
 const VERDICT_ICON = {
-  pass:  <CheckCircle2 className="size-5 text-emerald-500" />,
-  fail:  <XCircle className="size-5 text-red-500" />,
-  error: <AlertTriangle className="size-5 text-orange-500" />,
+  pass:              <CheckCircle2 className="size-5 text-emerald-500" />,
+  pass_with_warning: <ShieldAlert className="size-5 text-amber-500" />,
+  fail:              <XCircle className="size-5 text-red-500" />,
+  error:             <AlertTriangle className="size-5 text-orange-500" />,
 };
 
 function AiAnalysisSection({ runId, isLive }) {
@@ -338,8 +347,8 @@ export default function TestRunDetailPage() {
               </div>
             )}
             {verdict && (
-              <Badge className={`capitalize border ${VERDICT_BADGE[verdict] ?? "bg-slate-100 text-slate-600"}`}>
-                {verdict}
+              <Badge className={`border ${VERDICT_BADGE[verdict] ?? "bg-slate-100 text-slate-600"}`}>
+                {VERDICT_LABEL[verdict] ?? verdict}
               </Badge>
             )}
           </div>

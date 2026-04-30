@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getTestResults, getTestRunDetail } from '../api/testResultsApi';
+import { getTestResults, getTestRunDetail, listBatchesForProject } from '../api/testResultsApi';
 import { getSheetRuns } from '@/features/test-collection/api/testSheetApi';
 
 export function useTestResults(projectId) {
   const [individualRuns, setIndividualRuns] = useState([]);
   const [sheetRuns, setSheetRuns] = useState([]);
+  const [datasetBatches, setDatasetBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -27,9 +28,10 @@ export function useTestResults(projectId) {
         if (!silent) setLoading(true);
 
         // Fetch independently so a sheet-runs failure doesn't block individual runs
-        const [runsResult, sheetsResult] = await Promise.allSettled([
+        const [runsResult, sheetsResult, batchesResult] = await Promise.allSettled([
           getTestResults(projectId),
           projectId ? getSheetRuns(projectId) : Promise.resolve([]),
+          projectId ? listBatchesForProject(projectId) : Promise.resolve([]),
         ]);
 
         if (!mounted) return;
@@ -46,6 +48,11 @@ export function useTestResults(projectId) {
         if (sheetsResult.status === 'fulfilled') {
           const sheetsData = sheetsResult.value;
           setSheetRuns(Array.isArray(sheetsData) ? sheetsData : []);
+        }
+
+        if (batchesResult.status === 'fulfilled') {
+          const batchesData = batchesResult.value;
+          setDatasetBatches(Array.isArray(batchesData) ? batchesData : []);
         }
       } catch (e) {
         if (!mounted) return;
@@ -122,7 +129,7 @@ export function useTestResults(projectId) {
   const summary = (() => {
     const runs = individualRuns ?? [];
     const total = runs.length;
-    const passed = runs.filter((r) => r.result === 'Passed').length;
+    const passed = runs.filter((r) => r.result === 'Passed' || r.result === 'Pass (no assertion)').length;
     const failed = runs.filter((r) => r.result === 'Failed').length;
     const passRate = total > 0 ? `${((passed / total) * 100).toFixed(1)}%` : '0%';
     return { totalRuns: total, passed, failed, passRate };
@@ -131,6 +138,7 @@ export function useTestResults(projectId) {
   return {
     individualRuns,
     sheetRuns,
+    datasetBatches,
     summary,
     loading,
     error,

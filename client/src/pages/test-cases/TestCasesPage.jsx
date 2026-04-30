@@ -614,7 +614,7 @@ export default function TestCasesPage() {
         description="Organize and run your automated test cases"
         action={
           <Button variant="outline" onClick={() => setCreateFolder({ parentId: null, parentName: "" })} className="gap-2">
-            <FolderPlus className="size-4" />New Folder
+            <FolderPlus className="size-4" />New Collection
           </Button>
         }
       />

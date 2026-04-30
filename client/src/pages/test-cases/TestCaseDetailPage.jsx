@@ -10,6 +10,9 @@ import {
   Play,
   Target,
   X,
+  Database,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import {
   getTestCaseById,
@@ -17,6 +20,7 @@ import {
   getTestCaseScripts,
   updateTestCase,
 } from "@/features/test-cases/api/testCasesApi";
+import { listBatchesForTestCase } from "@/features/test-results/api/testResultsApi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -94,6 +98,8 @@ export default function TestCaseDetailPage() {
 
   const [tc, setTc] = useState(null);
   const [runs, setRuns] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [historyTab, setHistoryTab] = useState("runs");
   const [scripts, setScripts] = useState([]);
   const [scriptsLoading, setScriptsLoading] = useState(false);
   const [scriptsError, setScriptsError] = useState("");
@@ -114,12 +120,14 @@ export default function TestCaseDetailPage() {
     setScriptsLoading(true);
     setScriptsError("");
     try {
-      const [caseData, runsData] = await Promise.all([
+      const [caseData, runsData, batchesData] = await Promise.all([
         getTestCaseById(testCaseId),
         getTestCaseRuns(testCaseId),
+        listBatchesForTestCase(testCaseId).catch(() => []),
       ]);
       setTc(caseData);
       setRuns(runsData);
+      setBatches(Array.isArray(batchesData) ? batchesData : []);
       try {
         const scriptsData = await getTestCaseScripts(testCaseId);
         setScripts(Array.isArray(scriptsData) ? scriptsData : []);
@@ -214,7 +222,7 @@ export default function TestCaseDetailPage() {
     }
   }
 
-  const passCount = runs.filter((r) => r.verdict === "pass").length;
+  const passCount = runs.filter((r) => r.verdict === "pass" || r.verdict === "pass_with_warning").length;
   const failCount = runs.filter((r) => r.verdict === "fail").length;
   const passRate = runs.length > 0 ? Math.round((passCount / runs.length) * 100) : null;
 
@@ -341,28 +349,132 @@ export default function TestCaseDetailPage() {
         onScriptStepsUpdated={handleScriptStepsUpdated}
       />
 
-      {/* Run history */}
+      {/* Run History + Dataset Runs — tabbed */}
       <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Run History ({runs.length})
-          </h2>
-          {runs.length > 0 && failCount > 0 && (
-            <span className="text-xs text-slate-400">{failCount} failed</span>
-          )}
+        {/* Tab header */}
+        <div className="mb-4 flex items-center gap-1 rounded-xl bg-slate-100 p-1 w-fit">
+          <button
+            type="button"
+            onClick={() => setHistoryTab("runs")}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+              historyTab === "runs"
+                ? "bg-white text-slate-800 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <Play className="size-3.5" />
+            Run History
+            <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+              historyTab === "runs" ? "bg-slate-100 text-slate-600" : "bg-slate-200 text-slate-500"
+            }`}>
+              {runs.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setHistoryTab("datasets")}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+              historyTab === "datasets"
+                ? "bg-white text-slate-800 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <Database className="size-3.5" />
+            Dataset Runs
+            <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+              historyTab === "datasets" ? "bg-slate-100 text-slate-600" : "bg-slate-200 text-slate-500"
+            }`}>
+              {batches.length}
+            </span>
+          </button>
         </div>
-        {runs.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 py-16">
-            <Play className="size-8 text-slate-300" />
-            <p className="font-medium text-slate-500">No runs yet</p>
-            <p className="text-sm text-slate-400">Run this test case to see results here</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {runs.map((run, i) => (
-              <RunRow key={run.id} run={run} projectId={projectId} index={i} />
-            ))}
-          </div>
+
+        {/* Tab: Run History */}
+        {historyTab === "runs" && (
+          <>
+            {runs.length > 0 && failCount > 0 && (
+              <p className="mb-3 text-xs text-slate-400">{failCount} failed</p>
+            )}
+            {runs.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 py-16">
+                <Play className="size-8 text-slate-300" />
+                <p className="font-medium text-slate-500">No runs yet</p>
+                <p className="text-sm text-slate-400">Run this test case to see results here</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {runs.map((run, i) => (
+                  <RunRow key={run.id} run={run} projectId={projectId} index={i} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Tab: Dataset Runs */}
+        {historyTab === "datasets" && (
+          <>
+            {batches.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 py-12">
+                <Database className="size-8 text-slate-300" />
+                <p className="font-medium text-slate-500">No dataset runs yet</p>
+                <p className="text-sm text-slate-400">Run a dataset batch from the Replay section above</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {batches.map((batch) => (
+                  <button
+                    key={batch.id}
+                    type="button"
+                    onClick={() => navigate(`/projects/${projectId}/test-runs/batches/${batch.id}`)}
+                    className="w-full text-left rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50">
+                          <Database className="size-4 text-indigo-500" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-700 truncate">
+                            {batch.dataset_name ?? `Dataset #${batch.dataset_id}`}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Batch #{batch.id}
+                            {batch.created_at
+                              ? ` · ${new Date(batch.created_at).toLocaleString()}`
+                              : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 shrink-0">
+                        <div className="flex items-center gap-3 text-sm">
+                          <span className="flex items-center gap-1 text-emerald-600 font-medium">
+                            <CheckCircle2 className="size-4" />
+                            {batch.passed_rows ?? 0}
+                          </span>
+                          <span className="flex items-center gap-1 text-red-500 font-medium">
+                            <XCircle className="size-4" />
+                            {batch.failed_rows ?? 0}
+                          </span>
+                          <span className="text-xs text-slate-400 tabular-nums">
+                            / {batch.total_rows ?? 0} rows
+                          </span>
+                        </div>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                          batch.status === "completed"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-blue-50 text-blue-600"
+                        }`}>
+                          {batch.status}
+                        </span>
+                        <span className="text-xs text-slate-400">View →</span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </section>
     </div>

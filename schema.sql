@@ -1204,7 +1204,7 @@ CREATE TABLE public.test_run_attempts (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT test_run_attempts_status_check CHECK (((status)::text = ANY ((ARRAY['queued'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying])::text[]))),
     CONSTRAINT test_run_attempts_trigger_type_check CHECK (((trigger_type)::text = ANY ((ARRAY['initial'::character varying, 'retry'::character varying, 'auto_heal'::character varying, 'manual_replay'::character varying])::text[]))),
-    CONSTRAINT test_run_attempts_verdict_check CHECK (((verdict)::text = ANY ((ARRAY['pass'::character varying, 'fail'::character varying, 'error'::character varying, 'partial'::character varying])::text[])))
+    CONSTRAINT test_run_attempts_verdict_check CHECK (((verdict)::text = ANY ((ARRAY['pass'::character varying, 'fail'::character varying, 'error'::character varying, 'partial'::character varying, 'pass_with_warning'::character varying])::text[])))
 );
 
 
@@ -1338,7 +1338,7 @@ CREATE TABLE public.test_runs (
     finished_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT test_runs_status_check CHECK (((status)::text = ANY ((ARRAY['queued'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying])::text[]))),
-    CONSTRAINT test_runs_verdict_check CHECK (((verdict)::text = ANY ((ARRAY['pass'::character varying, 'fail'::character varying, 'error'::character varying, 'partial'::character varying])::text[])))
+    CONSTRAINT test_runs_verdict_check CHECK (((verdict)::text = ANY ((ARRAY['pass'::character varying, 'fail'::character varying, 'error'::character varying, 'partial'::character varying, 'pass_with_warning'::character varying])::text[])))
 );
 
 

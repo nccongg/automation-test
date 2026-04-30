@@ -8,7 +8,7 @@ import time
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Iterable
 
 from .callbacks import post_final_event, post_step_event
 from .schemas import ReplayScriptInlinePayload, ReplayStepPayload, RunRequest
@@ -48,6 +48,133 @@ class StepResult:
     screenshot_path: Optional[str] = None
     duration_ms: Optional[int] = None
     failure_reason: Optional[str] = None
+
+
+ASSERTION_ACTIONS = {
+    "assert_text", "assert_text_present", "verify_text",
+    "assert_visible", "assert_element_visible", "assert_element_present", "verify_element_visible",
+    "assert_value", "assert_input_value", "verify_input_value",
+    "assert_url", "assert_url_equals", "verify_url",
+    "assert_url_contains",
+    "assert_url_changed",
+}
+
+# Ordered by priority — first match wins when scanning LLM run text
+_LOGOUT_PATTERNS: List[Tuple[str, str]] = [
+    ("đăng xuất",  "Đăng xuất"),
+    ("thoát",      "Thoát"),
+    ("log out",    "Log out"),
+    ("logout",     "Logout"),
+    ("sign out",   "Sign out"),
+    ("sign-out",   "Sign out"),
+]
+
+
+def is_assertion_step(action_name: str) -> bool:
+    return action_name.lower().strip() in ASSERTION_ACTIONS
+
+
+def compute_replay_verdict(has_assertion: bool, assertion_failed: bool, execution_failed: bool) -> str:
+    """
+    Pure verdict logic — assertion-driven:
+      assertion failed               → "fail"   (test proved something wrong)
+      no assertion present           → "pass_with_warning"  (can't prove correctness)
+      action failed, assertion OK    → "error"  (infra broke, result untrustworthy)
+      all assertions passed          → "pass"
+    """
+    if assertion_failed:
+        return "fail"
+    if not has_assertion:
+        return "pass_with_warning"
+    if execution_failed:
+        return "error"
+    return "pass"
+
+
+def _detect_auth_assertion(
+    extracted_contents: Iterable,
+    model_outputs: Iterable,
+    final_result: Optional[str],
+) -> Optional[Dict[str, Any]]:
+    """
+    Scan LLM run artifacts for logout/user-info text to derive a
+    assert_visible step that proves the user is authenticated.
+    Returns None when no known indicator is found.
+    """
+    combined = " ".join(
+        str(s).lower()
+        for s in [*extracted_contents, *model_outputs, final_result or ""]
+        if s
+    )
+    for search, display in _LOGOUT_PATTERNS:
+        if search in combined:
+            return {
+                "actionName": "assert_visible",
+                "actionInput": {"text": display},
+                "captureScreenshot": True,
+                "continueOnError": False,
+                "notes": "auto: auth state — visible only when logged in",
+            }
+    return None
+
+
+_PASSWORD_RE = re.compile(r"password|mật khẩu|passwd|pwd|secret|pin|otp", re.IGNORECASE)
+
+
+def _is_login_flow(steps: List["ReplayStepPayload"]) -> bool:
+    """Return True if the script contains a password input — indicates a login flow."""
+    for step in steps:
+        if step.actionName not in {"fill", "type", "input_text", "enter_text", "input"}:
+            continue
+        inp = step.actionInput or {}
+        for hint_key in ("placeholder", "nameAttr", "axName", "id", "label"):
+            if _PASSWORD_RE.search(str(inp.get(hint_key) or "")):
+                return True
+    return False
+
+
+def _build_auto_assertions(
+    steps: List["ReplayStepPayload"],
+    history: Any,
+) -> List[Dict[str, Any]]:
+    """
+    Build assertion steps to auto-append after a successful LLM run.
+    Priority:
+      1. assert_visible (PRIMARY)  — derived from logout/user-info element
+      2. assert_url_changed (BACKUP) — URL must differ from the login page
+    """
+    assertions: List[Dict[str, Any]] = []
+
+    extracted = safe_to_jsonable(getattr(history, "extracted_content", lambda: [])() or [])
+    outputs   = safe_to_jsonable(getattr(history, "model_outputs",    lambda: [])() or [])
+    final     = history.final_result()
+
+    auth = _detect_auth_assertion(extracted, outputs, final)
+    if auth:
+        assertions.append(auth)
+
+    # BACKUP — find initial URL from first navigate step
+    initial_url: Optional[str] = None
+    for step in steps:
+        if step.actionName in {"navigate", "goto", "go_to_url", "open_url"}:
+            initial_url = step.actionInput.get("url")
+            break
+
+    urls = safe_to_jsonable(getattr(history, "urls", lambda: [])() or [])
+    final_url = urls[-1] if urls else None
+    if initial_url and final_url and final_url.rstrip("/") != initial_url.rstrip("/"):
+        backup_input: Dict[str, Any] = {"initialUrl": initial_url}
+        if _is_login_flow(steps):
+            backup_input["notContains"] = "/login"
+        assertions.append({
+            "actionName": "assert_url_changed",
+            "actionInput": backup_input,
+            "captureScreenshot": False,
+            "continueOnError": False,
+            "notes": "auto: backup — URL must change from login page",
+        })
+
+    return assertions
 
 
 def classify_failure(action_name: str, exc: Exception) -> str:
@@ -513,6 +640,13 @@ def build_recorded_script(run_req: RunRequest, history: Any) -> Dict[str, Any]:
         )
 
     clean_steps = _convert_browser_use_history_to_replay_steps(raw_steps)
+
+    if getattr(history, "is_successful", lambda: False)():
+        for assertion in _build_auto_assertions(clean_steps, history):
+            max_no = max((s.stepNo for s in clean_steps), default=0)
+            assertion.setdefault("stepNo", max_no + 1)
+            assertion.setdefault("timeoutMs", 10000)
+            clean_steps.append(ReplayStepPayload(**assertion))
 
     return {
         "formatVersion": 1,
@@ -1067,6 +1201,20 @@ async def execute_replay_step(
             message = f"Value assertion passed: '{expected}'"
             output = {"value": actual, "expected": expected}
 
+        elif action_name in {"assert_url_changed"}:
+            initial_url = str(action_input.get("initialUrl") or "")
+            if not initial_url:
+                raise ValueError("assert_url_changed requires actionInput.initialUrl")
+            if page.url.rstrip("/") == initial_url.rstrip("/"):
+                raise AssertionError(f"URL did not change: still at '{page.url}'")
+            not_contains = action_input.get("notContains")
+            if not_contains and not_contains in page.url:
+                raise AssertionError(
+                    f"URL changed but still contains login path '{not_contains}': '{page.url}'"
+                )
+            message = f"URL changed: '{initial_url}' → '{page.url}'"
+            output = {"from": initial_url, "to": page.url}
+
         elif action_name in {"assert_url", "assert_url_equals", "verify_url"}:
             expected = str(action_input.get("url") or action_input.get("value") or "")
             if not expected:
@@ -1203,16 +1351,26 @@ async def execute_replay_run(run_req: RunRequest) -> None:
         page = await context.new_page()
 
         last_extracted: Optional[str] = None
-        any_step_failed = False
+        has_assertion = False
+        assertion_failed = False
+        execution_failed = False
 
         for step in script_steps:
+            step_is_assertion = is_assertion_step(step.actionName)
             result = await execute_replay_step(page, step, params, artifacts_dir, screenshots_dir)
+
             if result.screenshot_path:
                 screenshots_count += 1
             if result.extracted_content:
                 last_extracted = result.extracted_content
-            if result.status == "failed":
-                any_step_failed = True
+
+            if step_is_assertion:
+                has_assertion = True
+                if result.status == "failed":
+                    assertion_failed = True
+            else:
+                if result.status == "failed":
+                    execution_failed = True
 
             await post_step_event(
                 {
@@ -1235,10 +1393,13 @@ async def execute_replay_run(run_req: RunRequest) -> None:
                 }
             )
 
-            if result.status == "failed" and not step.continueOnError:
+            # Assertion steps always continue — collect all failures before deciding verdict.
+            # Action steps respect continueOnError: False stops execution immediately.
+            if result.status == "failed" and not step_is_assertion and not step.continueOnError:
                 raise RuntimeError(f"Step {step.stepNo} failed: {result.message}")
 
-        verdict = "fail" if any_step_failed else "pass"
+        verdict = compute_replay_verdict(has_assertion, assertion_failed, execution_failed)
+
         await post_final_event(
             {
                 "testRunId": run_req.testRunId,
@@ -1253,6 +1414,7 @@ async def execute_replay_run(run_req: RunRequest) -> None:
                     "steps": len(script_steps),
                     "scriptType": script.scriptType,
                     "artifactsDir": str(artifacts_dir),
+                    "hasAssertion": has_assertion,
                 },
                 "evidenceSummary": {
                     "screenshots": screenshots_count,
@@ -1262,9 +1424,7 @@ async def execute_replay_run(run_req: RunRequest) -> None:
 
     except Exception as exc:
         logger.exception("Replay run failed")
-        # any_step_failed=True → a test assertion/action failed → verdict "fail"
-        # any_step_failed=False → infra error (browser crash, timeout, config) → verdict "error"
-        verdict = "fail" if any_step_failed else "error"
+        verdict = "fail" if assertion_failed else "error"
         await post_final_event(
             {
                 "testRunId": run_req.testRunId,

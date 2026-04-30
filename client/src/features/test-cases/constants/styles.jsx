@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, ShieldAlert } from "lucide-react";
 
 export const STATUS_STYLE = {
   draft: "bg-slate-100 text-slate-600",
@@ -8,26 +8,37 @@ export const STATUS_STYLE = {
 
 export const VERDICT_STRIPE = {
   pass: "border-l-emerald-400",
+  pass_with_warning: "border-l-amber-400",
   fail: "border-l-red-400",
   error: "border-l-orange-400",
 };
 
 export const VERDICT_BG = {
   pass: "bg-emerald-50/40",
+  pass_with_warning: "bg-amber-50/30",
   fail: "bg-red-50/40",
   error: "bg-orange-50/20",
 };
 
 export const VERDICT_BADGE = {
   pass: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  pass_with_warning: "bg-amber-100 text-amber-700 border-amber-200",
   fail: "bg-red-100 text-red-700 border-red-200",
   error: "bg-orange-100 text-orange-700 border-orange-200",
 };
 
 export const VERDICT_ICON = {
   pass: <CheckCircle2 className="size-4 text-emerald-500" />,
+  pass_with_warning: <ShieldAlert className="size-4 text-amber-500" />,
   fail: <XCircle className="size-4 text-red-500" />,
   error: <AlertTriangle className="size-4 text-orange-500" />,
+};
+
+export const VERDICT_LABEL = {
+  pass: "Pass",
+  pass_with_warning: "Pass (no assertion)",
+  fail: "Fail",
+  error: "Error",
 };
 
 export const ERROR_STYLE = {

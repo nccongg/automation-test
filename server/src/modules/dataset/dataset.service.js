@@ -64,7 +64,7 @@ async function deleteDataset(id, projectId) {
   await repo.softDelete(id);
 }
 
-async function generateDatasetWithAI({ projectId, prompt, rowCount, scriptSteps, goal }) {
+async function generateDatasetWithAI({ projectId, prompt, rowCount, scriptSteps, goal, initialRow }) {
   if (!prompt?.trim()) throw { status: 400, message: "prompt is required" };
   if (!projectId) throw { status: 400, message: "projectId is required" };
 
@@ -74,6 +74,7 @@ async function generateDatasetWithAI({ projectId, prompt, rowCount, scriptSteps,
     scriptSteps: Array.isArray(scriptSteps) ? scriptSteps : [],
     userPrompt: prompt.trim(),
     rowCount: Math.min(Math.max(parseInt(rowCount) || 5, 1), 50),
+    initialRow: (initialRow && typeof initialRow === "object" && !Array.isArray(initialRow)) ? initialRow : null,
   });
 
   return result;

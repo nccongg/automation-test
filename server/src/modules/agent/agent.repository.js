@@ -732,6 +732,26 @@ async function listTestRunBatches({ testCaseId, limit = 20, offset = 0 }) {
   return result.rows || [];
 }
 
+async function listBatchesByProject({ projectId, limit = 50, offset = 0 }) {
+  const sql = `
+    SELECT
+      b.*,
+      tc.title AS test_case_title,
+      d.name   AS dataset_name,
+      COUNT(r.id)::int AS run_count
+    FROM public.test_run_batches b
+    JOIN public.test_cases tc ON tc.id = b.test_case_id
+    LEFT JOIN public.test_datasets d ON d.id = b.dataset_id
+    LEFT JOIN public.test_runs r ON r.batch_id = b.id
+    WHERE b.project_id = $1
+    GROUP BY b.id, tc.title, d.name
+    ORDER BY b.created_at DESC
+    LIMIT $2 OFFSET $3
+  `;
+  const result = await query(sql, [projectId, limit, offset]);
+  return result.rows || [];
+}
+
 async function setTestRunBatchId({ testRunId, batchId }) {
   const sql = `UPDATE public.test_runs SET batch_id = $2 WHERE id = $1`;
   await query(sql, [testRunId, batchId]);
@@ -816,6 +836,7 @@ module.exports = {
   incrementTestRunBatchProgress,
   findTestRunBatchById,
   listTestRunBatches,
+  listBatchesByProject,
   setTestRunBatchId,
   getBatchDetail,
 };

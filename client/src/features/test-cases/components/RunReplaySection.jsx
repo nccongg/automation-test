@@ -375,6 +375,32 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
   }, [scriptSteps]);
 
 
+  // Build an initial example row for dataset generation:
+  // - template vars ({{varName}}) → value from replayParams if user filled it in
+  // - hardcoded literal values → extracted with a column name derived from the selector
+  const initialRow = useMemo(() => {
+    const row = {};
+    scriptSteps.forEach((step) => {
+      if (!["fill", "select"].includes(step.actionName)) return;
+      const input = step.actionInput || {};
+      const rawVal = input.value ?? input.text ?? "";
+      const strVal = String(rawVal);
+      const tmplMatch = strVal.match(/^\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}$/);
+      if (tmplMatch) {
+        const varName = tmplMatch[1];
+        const paramVal = replayParams[varName];
+        if (paramVal !== undefined && paramVal !== "") row[varName] = paramVal;
+      } else if (strVal && !strVal.includes("{{")) {
+        const selector = String(input.selector || input.css || "");
+        const nameM = selector.match(/\bname=["']?([a-zA-Z_][a-zA-Z0-9_-]*)["']?/);
+        const idM = selector.match(/\bid=["']?([a-zA-Z_][a-zA-Z0-9_-]*)["']?/);
+        const colName = nameM?.[1] || idM?.[1] || `field_${step.stepNo ?? Object.keys(row).length + 1}`;
+        row[colName] = strVal;
+      }
+    });
+    return Object.keys(row).length > 0 ? row : null;
+  }, [scriptSteps, replayParams]);
+
   // Re-apply mapping when it changes and a row is already selected
   const prevMappingRef = useRef(variableMapping);
   useEffect(() => {
@@ -867,6 +893,7 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
                     projectId={projectId}
                     goal={tc.goal}
                     scriptSteps={scriptSteps}
+                    initialRow={initialRow}
                     existingDatasetId={datasetDetail?.id}
                     existingDatasetName={datasetDetail?.name}
                     onDatasetSaved={handleDatasetSaved}

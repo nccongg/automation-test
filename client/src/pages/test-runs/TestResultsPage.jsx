@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-import { LayoutList, Sheet, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { LayoutList, Sheet, CheckCircle2, XCircle, Clock, ShieldAlert, AlertTriangle, Database } from "lucide-react";
 import { useTestResults } from "@/features/test-results/hooks/useTestResults";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
@@ -25,9 +25,11 @@ function formatDuration(startedAt, finishedAt) {
   return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
 }
 
-function getRunStyle(result) {
-  if (result === "Passed") return { stripe: "border-l-emerald-400", bg: "bg-emerald-50/30" };
-  if (result === "Failed") return { stripe: "border-l-red-400", bg: "bg-red-50/30" };
+function getRunStyle(verdict) {
+  if (verdict === "pass") return { stripe: "border-l-emerald-400", bg: "bg-emerald-50/30" };
+  if (verdict === "pass_with_warning") return { stripe: "border-l-amber-400", bg: "bg-amber-50/20" };
+  if (verdict === "fail") return { stripe: "border-l-red-400", bg: "bg-red-50/30" };
+  if (verdict === "error") return { stripe: "border-l-orange-400", bg: "bg-orange-50/20" };
   return { stripe: "border-l-blue-400", bg: "bg-white" };
 }
 
@@ -133,7 +135,7 @@ function StepItem({ step, stepIndex, isLast }) {
 
 function RunCard({ run, projectId }) {
   const navigate = useNavigate();
-  const style = getRunStyle(run.result);
+  const style = getRunStyle(run.verdict);
   const isLive = run.status === "running" || run.status === "queued";
 
   return (
@@ -168,14 +170,24 @@ function RunCard({ run, projectId }) {
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            {run.result === "Passed" && (
+            {run.verdict === "pass" && (
               <span className="flex items-center gap-1 text-emerald-600 text-sm font-medium">
                 <CheckCircle2 className="size-4" /> Passed
               </span>
             )}
-            {run.result === "Failed" && (
+            {run.verdict === "pass_with_warning" && (
+              <span className="flex items-center gap-1 text-amber-600 text-sm font-medium">
+                <ShieldAlert className="size-4" /> Pass (no assertion)
+              </span>
+            )}
+            {run.verdict === "fail" && (
               <span className="flex items-center gap-1 text-red-600 text-sm font-medium">
                 <XCircle className="size-4" /> Failed
+              </span>
+            )}
+            {run.verdict === "error" && (
+              <span className="flex items-center gap-1 text-orange-600 text-sm font-medium">
+                <AlertTriangle className="size-4" /> Error
               </span>
             )}
             {isLive && (
@@ -269,6 +281,7 @@ function SheetRunCard({ run, onClick }) {
 const TABS = [
   { id: "cases", label: "Test Cases", icon: LayoutList },
   { id: "sheets", label: "Test Sheets", icon: Sheet },
+  { id: "datasets", label: "Dataset Runs", icon: Database },
 ];
 
 export default function TestResultsPage() {
@@ -279,6 +292,7 @@ export default function TestResultsPage() {
   const {
     individualRuns = [],
     sheetRuns = [],
+    datasetBatches = [],
     summary = { totalRuns: 0, passed: 0, failed: 0, passRate: "0%" },
     loading,
     error,
@@ -315,7 +329,7 @@ export default function TestResultsPage() {
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl bg-slate-100 p-1 w-fit">
         {TABS.map(({ id, label, icon: Icon }) => {
-          const count = id === "cases" ? individualRuns.length : sheetRuns.length;
+          const count = id === "cases" ? individualRuns.length : id === "sheets" ? sheetRuns.length : datasetBatches.length;
           const isActive = activeTab === id;
           return (
             <button
@@ -445,6 +459,69 @@ export default function TestResultsPage() {
                 ))
             )}
           </div>
+        </div>
+      )}
+
+      {/* Tab: Dataset Runs */}
+      {activeTab === "datasets" && (
+        <div className="space-y-3">
+          {datasetBatches.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 py-16">
+              <Database className="size-8 text-slate-300" />
+              <p className="font-medium text-slate-500">No dataset runs yet</p>
+              <p className="text-sm text-slate-400">Run a dataset batch from a test case to see results here</p>
+            </div>
+          ) : (
+            datasetBatches.map((batch) => (
+              <button
+                key={batch.id}
+                type="button"
+                onClick={() => navigate(`/projects/${pid}/test-runs/batches/${batch.id}`)}
+                className="w-full text-left rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50">
+                      <Database className="size-4 text-indigo-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-700 truncate">
+                        {batch.test_case_title ?? `Test Case #${batch.test_case_id}`}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {batch.dataset_name ?? `Dataset #${batch.dataset_id}`}
+                        {" · "}Batch #{batch.id}
+                        {batch.created_at ? ` · ${new Date(batch.created_at).toLocaleString()}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 shrink-0">
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="flex items-center gap-1 text-emerald-600 font-medium">
+                        <CheckCircle2 className="size-4" />
+                        {batch.passed_rows ?? 0}
+                      </span>
+                      <span className="flex items-center gap-1 text-red-500 font-medium">
+                        <XCircle className="size-4" />
+                        {batch.failed_rows ?? 0}
+                      </span>
+                      <span className="text-xs text-slate-400 tabular-nums">
+                        / {batch.total_rows ?? 0} rows
+                      </span>
+                    </div>
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      batch.status === "completed"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-blue-50 text-blue-600"
+                    }`}>
+                      {batch.status}
+                    </span>
+                    <span className="text-xs text-slate-400">View →</span>
+                  </div>
+                </div>
+              </button>
+            ))
+          )}
         </div>
       )}
     </div>

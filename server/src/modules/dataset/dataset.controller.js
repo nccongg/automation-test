@@ -49,9 +49,9 @@ async function remove(req, res, next) {
 
 async function generate(req, res, next) {
   try {
-    const { projectId, prompt, rowCount, scriptSteps, goal } = req.body;
+    const { projectId, prompt, rowCount, scriptSteps, goal, initialRow } = req.body;
     if (!projectId) return res.status(400).json({ status: "error", message: "projectId is required" });
-    const data = await service.generateDatasetWithAI({ projectId, prompt, rowCount, scriptSteps, goal });
+    const data = await service.generateDatasetWithAI({ projectId, prompt, rowCount, scriptSteps, goal, initialRow });
     res.json({ status: "ok", data });
   } catch (err) { next(err); }
 }

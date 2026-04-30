@@ -301,8 +301,8 @@ async function recalcSheetRunSummary(testSheetRunId) {
                       END
      FROM (
        SELECT
-         -- passed: run finished cleanly with pass verdict
-         SUM(CASE WHEN tsri.status = 'completed' AND tr.verdict = 'pass' THEN 1 ELSE 0 END) AS passed,
+         -- passed: run finished cleanly with pass or pass_with_warning verdict
+         SUM(CASE WHEN tsri.status = 'completed' AND tr.verdict IN ('pass','pass_with_warning') THEN 1 ELSE 0 END) AS passed,
          -- failed: run finished with fail or partial verdict
          SUM(CASE WHEN tsri.status = 'completed' AND tr.verdict IN ('fail','partial') THEN 1 ELSE 0 END) AS failed,
          -- errored: run finished with error verdict OR item never dispatched (test_run_id IS NULL)

@@ -37,9 +37,9 @@ async function getProjects(userId, page = 1, limit = 6) {
         u.name AS owner_name,
         COUNT(DISTINCT tc.id) AS total_test_cases,
         MAX(tr.created_at) AS last_run_at,
-        COUNT(DISTINCT tr.id) FILTER (WHERE tr.verdict = 'pass') AS passed_runs,
+        COUNT(DISTINCT tr.id) FILTER (WHERE tr.verdict IN ('pass','pass_with_warning')) AS passed_runs,
         COUNT(DISTINCT tr.id) FILTER (
-          WHERE tr.verdict IN ('pass', 'fail', 'error', 'partial')
+          WHERE tr.verdict IN ('pass', 'pass_with_warning', 'fail', 'error', 'partial')
         ) AS total_runs
       FROM projects p
       JOIN users u ON u.id = p.user_id
@@ -99,9 +99,9 @@ async function getRecentProjects(userId, limit = 5) {
         p.updated_at,
         COUNT(DISTINCT tc.id) AS total_test_cases,
         MAX(tr.created_at) AS last_run_at,
-        COUNT(DISTINCT tr.id) FILTER (WHERE tr.verdict = 'pass') AS passed_runs,
+        COUNT(DISTINCT tr.id) FILTER (WHERE tr.verdict IN ('pass','pass_with_warning')) AS passed_runs,
         COUNT(DISTINCT tr.id) FILTER (
-          WHERE tr.verdict IN ('pass', 'fail', 'error', 'partial')
+          WHERE tr.verdict IN ('pass', 'pass_with_warning', 'fail', 'error', 'partial')
         ) AS total_runs
       FROM projects p
       LEFT JOIN test_cases tc
@@ -167,20 +167,20 @@ async function getProjectById(userId, projectId) {
       SELECT
         COUNT(DISTINCT tc.id) AS total_test_cases,
         MAX(tr.created_at) AS last_run_at,
-        COUNT(DISTINCT tr.id) FILTER (WHERE tr.verdict = 'pass') AS passed_runs,
+        COUNT(DISTINCT tr.id) FILTER (WHERE tr.verdict IN ('pass','pass_with_warning')) AS passed_runs,
         COUNT(DISTINCT tr.id) FILTER (
-          WHERE tr.verdict IN ('pass', 'fail', 'error', 'partial')
+          WHERE tr.verdict IN ('pass', 'pass_with_warning', 'fail', 'error', 'partial')
         ) AS total_runs,
         CASE
           WHEN COUNT(DISTINCT tr.id) FILTER (
-            WHERE tr.verdict IN ('pass', 'fail', 'error', 'partial')
+            WHERE tr.verdict IN ('pass', 'pass_with_warning', 'fail', 'error', 'partial')
           ) = 0 THEN NULL
           ELSE ROUND(
             (
               COUNT(DISTINCT tr.id) FILTER (WHERE tr.verdict = 'pass')::NUMERIC
               / NULLIF(
                   COUNT(DISTINCT tr.id) FILTER (
-                    WHERE tr.verdict IN ('pass', 'fail', 'error', 'partial')
+                    WHERE tr.verdict IN ('pass', 'pass_with_warning', 'fail', 'error', 'partial')
                   ),
                   0
                 )::NUMERIC

@@ -384,7 +384,7 @@ Revise the test case accordingly and return JSON.`,
  * @param {{ goal: string, scriptSteps: Array, userPrompt: string, rowCount: number }} opts
  * @returns {Promise<{ analysis: object, datasetName: string, columns: string[], rows: object[], variableMapping: object }>}
  */
-async function generateDataset({ goal, scriptSteps, userPrompt, rowCount = 5 }) {
+async function generateDataset({ goal, scriptSteps, userPrompt, rowCount = 5, initialRow = null }) {
   // Extract template variables from steps
   const re = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g;
   const varSet = new Set();
@@ -411,6 +411,10 @@ async function generateDataset({ goal, scriptSteps, userPrompt, rowCount = 5 }) 
     ? templateVars.reduce((acc, v) => { acc[v] = "value"; return acc; }, {})
     : { col1: "value", col2: "value" };
 
+  const initialRowSection = initialRow && Object.keys(initialRow).length > 0
+    ? `\n## Initial Test Data (Row 1 — use these exact values as the first row)\n${JSON.stringify(initialRow, null, 2)}\n`
+    : "";
+
   const messages = [
     {
       role: "system",
@@ -435,7 +439,14 @@ Return ONLY valid JSON in this exact shape — no markdown, no code fences, no e
 
 Rules:
 - Generate exactly ${rowCount} rows
-- Cover diverse scenarios: happy path, error cases, boundary values, edge cases
+- Row 1: if "Initial Test Data" is provided below, use it verbatim; otherwise extract any hardcoded literal values visible in the script steps and use them as Row 1
+- Rows 2+: cover diverse scenarios — valid credentials with variations, wrong/expired credentials, empty fields, boundary values
+- ALL values must be realistic strings a real user would actually type — never SQL injection, XSS payloads, or single-character garbage values
+- Credentials (username/email/password) must look like real account credentials:
+    • email: must be valid format (user@domain.tld), minimum 6 chars
+    • username: minimum 3 chars, alphanumeric/underscore
+    • password: minimum 6 chars, mix of letters and numbers
+- For negative/error cases: use plausible but incorrect credentials (e.g. wrong password, non-existent account) — NOT attack strings
 - warnings should note anything ambiguous or missing
 - Do NOT add any text outside the JSON object`,
     },
@@ -449,7 +460,7 @@ ${stepsText || "(no steps provided)"}
 
 ## Variables to use as column names
 ${templateVars.length > 0 ? templateVars.map((v) => `- ${v}`).join("\n") : "(none — infer from steps)"}
-
+${initialRowSection}
 ## User Request
 ${userPrompt}
 

@@ -318,6 +318,19 @@ async function getBatchDetail(batchId, userId) {
   return result;
 }
 
+async function listBatchesForProject({ projectId, userId, limit = 50, offset = 0 }) {
+  const id = toPositiveNumber(projectId);
+  if (!id) return [];
+
+  const proj = await query(
+    `SELECT id FROM public.projects WHERE id = $1 AND user_id = $2 LIMIT 1`,
+    [id, userId],
+  );
+  if (!proj.rows[0]) return [];
+
+  return agentRepository.listBatchesByProject({ projectId: id, limit, offset });
+}
+
 async function listBatchesForTestCase({ testCaseId, userId, limit = 20, offset = 0 }) {
   const id = toPositiveNumber(testCaseId);
   if (!id) return [];
@@ -343,4 +356,5 @@ module.exports = {
   analyzeTestRun,
   getBatchDetail,
   listBatchesForTestCase,
+  listBatchesForProject,
 };

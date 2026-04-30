@@ -807,7 +807,7 @@ async function handleFinalCallback(payload) {
     if (run && run.batch_id) {
       await agentRepository.incrementTestRunBatchProgress({
         batchId: run.batch_id,
-        isPassed: payload.verdict === "pass",
+        isPassed: payload.verdict === "pass" || payload.verdict === "pass_with_warning",
       });
     }
   } catch (batchErr) {

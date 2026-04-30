@@ -8,6 +8,8 @@ import {
   RotateCcw,
   Database,
   ChevronRight,
+  ShieldAlert,
+  AlertTriangle,
 } from "lucide-react";
 import { getBatchDetail, batchReplayTestRun } from "@/features/test-results/api/testResultsApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
@@ -62,10 +64,22 @@ function VerdictBadge({ verdict, status }) {
         <CheckCircle2 className="h-3 w-3" /> PASS
       </span>
     );
+  if (verdict === "pass_with_warning")
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+        <ShieldAlert className="h-3 w-3" /> PASS*
+      </span>
+    );
   if (verdict === "fail")
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
         <XCircle className="h-3 w-3" /> FAIL
+      </span>
+    );
+  if (verdict === "error")
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-700">
+        <AlertTriangle className="h-3 w-3" /> ERROR
       </span>
     );
   return (
@@ -207,16 +221,28 @@ export default function DatasetRunDetailPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-6">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-1.5 text-xs text-slate-400">
+        <button
+          onClick={() => navigate(`/projects/${projectId}/test-cases/${batch.test_case_id}`)}
+          className="hover:text-indigo-600 transition-colors font-medium truncate max-w-[180px]"
+        >
+          {batch.test_case_title ?? `Test Case #${batch.test_case_id}`}
+        </button>
+        <ChevronRight className="h-3 w-3 shrink-0" />
+        <button
+          onClick={() => navigate(`/projects/${projectId}/test-cases/${batch.test_case_id}`)}
+          className="hover:text-slate-600 transition-colors"
+        >
+          Dataset Runs
+        </button>
+        <ChevronRight className="h-3 w-3 shrink-0" />
+        <span className="text-slate-600 font-medium">Batch #{batch.id}</span>
+      </nav>
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 hover:bg-slate-100"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </button>
           <div>
             <div className="flex items-center gap-2">
               <Database className="h-4 w-4 text-indigo-500" />
@@ -230,17 +256,7 @@ export default function DatasetRunDetailPage() {
               )}
             </div>
             <p className="mt-0.5 text-sm text-slate-500">
-              {batch.test_case_title && (
-                <span className="font-medium text-slate-600">{batch.test_case_title}</span>
-              )}
-              {batch.dataset_name && (
-                <>
-                  {" "}
-                  <ChevronRight className="inline h-3 w-3" />
-                  {" "}
-                  <span>{batch.dataset_name}</span>
-                </>
-              )}
+              {batch.dataset_name && <span>{batch.dataset_name}</span>}
               <span className="ml-2 text-slate-400">{formatDateTime(batch.created_at)}</span>
             </p>
           </div>
@@ -301,7 +317,7 @@ export default function DatasetRunDetailPage() {
                 <tr
                   key={run.run_id}
                   className={`transition-colors hover:bg-slate-50 ${
-                    run.verdict === "fail" ? "bg-red-50/30" : ""
+                    run.verdict === "fail" ? "bg-red-50/30" : run.verdict === "pass_with_warning" ? "bg-amber-50/20" : ""
                   }`}
                 >
                   <td className="px-4 py-3 font-mono text-xs text-slate-500">

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import { getTestRunDetail } from "@/features/test-results/api/testResultsApi";
 import { fmt, duration } from "../utils/testCaseUtils";
-import { VERDICT_STRIPE, VERDICT_BG, VERDICT_BADGE, VERDICT_ICON } from "../constants/styles.jsx";
+import { VERDICT_STRIPE, VERDICT_BG, VERDICT_BADGE, VERDICT_ICON, VERDICT_LABEL } from "../constants/styles.jsx";
 import StepItem from "./StepItem";
 import AiAnalysis from "./AiAnalysis";
 
@@ -76,9 +76,9 @@ export default function RunRow({ run, projectId, index }) {
               <div className="flex items-center gap-1.5">
                 {VERDICT_ICON[run.verdict]}
                 <Badge
-                  className={`capitalize border text-xs ${VERDICT_BADGE[run.verdict] ?? "bg-slate-100 text-slate-600"}`}
+                  className={`border text-xs ${VERDICT_BADGE[run.verdict] ?? "bg-slate-100 text-slate-600"}`}
                 >
-                  {run.verdict}
+                  {VERDICT_LABEL[run.verdict] ?? run.verdict}
                 </Badge>
               </div>
             ) : isLive ? (
