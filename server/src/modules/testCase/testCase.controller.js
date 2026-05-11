@@ -61,6 +61,7 @@ async function saveTestCases(req, res, next) {
       candidateIds,
       candidates,
       runtimeConfigId,
+      isAiDraft,
     } = req.body;
 
     if (!projectId) {
@@ -95,6 +96,7 @@ async function saveTestCases(req, res, next) {
       candidateIds,
       candidates,
       runtimeConfigId,
+      isAiDraft: Boolean(isAiDraft),
     });
 
     res.status(201).json({
@@ -184,6 +186,28 @@ async function getTestCaseScripts(req, res, next) {
   }
 }
 
+async function commitTestCase(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const testCaseId = Number(req.params.id);
+    const data = await testCaseService.commitTestCase(userId, testCaseId);
+    res.json({ status: "ok", data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteTestCase(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const testCaseId = Number(req.params.id);
+    await testCaseService.deleteTestCase(userId, testCaseId);
+    res.json({ status: "ok" });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getTestCases,
   getTestCaseById,
@@ -191,7 +215,9 @@ module.exports = {
   getTestCaseScripts,
   generateTestCases,
   saveTestCases,
+  commitTestCase,
   updateTestCase,
   refineTestCase,
   applyRefinement,
+  deleteTestCase,
 };

@@ -17,7 +17,6 @@ import ResetPasswordSuccessPage from "@/pages/auth/ResetPasswordSuccessPage";
 import DashboardPage from "@/pages/dashboard/DashboardPage";
 import ProjectsPage from "@/pages/projects/ProjectsPage";
 import ProjectDetailPage from "@/pages/projects/ProjectDetailPage";
-import ProjectOverviewPage from "@/pages/projects/ProjectOverviewPage";
 import TestCasesPage from "@/pages/test-cases/TestCasesPage";
 import TestCaseDetailPage from "@/pages/test-cases/TestCaseDetailPage";
 import TestResultsPage from "@/pages/test-runs/TestResultsPage";
@@ -55,8 +54,8 @@ export default function App() {
             <Route index element={<DashboardPage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="projects/:projectId" element={<ProjectDetailPage />}>
-              <Route index element={<Navigate to="overview" replace />} />
-              <Route path="overview" element={<ProjectOverviewPage />} />
+              <Route index element={<Navigate to="test-cases" replace />} />
+              <Route path="overview" element={<Navigate to="../test-cases" replace />} />
               <Route path="test-cases" element={<TestCasesPage />} />
               <Route path="test-cases/:testCaseId" element={<TestCaseDetailPage />} />
               <Route path="test-runs" element={<TestResultsPage />} />

@@ -187,7 +187,7 @@ async function generateTestCases(userId, { prompt, projectId }) {
 
 async function saveTestCases(
   userId,
-  { projectId, batchId, candidateIds, runtimeConfigId }
+  { projectId, batchId, candidateIds, runtimeConfigId, isAiDraft = false }
 ) {
   assertUser(userId);
 
@@ -224,6 +224,7 @@ async function saveTestCases(
     batchId: batchIdNum,
     candidateIds: normalizedCandidateIds,
     runtimeConfigId: runtimeConfigIdNum,
+    isAiDraft: Boolean(isAiDraft),
   });
 }
 
@@ -311,6 +312,26 @@ async function getTestCaseScripts(userId, testCaseId) {
   return testCaseRepository.getExecutionScriptsByTestCaseId(id);
 }
 
+async function commitTestCase(userId, testCaseId) {
+  assertUser(userId);
+  const id = toPositiveInt(testCaseId, "testCaseId");
+  const updated = await testCaseRepository.commitDraftTestCase(userId, id);
+  if (!updated) {
+    throw { status: 404, message: "Test case not found or access denied" };
+  }
+  return updated;
+}
+
+async function deleteTestCase(userId, testCaseId) {
+  assertUser(userId);
+  const id = toPositiveInt(testCaseId, "testCaseId");
+  const deleted = await testCaseRepository.softDeleteTestCase(id, userId);
+  if (!deleted) {
+    throw { status: 404, message: "Test case not found or access denied" };
+  }
+  return deleted;
+}
+
 module.exports = {
   getTestCases,
   getTestCaseById,
@@ -318,7 +339,9 @@ module.exports = {
   getTestCaseScripts,
   generateTestCases,
   saveTestCases,
+  commitTestCase,
   updateTestCase,
   refineTestCase,
   applyRefinement,
+  deleteTestCase,
 };

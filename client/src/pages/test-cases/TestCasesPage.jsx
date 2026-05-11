@@ -13,6 +13,7 @@ import {
   Loader2,
   FileText,
   MoreHorizontal,
+  Sparkles,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTestCases } from "@/features/test-cases/hooks/useTestCases";
@@ -24,10 +25,13 @@ import {
   addCollectionItems,
   removeCollectionItem,
 } from "@/features/test-collection/api/testCollectionApi";
+import { deleteTestCase } from "@/features/test-cases/api/testCasesApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import PageHeader from "@/shared/components/common/PageHeader";
 import AddToSuiteDialog from "@/shared/components/common/AddToSuiteDialog";
+import AIWorkbenchDrawer from "@/features/test-cases/components/AIWorkbenchDrawer";
+import ScanWebsiteButton from "@/features/projects/components/ScanWebsiteButton";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -214,11 +218,13 @@ function FolderMenu({ onAddSubfolder, onDelete }) {
 function FileNode({
   item, depth, projectId, collectionId,
   onRemove, removingId, onSuiteClick, onRun, runningId,
+  onDeleteTC, deletingTcId,
   // drag
   onDragStart, onDragEnd, isDragging,
 }) {
   const navigate = useNavigate();
   const id = item.testCaseId ?? item.id;
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   function handleDragStart(e) {
     e.stopPropagation();
@@ -231,16 +237,18 @@ function FileNode({
     onDragStart?.();
   }
 
+  const isDeleting = deletingTcId === id;
+
   return (
     <div
-      draggable
+      draggable={!confirmDelete}
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
       className={`group flex items-center gap-2 py-2 pr-4 hover:bg-slate-50 cursor-grab active:cursor-grabbing rounded-lg transition-colors select-none ${
         isDragging ? "opacity-30" : ""
       }`}
       style={{ paddingLeft: `${depth * 20 + 8}px` }}
-      onClick={() => navigate(`/projects/${projectId}/test-cases/${id}`)}
+      onClick={() => !confirmDelete && navigate(`/projects/${projectId}/test-cases/${id}`)}
     >
       <div className="flex shrink-0 items-center gap-0.5">
         <div className="w-4 flex-shrink-0" />
@@ -256,20 +264,46 @@ function FileNode({
 
       <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
         onClick={(e) => e.stopPropagation()}>
-        <button onClick={() => onSuiteClick({ id, title: item.title })} title="Add to test suite"
-          className="rounded-md p-1 text-muted-foreground hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
-          <ListTodo className="size-3.5" />
-        </button>
-        {collectionId && (
-          <button onClick={() => onRemove(item)} disabled={removingId === item.id} title="Remove from folder"
-            className="rounded-md p-1 text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-50">
-            {removingId === item.id ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
-          </button>
+        {confirmDelete ? (
+          <>
+            <span className="text-xs text-slate-500 mr-1">Delete?</span>
+            <button
+              onClick={() => onDeleteTC(id)}
+              disabled={isDeleting}
+              className="rounded-md px-2 py-1 text-[11px] font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+            >
+              {isDeleting ? <Loader2 className="size-3 animate-spin" /> : "Confirm"}
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              disabled={isDeleting}
+              className="rounded-md p-1 text-slate-400 hover:bg-slate-100 transition-colors"
+            >
+              <X className="size-3.5" />
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={() => onSuiteClick({ id, title: item.title })} title="Add to test suite"
+              className="rounded-md p-1 text-muted-foreground hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
+              <ListTodo className="size-3.5" />
+            </button>
+            {collectionId && (
+              <button onClick={() => onRemove(item)} disabled={removingId === item.id} title="Remove from folder"
+                className="rounded-md p-1 text-muted-foreground hover:bg-orange-50 hover:text-orange-500 transition-colors disabled:opacity-50">
+                {removingId === item.id ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
+              </button>
+            )}
+            <button onClick={() => setConfirmDelete(true)} title="Delete test case"
+              className="rounded-md p-1 text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors">
+              <Trash2 className="size-3.5" />
+            </button>
+            <button onClick={() => onRun(item)} disabled={runningId === id || item.status === "archived"}
+              className="rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              {runningId === id ? <Loader2 className="size-3 animate-spin" /> : "Run"}
+            </button>
+          </>
         )}
-        <button onClick={() => onRun(item)} disabled={runningId === id || item.status === "archived"}
-          className="rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-          {runningId === id ? <Loader2 className="size-3 animate-spin" /> : "Run"}
-        </button>
       </div>
     </div>
   );
@@ -283,6 +317,7 @@ function FolderNode({
   onAddCases, onAddSubfolder, onDelete,
   onRemoveItem, removingId,
   onSuiteClick, onRun, runningId,
+  onDeleteTC, deletingTcId,
   // drag
   draggingItem, dragOverId, setDragOverId,
   onDropOnFolder, onDragStart, onDragEnd,
@@ -367,6 +402,7 @@ function FolderNode({
               onAddCases={onAddCases} onAddSubfolder={onAddSubfolder} onDelete={onDelete}
               onRemoveItem={onRemoveItem} removingId={removingId}
               onSuiteClick={onSuiteClick} onRun={onRun} runningId={runningId}
+              onDeleteTC={onDeleteTC} deletingTcId={deletingTcId}
               draggingItem={draggingItem} dragOverId={dragOverId} setDragOverId={setDragOverId}
               onDropOnFolder={onDropOnFolder} onDragStart={onDragStart} onDragEnd={onDragEnd}
             />
@@ -376,6 +412,7 @@ function FolderNode({
               collectionId={node.id}
               onRemove={(it) => onRemoveItem(node.id, it)} removingId={removingId}
               onSuiteClick={onSuiteClick} onRun={onRun} runningId={runningId}
+              onDeleteTC={onDeleteTC} deletingTcId={deletingTcId}
               onDragStart={onDragStart} onDragEnd={onDragEnd}
               isDragging={draggingItem?.testCaseId === (item.testCaseId ?? item.id) && draggingItem?.sourceCollectionId === node.id}
             />
@@ -394,8 +431,10 @@ function FolderNode({
 
 // ─── Search Results ───────────────────────────────────────────────────────────
 
-function SearchResults({ results, projectId, onSuiteClick, onRun, runningId }) {
+function SearchResults({ results, projectId, onSuiteClick, onRun, runningId, onDeleteTC, deletingTcId }) {
   const navigate = useNavigate();
+  const [confirmId, setConfirmId] = useState(null);
+
   if (results.length === 0) {
     return <div className="py-12 text-center text-sm text-muted-foreground">No test cases match your search.</div>;
   }
@@ -404,10 +443,12 @@ function SearchResults({ results, projectId, onSuiteClick, onRun, runningId }) {
       {results.map((tc) => {
         const id = tc.testCaseId ?? tc.id;
         const isRunning = runningId === id;
+        const isConfirming = confirmId === id;
+        const isDeleting = deletingTcId === id;
         return (
           <div key={tc.id ?? id}
             className="group flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-slate-50 cursor-pointer transition-colors"
-            onClick={() => navigate(`/projects/${projectId}/test-cases/${id}`)}>
+            onClick={() => !isConfirming && navigate(`/projects/${projectId}/test-cases/${id}`)}>
             <FileText className="size-4 shrink-0 text-slate-300 group-hover:text-indigo-300 transition-colors" />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -420,14 +461,34 @@ function SearchResults({ results, projectId, onSuiteClick, onRun, runningId }) {
             </div>
             <div className="flex shrink-0 items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={(e) => e.stopPropagation()}>
-              <button onClick={() => onSuiteClick({ id, title: tc.title })} title="Add to test suite"
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
-                <ListTodo className="size-4" />
-              </button>
-              <button onClick={() => onRun(tc)} disabled={isRunning || tc.status === "archived"}
-                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                {isRunning ? <Loader2 className="size-3 animate-spin" /> : "Run"}
-              </button>
+              {isConfirming ? (
+                <>
+                  <span className="text-xs text-slate-500">Delete?</span>
+                  <button onClick={() => onDeleteTC(id)} disabled={isDeleting}
+                    className="rounded-md px-2 py-1 text-xs font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors">
+                    {isDeleting ? <Loader2 className="size-3 animate-spin" /> : "Confirm"}
+                  </button>
+                  <button onClick={() => setConfirmId(null)} disabled={isDeleting}
+                    className="rounded-md p-1 text-slate-400 hover:bg-slate-100 transition-colors">
+                    <X className="size-3.5" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => onSuiteClick({ id, title: tc.title })} title="Add to test suite"
+                    className="rounded-md p-1.5 text-muted-foreground hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
+                    <ListTodo className="size-4" />
+                  </button>
+                  <button onClick={() => setConfirmId(id)} title="Delete test case"
+                    className="rounded-md p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-colors">
+                    <Trash2 className="size-4" />
+                  </button>
+                  <button onClick={() => onRun(tc)} disabled={isRunning || tc.status === "archived"}
+                    className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {isRunning ? <Loader2 className="size-3 animate-spin" /> : "Run"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         );
@@ -454,6 +515,7 @@ export default function TestCasesPage() {
   const [runError, setRunError] = useState("");
   const [suiteDialog, setSuiteDialog] = useState(null);
   const [removingId, setRemovingId] = useState(null);
+  const [deletingTcId, setDeletingTcId] = useState(null);
 
   // drag state
   const [draggingItem, setDraggingItem] = useState(null); // { testCaseId, itemId, sourceCollectionId }
@@ -463,6 +525,7 @@ export default function TestCasesPage() {
   // folder dialogs
   const [createFolder, setCreateFolder] = useState(null);
   const [addCasesTarget, setAddCasesTarget] = useState(null);
+  const [showCreateTC, setShowCreateTC] = useState(false);
 
   // ── Load tree ───────────────────────────────────────────────────────────────
 
@@ -570,6 +633,16 @@ export default function TestCasesPage() {
     } finally { setRunningId(null); }
   }
 
+  async function handleDeleteTC(tcId) {
+    try {
+      setDeletingTcId(tcId);
+      await deleteTestCase(tcId);
+      await fetchTree();
+    } catch { /* ignore */ } finally {
+      setDeletingTcId(null);
+    }
+  }
+
   async function handleDeleteFolder(id) {
     if (!window.confirm("Delete this folder? Test cases inside won't be affected.")) return;
     try { await deleteCollection(id); fetchTree(); } catch { /* ignore */ }
@@ -613,9 +686,18 @@ export default function TestCasesPage() {
         title="Test Cases"
         description="Organize and run your automated test cases"
         action={
-          <Button variant="outline" onClick={() => setCreateFolder({ parentId: null, parentName: "" })} className="gap-2">
-            <FolderPlus className="size-4" />New Collection
-          </Button>
+          <div className="flex items-center gap-2">
+            <ScanWebsiteButton projectId={projectId} />
+            <Button
+              onClick={() => setShowCreateTC(true)}
+              className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              <Sparkles className="size-4" />Generate with AI
+            </Button>
+            <Button variant="outline" onClick={() => setCreateFolder({ parentId: null, parentName: "" })} className="gap-2">
+              <FolderPlus className="size-4" />New Collection
+            </Button>
+          </div>
         }
       />
 
@@ -638,7 +720,8 @@ export default function TestCasesPage() {
           </div>
         ) : searchTerm ? (
           <SearchResults results={searchResults} projectId={projectId}
-            onSuiteClick={setSuiteDialog} onRun={handleRun} runningId={runningId} />
+            onSuiteClick={setSuiteDialog} onRun={handleRun} runningId={runningId}
+            onDeleteTC={handleDeleteTC} deletingTcId={deletingTcId} />
         ) : tree.length === 0 && uncategorized.length === 0 ? (
           <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 text-center">
             <FolderPlus className="size-8 text-muted-foreground/30" />
@@ -655,6 +738,7 @@ export default function TestCasesPage() {
                 onDelete={handleDeleteFolder}
                 onRemoveItem={handleRemoveItem} removingId={removingId}
                 onSuiteClick={setSuiteDialog} onRun={handleRun} runningId={runningId}
+                onDeleteTC={handleDeleteTC} deletingTcId={deletingTcId}
                 {...dragProps}
               />
             ))}
@@ -664,6 +748,7 @@ export default function TestCasesPage() {
                 projectId={projectId} collectionId={null}
                 onRemove={() => {}} removingId={null}
                 onSuiteClick={setSuiteDialog} onRun={handleRun} runningId={runningId}
+                onDeleteTC={handleDeleteTC} deletingTcId={deletingTcId}
                 onDragStart={setDraggingItem} onDragEnd={handleDragEnd}
                 isDragging={draggingItem?.testCaseId === tc.id && !draggingItem?.sourceCollectionId}
               />
@@ -688,7 +773,14 @@ export default function TestCasesPage() {
         )}
       </div>
 
-      {/* Dialogs */}
+      {/* AI Workbench Drawer */}
+      <AIWorkbenchDrawer
+        open={showCreateTC}
+        onClose={() => setShowCreateTC(false)}
+        projectId={projectId}
+        onSaved={() => { fetchTree(); }}
+      />
+
       <ErrorPopup open={!!runError} onClose={() => setRunError("")} />
 
       <AddToSuiteDialog open={!!suiteDialog} onClose={() => setSuiteDialog(null)}

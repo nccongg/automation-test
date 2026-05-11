@@ -206,8 +206,10 @@ export default function AIDatasetGenerator({
   existingDatasetId,
   existingDatasetName,
   onDatasetSaved,
+  alwaysOpen = false,
 }) {
-  const [open, setOpen] = useState(false);
+  const [_open, setOpen] = useState(false);
+  const open = alwaysOpen || _open;
   const [prompt, setPrompt] = useState("");
   const [rowCount, setRowCount] = useState(5);
   const [generating, setGenerating] = useState(false);

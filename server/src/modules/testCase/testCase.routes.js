@@ -345,5 +345,29 @@ router.post("/:id/refine", ctrl.refineTestCase);
 
 router.post("/:id/apply-refinement", ctrl.applyRefinement);
 
+/**
+ * @swagger
+ * /test-cases/{id}/commit:
+ *   post:
+ *     summary: Commit an AI draft test case to the library (makes it visible in the main list)
+ *     tags: [Test Cases]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Test case ID (must be an ai-draft test case owned by the caller)
+ *     responses:
+ *       200:
+ *         description: Test case committed successfully
+ *       404:
+ *         description: Test case not found or access denied
+ */
+router.post("/:id/commit", ctrl.commitTestCase);
+
 router.put("/:id", ctrl.updateTestCase);
+router.delete("/:id", ctrl.deleteTestCase);
 module.exports = router;

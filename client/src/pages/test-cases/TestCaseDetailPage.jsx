@@ -9,6 +9,7 @@ import {
   Pencil,
   Play,
   Target,
+  Trash2,
   X,
   Database,
   CheckCircle2,
@@ -19,6 +20,8 @@ import {
   getTestCaseRuns,
   getTestCaseScripts,
   updateTestCase,
+  applyRefinement,
+  deleteTestCase,
 } from "@/features/test-cases/api/testCasesApi";
 import { listBatchesForTestCase } from "@/features/test-results/api/testResultsApi";
 import { Badge } from "@/components/ui/badge";
@@ -35,25 +38,153 @@ import RunRow from "@/features/test-cases/components/RunRow";
 import RunReplaySection from "@/features/test-cases/components/RunReplaySection";
 import RefineSection from "@/features/test-cases/components/RefineSection";
 
-function TestPlanSection({ steps }) {
+function TestPlanSection({ steps, tc, onStepsUpdated }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draftSteps, setDraftSteps] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  function startEdit(e) {
+    e.stopPropagation();
+    setDraftSteps(
+      steps.map((s, i) => ({
+        order: s.order ?? i + 1,
+        text: s.description || s.text || "",
+        action: s.action || "custom",
+      })),
+    );
+    setEditing(true);
+    setSaveError("");
+    if (!open) setOpen(true);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+    setSaveError("");
+  }
+
+  function updateStepText(index, value) {
+    setDraftSteps((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, text: value } : s)),
+    );
+  }
+
+  function addStep() {
+    setDraftSteps((prev) => [
+      ...prev,
+      { order: prev.length + 1, text: "", action: "custom" },
+    ]);
+  }
+
+  function removeStep(index) {
+    setDraftSteps((prev) =>
+      prev
+        .filter((_, i) => i !== index)
+        .map((s, i) => ({ ...s, order: i + 1 })),
+    );
+  }
+
+  async function saveSteps() {
+    const validSteps = draftSteps.filter((s) => s.text.trim());
+    if (validSteps.length === 0) {
+      setSaveError("At least one step is required.");
+      return;
+    }
+    setSaving(true);
+    setSaveError("");
+    try {
+      await applyRefinement(tc.id, {
+        title: tc.title,
+        goal: tc.goal,
+        steps: validSteps.map((s, i) => ({
+          order: i + 1,
+          text: s.text.trim(),
+          action: s.action || "custom",
+        })),
+        expectedResult: tc.expectedResult || "",
+        promptText: "",
+      });
+      setEditing(false);
+      onStepsUpdated(
+        validSteps.map((s, i) => ({
+          order: i + 1,
+          description: s.text.trim(),
+          text: s.text.trim(),
+          action: s.action || "custom",
+        })),
+      );
+    } catch (e) {
+      setSaveError(e?.message || "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
-      >
-        {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-        <span className="font-medium">Test Plan</span>
-        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
-          {steps.length}
-        </span>
-        <span className="text-[10px] text-slate-300">· agent intent</span>
-      </button>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => !editing && setOpen((o) => !o)}
+          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+        >
+          {open ? (
+            <ChevronDown className="size-3" />
+          ) : (
+            <ChevronRight className="size-3" />
+          )}
+          <span className="font-medium">Test Plan</span>
+          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
+            {editing ? draftSteps.length : steps.length}
+          </span>
+          <span className="text-[10px] text-slate-300">· agent intent</span>
+        </button>
 
-      {open && (
+        {!editing ? (
+          <button
+            type="button"
+            onClick={startEdit}
+            className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all px-1.5 py-0.5 rounded"
+          >
+            <Pencil className="size-2.5" />
+            Edit
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={saveSteps}
+              disabled={saving}
+              className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            >
+              {saving ? (
+                <span className="size-2.5 rounded-full border border-white/40 border-t-white animate-spin" />
+              ) : (
+                <Check className="size-2.5" />
+              )}
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={cancelEdit}
+              disabled={saving}
+              className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+              <X className="size-2.5" />
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+
+      {saveError && (
+        <p className="mt-1 text-[10px] text-red-500">{saveError}</p>
+      )}
+
+      {/* Read mode */}
+      {open && !editing && (
         <div className="mt-3 space-y-1.5">
           {steps.map((step, i) => {
             const isLast = i === steps.length - 1;
@@ -88,6 +219,48 @@ function TestPlanSection({ steps }) {
           })}
         </div>
       )}
+
+      {/* Edit mode */}
+      {open && editing && (
+        <div className="mt-3 space-y-2">
+          {draftSteps.map((step, i) => (
+            <div key={i} className="flex gap-2.5 items-start">
+              <span className="mt-2 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[9px] font-bold text-indigo-400">
+                {i + 1}
+              </span>
+              <textarea
+                value={step.text}
+                onChange={(e) => updateStepText(i, e.target.value)}
+                rows={2}
+                placeholder={`Step ${i + 1} description…`}
+                disabled={saving}
+                className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 placeholder:text-slate-300 outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-200 resize-none transition-colors disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={() => removeStep(i)}
+                disabled={saving}
+                className="mt-2 shrink-0 text-slate-300 hover:text-red-400 transition-colors disabled:opacity-50"
+                title="Remove step"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={addStep}
+            disabled={saving}
+            className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-indigo-600 transition-colors px-1 py-0.5 disabled:opacity-50"
+          >
+            <span className="flex size-[18px] items-center justify-center rounded-full border border-dashed border-slate-300 hover:border-indigo-400 text-slate-400 hover:text-indigo-500 text-xs transition-colors">
+              +
+            </span>
+            Add step
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -111,6 +284,8 @@ export default function TestCaseDetailPage() {
   const [draftTitle, setDraftTitle] = useState("");
   const [draftGoal, setDraftGoal] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const titleRef = useRef(null);
   const goalRef = useRef(null);
 
@@ -211,6 +386,17 @@ export default function TestCaseDetailPage() {
     }
   }
 
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      await deleteTestCase(tc.id);
+      navigate(`/projects/${projectId}/test-cases`);
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  }
+
   async function saveStatus(newStatus) {
     if (newStatus === tc.status) return;
     setSaving(true);
@@ -303,12 +489,57 @@ export default function TestCaseDetailPage() {
                 </div>
               )}
 
-              {tc.steps?.length > 0 && <TestPlanSection steps={tc.steps} />}
+              {tc.steps?.length > 0 && (
+                <TestPlanSection
+                  steps={tc.steps}
+                  tc={tc}
+                  onStepsUpdated={(newSteps) =>
+                    setTc((prev) => ({ ...prev, steps: newSteps }))
+                  }
+                />
+              )}
               <RefineSection tc={tc} onApplied={load} />
             </div>
-            <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400 mt-1">
-              <Hash className="size-3" /> {tc.id}
-            </span>
+            <div className="flex shrink-0 flex-col items-end gap-2 mt-1">
+              <span className="flex items-center gap-1 text-xs text-slate-400">
+                <Hash className="size-3" /> {tc.id}
+              </span>
+              {!confirmDelete ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                >
+                  <Trash2 className="size-3.5" />
+                  Delete
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-slate-500">Delete this test case?</span>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  >
+                    {deleting ? (
+                      <span className="size-3 rounded-full border border-white/40 border-t-white animate-spin" />
+                    ) : (
+                      <Trash2 className="size-3" />
+                    )}
+                    Confirm
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(false)}
+                    disabled={deleting}
+                    className="rounded-lg px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-100 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

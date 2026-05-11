@@ -154,8 +154,8 @@ async function postToWorkerRun(payload) {
 function mapRuntimeConfig(row) {
   return {
     id: row.id,
-    llmProvider: row.llm_provider,
-    llmModel: row.llm_model,
+    llmProvider: process.env.EXECUTION_LLM_PROVIDER || row.llm_provider,
+    llmModel: process.env.EXECUTION_LLM_MODEL || row.llm_model,
     maxSteps: row.max_steps,
     timeoutSeconds: row.timeout_seconds,
     useVision: row.use_vision,

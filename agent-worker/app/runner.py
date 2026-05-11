@@ -16,14 +16,56 @@ from .schemas import ReplayScriptInlinePayload, ReplayStepPayload, RunRequest
 logger = logging.getLogger(__name__)
 
 try:
-    from browser_use import Agent, Browser, ChatGoogle  # type: ignore
-    from browser_use.llm.ollama.chat import ChatOllama as BrowserUseChatOllama  # type: ignore
+    from browser_use import Agent, Browser, ChatGoogle, ChatBrowserUse  # type: ignore
+    from browser_use.llm.ollama.chat import ChatOllama as _BrowserUseChatOllama  # type: ignore
+    from browser_use.llm.ollama.serializer import OllamaMessageSerializer  # type: ignore
+    from browser_use.llm.exceptions import ModelProviderError  # type: ignore
+    from browser_use.llm.views import ChatInvokeCompletion  # type: ignore
     from browser_use.llm.openai.chat import ChatOpenAI as BrowserUseChatOpenAI  # type: ignore
+
+    _MARKDOWN_FENCE_RE = re.compile(r'^\s*```(?:json)?\s*\n?(.*?)\n?\s*```\s*$', re.DOTALL)
+
+    class BrowserUseChatOllama(_BrowserUseChatOllama):
+        """Subclass that strips markdown code fences before JSON parsing.
+
+        Some local models (e.g. gemma4) wrap their structured output in ```json ... ```
+        even when Ollama's format=schema is set, causing model_validate_json to fail.
+        """
+
+        async def ainvoke(self, messages, output_format=None, **kwargs):
+            ollama_messages = OllamaMessageSerializer.serialize_messages(messages)
+            try:
+                if output_format is None:
+                    response = await self.get_client().chat(
+                        model=self.model,
+                        messages=ollama_messages,
+                        options=self.ollama_options,
+                    )
+                    return ChatInvokeCompletion(completion=response.message.content or '', usage=None)
+                else:
+                    schema = output_format.model_json_schema()
+                    response = await self.get_client().chat(
+                        model=self.model,
+                        messages=ollama_messages,
+                        format=schema,
+                        options=self.ollama_options,
+                    )
+                    raw = response.message.content or ''
+                    # Strip markdown code fences that some models add despite format=schema
+                    m = _MARKDOWN_FENCE_RE.match(raw)
+                    if m:
+                        raw = m.group(1).strip()
+                    completion = output_format.model_validate_json(raw)
+                    return ChatInvokeCompletion(completion=completion, usage=None)
+            except Exception as e:
+                raise ModelProviderError(message=str(e), model=self.name) from e
+
 except Exception as _bu_err:
     logger.warning("browser_use import failed: %s", _bu_err)
     Agent = None
     Browser = None
     ChatGoogle = None
+    ChatBrowserUse = None
     BrowserUseChatOllama = None
     BrowserUseChatOpenAI = None
 
@@ -281,10 +323,24 @@ def build_llm(run_req: RunRequest):
         provider, run_req.runtimeConfig.llmModel, extra,
     )
 
+    if provider in {"browser_use", "browseruse"}:
+        if ChatBrowserUse is None:
+            raise RuntimeError("browser_use ChatBrowserUse is not available — check your browser-use installation")
+        api_key = os.getenv("BROWSER_USE_API_KEY")
+        model = run_req.runtimeConfig.llmModel or "bu-latest"
+        llm = ChatBrowserUse(model=model, api_key=api_key)
+        logger.info("[build_llm] Using ChatBrowserUse — model=%s class=%s", model, type(llm).__name__)
+        return llm
+
     if provider in {"google", "gemini"}:
         if ChatGoogle is None:
             raise RuntimeError("browser_use ChatGoogle is not installed in this environment")
-        llm = ChatGoogle(model=run_req.runtimeConfig.llmModel)
+        # thinking_budget=0: disable Gemini thinking tokens.
+        # With thinking enabled (the default -1 for gemini-2.5/flash models), thinking content
+        # bleeds into response.text before the JSON block, causing model_validate_json to fail
+        # with "expected ident at line 1 column 2" because the text starts with "thought\n```json"
+        # instead of a bare JSON object.
+        llm = ChatGoogle(model=run_req.runtimeConfig.llmModel, thinking_budget=0)
         logger.info("[build_llm] Using browser_use.ChatGoogle — class=%s", type(llm).__name__)
         return llm
 
@@ -353,6 +409,13 @@ def build_task_text(run_req: RunRequest) -> str:
 
     if run_req.project.baseUrl:
         extra_lines.append(f"Project base URL: {run_req.project.baseUrl}")
+
+    plan_snapshot = getattr(run_req.testCase, "planSnapshot", None) or {}
+    plan_steps: List[str] = plan_snapshot.get("steps") if isinstance(plan_snapshot, dict) else []
+    if plan_steps:
+        rendered_steps = [render_template(s, input_params) if isinstance(s, str) else str(s) for s in plan_steps]
+        steps_text = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(rendered_steps))
+        extra_lines.append(f"Follow these steps exactly:\n{steps_text}")
 
     if input_params:
         extra_lines.append(
