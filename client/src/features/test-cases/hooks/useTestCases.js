@@ -20,6 +20,7 @@ export function useTestCases(projectId) {
   const [testCases, setTestCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -61,7 +62,9 @@ export function useTestCases(projectId) {
     return () => {
       mounted = false;
     };
-  }, [projectId]);
+  }, [projectId, refreshKey]);
 
-  return { testCases, loading, error };
+  const refetch = () => setRefreshKey((k) => k + 1);
+
+  return { testCases, loading, error, refetch };
 }

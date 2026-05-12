@@ -19,6 +19,7 @@ import {
   FlaskConical,
   Database,
   Pencil,
+  Globe,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -69,18 +70,28 @@ function ProjectContextBar({ project, collapsed, onProjectUpdated }) {
         </button>
       </div>
 
-      {/* Base URL row */}
-      {project.baseUrl && (
-        <div className="pl-10">
-          <a
-            href={project.baseUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={project.baseUrl}
-            className="block truncate text-[11px] text-slate-400 hover:text-indigo-600 hover:underline transition-colors"
-          >
-            {formatBaseUrl(project.baseUrl)}
-          </a>
+      {/* Meta */}
+      {(project.baseUrl || project.description) && (
+        <div className="ml-10 space-y-1">
+          {project.baseUrl && (
+            <a
+              href={project.baseUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={project.baseUrl}
+              className="flex items-center gap-1.5 group w-fit"
+            >
+              <Globe className="size-3 shrink-0 text-indigo-400" />
+              <span className="text-[11px] text-slate-400 group-hover:text-indigo-500 group-hover:underline transition-colors truncate max-w-[140px]">
+                {formatBaseUrl(project.baseUrl)}
+              </span>
+            </a>
+          )}
+          {project.description && (
+            <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-2">
+              {project.description}
+            </p>
+          )}
         </div>
       )}
 

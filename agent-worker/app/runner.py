@@ -6,12 +6,16 @@ import logging
 import re
 import time
 import shutil
+
+import httpx
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Iterable
 
 from .callbacks import post_final_event, post_step_event
-from .schemas import ReplayScriptInlinePayload, ReplayStepPayload, RunRequest
+from .schemas import ReplayScriptInlinePayload, ReplayStepPayload, RunRequest, StateAnchor
+
+_MARKDOWN_FENCE_RE = re.compile(r'^\s*```(?:json)?\s*\n?(.*?)\n?\s*```\s*$', re.DOTALL)
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +26,6 @@ try:
     from browser_use.llm.exceptions import ModelProviderError  # type: ignore
     from browser_use.llm.views import ChatInvokeCompletion  # type: ignore
     from browser_use.llm.openai.chat import ChatOpenAI as BrowserUseChatOpenAI  # type: ignore
-
-    _MARKDOWN_FENCE_RE = re.compile(r'^\s*```(?:json)?\s*\n?(.*?)\n?\s*```\s*$', re.DOTALL)
 
     class BrowserUseChatOllama(_BrowserUseChatOllama):
         """Subclass that strips markdown code fences before JSON parsing.
@@ -92,6 +94,12 @@ class StepResult:
     failure_reason: Optional[str] = None
 
 
+@dataclass
+class AnchorVerifyResult:
+    passed: bool
+    message: str
+
+
 ASSERTION_ACTIONS = {
     "assert_text", "assert_text_present", "verify_text",
     "assert_visible", "assert_element_visible", "assert_element_present", "verify_element_visible",
@@ -127,6 +135,22 @@ def compute_replay_verdict(has_assertion: bool, assertion_failed: bool, executio
     if assertion_failed:
         return "fail"
     if not has_assertion:
+        return "pass_with_warning"
+    if execution_failed:
+        return "error"
+    return "pass"
+
+
+def compute_combined_verdict(
+    has_assertion: bool,
+    assertion_failed: bool,
+    has_anchors: bool,
+    required_anchor_failed: bool,
+    execution_failed: bool,
+) -> str:
+    if assertion_failed or required_anchor_failed:
+        return "fail"
+    if not has_assertion and not has_anchors:
         return "pass_with_warning"
     if execution_failed:
         return "error"
@@ -800,6 +824,227 @@ async def publish_llm_steps(run_req: RunRequest, history: Any, screenshots_dir: 
         )
 
 
+def _build_synthesis_prompt(
+    goal: str,
+    steps: List[Dict[str, Any]],
+    extracted_content: List[Any],
+    model_thoughts: List[Any],
+    final_result: Optional[str],
+) -> str:
+    steps_text = json.dumps(
+        [{"stepNo": s.get("stepNo"), "actionName": s.get("actionName"), "actionInput": s.get("actionInput")} for s in steps],
+        ensure_ascii=False,
+        indent=2,
+    )
+    content_samples = [
+        f"Step {i + 1}: {str(c)[:300]}"
+        for i, c in enumerate(extracted_content[:10])
+        if c
+    ]
+    thought_samples = [
+        f"Step {i + 1}: {str(t)[:200]}"
+        for i, t in enumerate(model_thoughts[:10])
+        if t
+    ]
+    evidence_parts: List[str] = []
+    if content_samples:
+        evidence_parts.append("Extracted page content:\n" + "\n".join(content_samples))
+    if thought_samples:
+        evidence_parts.append("Agent observations:\n" + "\n".join(thought_samples))
+    if final_result:
+        evidence_parts.append(f"Final result: {str(final_result)[:500]}")
+    evidence_text = "\n\n".join(evidence_parts) or "No evidence captured."
+
+    return f"""You are a QA test architect. Analyze this browser automation session and generate State Anchors for deterministic replay testing.
+
+Goal: {goal}
+
+Recorded steps:
+{steps_text}
+
+Session evidence:
+{evidence_text}
+
+Task: For each step where you have clear evidence of an expected UI state, generate State Anchors — deterministic conditions Playwright will verify immediately after that step during replay.
+
+Anchor types allowed:
+- url_contains: current URL must contain the given substring (e.g. "/dashboard")
+- url_changed: URL must differ from the previous page URL
+- text_visible: a specific text string must be visible on page
+- text_not_visible: a specific text string must NOT be visible
+- no_error_message: no error/alert messages visible (set value=null)
+- field_value_equals: the input field from this fill step must contain expected value
+
+Rules:
+- Only anchor steps where you have clear evidence from the session
+- text values must be short stable business phrases — NOT timestamps, random IDs, counters, tokens, session-specific values
+- If confidence < 0.7, set required=false
+- Generate at most 2 anchors per step
+- Prefer text_visible and url_contains — they are the most reliable
+
+Return ONLY a JSON array, no explanation, no markdown:
+[
+  {{
+    "stepIndex": <stepNo integer>,
+    "anchors": [
+      {{
+        "type": "url_contains|url_changed|text_visible|text_not_visible|no_error_message|field_value_equals",
+        "value": "<string or null>",
+        "required": true,
+        "confidence": 0.9,
+        "reason": "<brief reason why this proves the goal succeeded>"
+      }}
+    ]
+  }}
+]"""
+
+
+async def synthesize_state_anchors(
+    history: Any,
+    steps: List[Dict[str, Any]],
+    goal: str,
+    gemini_api_key: str,
+    llm_model: str = "gemini-2.0-flash",
+) -> Dict[int, List[Dict[str, Any]]]:
+    """Call Gemini once after LLM run to generate per-step State Anchors.
+
+    Returns a mapping of stepNo → list of anchor dicts.
+    Raises on network/parse failure — caller must catch and treat as non-fatal.
+    """
+    extracted = safe_to_jsonable(getattr(history, "extracted_content", lambda: [])() or [])
+    thoughts = safe_to_jsonable(getattr(history, "model_thoughts", lambda: [])() or [])
+    final_result = None
+    if hasattr(history, "final_result") and callable(history.final_result):
+        final_result = history.final_result()
+
+    prompt = _build_synthesis_prompt(goal, steps, extracted, thoughts, final_result)
+
+    # Use gemini-2.0-flash for synthesis regardless of which model ran the agent
+    # (synthesis is a short structured task; flash is fast and cheap)
+    synthesis_model = "gemini-2.0-flash"
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{synthesis_model}:generateContent?key={gemini_api_key}"
+    )
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "temperature": 0.1,
+        },
+    }
+
+    async with httpx.AsyncClient(timeout=90) as client:
+        resp = await client.post(url, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+
+    raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
+    fence_match = _MARKDOWN_FENCE_RE.match(raw_text.strip())
+    if fence_match:
+        raw_text = fence_match.group(1)
+
+    parsed = json.loads(raw_text)
+    if not isinstance(parsed, list):
+        return {}
+
+    result: Dict[int, List[Dict[str, Any]]] = {}
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        step_idx = item.get("stepIndex")
+        anchors = item.get("anchors", [])
+        if isinstance(step_idx, int) and isinstance(anchors, list) and anchors:
+            result[step_idx] = anchors
+    return result
+
+
+def _merge_anchors_into_steps(
+    steps: List[Dict[str, Any]],
+    anchor_map: Dict[int, List[Dict[str, Any]]],
+) -> None:
+    for step in steps:
+        step_no = step.get("stepNo")
+        if step_no in anchor_map:
+            step["anchors"] = anchor_map[step_no]
+
+
+async def verify_anchor(
+    page: "Page",
+    anchor: StateAnchor,
+    step_action_input: Optional[Dict[str, Any]] = None,
+    timeout_ms: int = 5000,
+) -> AnchorVerifyResult:
+    anchor_type = (anchor.type or "").lower().strip()
+    try:
+        if anchor_type == "url_contains":
+            if not anchor.value:
+                return AnchorVerifyResult(passed=True, message="url_contains skipped: no value")
+            if anchor.value in page.url:
+                return AnchorVerifyResult(passed=True, message=f"URL contains '{anchor.value}'")
+            return AnchorVerifyResult(passed=False, message=f"URL '{page.url}' does not contain '{anchor.value}'")
+
+        elif anchor_type == "url_changed":
+            # url_changed without an initial URL reference cannot be verified here;
+            # the existing assert_url_changed step type handles it during replay
+            return AnchorVerifyResult(passed=True, message="url_changed: deferred to step logic")
+
+        elif anchor_type == "text_visible":
+            if not anchor.value:
+                return AnchorVerifyResult(passed=True, message="text_visible skipped: no value")
+            locator = page.get_by_text(anchor.value, exact=False)
+            try:
+                await locator.first.wait_for(state="visible", timeout=timeout_ms)
+                return AnchorVerifyResult(passed=True, message=f"Text '{anchor.value}' is visible")
+            except Exception:
+                return AnchorVerifyResult(passed=False, message=f"Text '{anchor.value}' not visible on page")
+
+        elif anchor_type == "text_not_visible":
+            if not anchor.value:
+                return AnchorVerifyResult(passed=True, message="text_not_visible skipped: no value")
+            locator = page.get_by_text(anchor.value, exact=False)
+            try:
+                await locator.first.wait_for(state="visible", timeout=2000)
+                return AnchorVerifyResult(passed=False, message=f"Text '{anchor.value}' is visible but should not be")
+            except Exception:
+                return AnchorVerifyResult(passed=True, message=f"Text '{anchor.value}' correctly absent")
+
+        elif anchor_type == "no_error_message":
+            error_selectors = [
+                page.get_by_role("alert"),
+                page.get_by_text("lỗi", exact=False),
+                page.get_by_text("thất bại", exact=False),
+                page.get_by_text("failed", exact=False),
+                page.get_by_text("invalid", exact=False),
+            ]
+            for loc in error_selectors:
+                try:
+                    if await loc.first.is_visible():
+                        text = await loc.first.inner_text()
+                        return AnchorVerifyResult(passed=False, message=f"Error message visible: '{text[:100]}'")
+                except Exception:
+                    pass
+            return AnchorVerifyResult(passed=True, message="No error messages detected")
+
+        elif anchor_type == "field_value_equals":
+            if not anchor.value or step_action_input is None:
+                return AnchorVerifyResult(passed=True, message="field_value_equals skipped: missing value or locator")
+            try:
+                locator = await resolve_locator(page, step_action_input)
+                actual = await locator.first.input_value(timeout=timeout_ms)
+                if actual == anchor.value:
+                    return AnchorVerifyResult(passed=True, message=f"Field value equals '{anchor.value}'")
+                return AnchorVerifyResult(passed=False, message=f"Field value '{actual}' != '{anchor.value}'")
+            except Exception as exc:
+                return AnchorVerifyResult(passed=False, message=f"field_value_equals error: {exc}")
+
+        else:
+            return AnchorVerifyResult(passed=True, message=f"Unknown anchor type '{anchor_type}' skipped")
+
+    except Exception as exc:
+        return AnchorVerifyResult(passed=False, message=f"Anchor verification error: {exc}")
+
+
 async def execute_llm_run(run_req: RunRequest) -> None:
     browser = None
     # Central screenshots directory configurable via SCREENSHOTS_DIR env var
@@ -839,6 +1084,37 @@ async def execute_llm_run(run_req: RunRequest) -> None:
 
         verdict = "pass" if history.is_successful() else "fail"
         recorded_script = build_recorded_script(run_req, history)
+
+        # Phase 1: State Anchor synthesis — LLM called once to generate per-step anchors.
+        # Runs regardless of success/failure so even partial runs get anchors.
+        # Best-effort: failures are logged and do not block the recording.
+        gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+        if gemini_api_key and recorded_script.get("steps"):
+            try:
+                goal = (run_req.testCase.goal or run_req.testCase.promptText or "").strip()
+                anchor_map = await synthesize_state_anchors(
+                    history=history,
+                    steps=recorded_script["steps"],
+                    goal=goal,
+                    gemini_api_key=gemini_api_key,
+                )
+                if anchor_map:
+                    _merge_anchors_into_steps(recorded_script["steps"], anchor_map)
+                    recorded_script["anchorVersion"] = 1
+                    recorded_script["generatedBy"] = "llm_state_anchor_synthesis"
+                    logger.info(
+                        "[execute_llm_run] Anchor synthesis done — anchored %d steps",
+                        len(anchor_map),
+                    )
+                else:
+                    logger.info("[execute_llm_run] Anchor synthesis returned no anchors")
+            except Exception:
+                logger.warning("[execute_llm_run] Anchor synthesis failed (non-fatal)", exc_info=True)
+        else:
+            logger.info(
+                "[execute_llm_run] Skipping anchor synthesis — api_key=%s steps=%d",
+                bool(gemini_api_key), len(recorded_script.get("steps") or []),
+            )
 
         await post_final_event(
             {
@@ -1417,6 +1693,8 @@ async def execute_replay_run(run_req: RunRequest) -> None:
         has_assertion = False
         assertion_failed = False
         execution_failed = False
+        has_anchors = False
+        required_anchor_failed = False
 
         for step in script_steps:
             step_is_assertion = is_assertion_step(step.actionName)
@@ -1435,6 +1713,32 @@ async def execute_replay_run(run_req: RunRequest) -> None:
                 if result.status == "failed":
                     execution_failed = True
 
+            # Phase 2: verify State Anchors attached to this step (no LLM — pure Playwright)
+            rendered_action_input = render_template(step.actionInput, params)
+            anchor_results: List[Dict[str, Any]] = []
+            for anchor in (step.anchors or []):
+                has_anchors = True
+                ar = await verify_anchor(page, anchor, rendered_action_input)
+                anchor_results.append({
+                    "type": anchor.type,
+                    "value": anchor.value,
+                    "required": anchor.required,
+                    "confidence": anchor.confidence,
+                    "passed": ar.passed,
+                    "message": ar.message,
+                })
+                if anchor.required and not ar.passed:
+                    required_anchor_failed = True
+                    logger.warning(
+                        "[replay] Required anchor FAILED — step=%d type=%s value=%s reason=%s",
+                        step.stepNo, anchor.type, anchor.value, ar.message,
+                    )
+                elif not ar.passed:
+                    logger.info(
+                        "[replay] Optional anchor failed — step=%d type=%s value=%s reason=%s",
+                        step.stepNo, anchor.type, anchor.value, ar.message,
+                    )
+
             await post_step_event(
                 {
                     "testRunId": run_req.testRunId,
@@ -1447,12 +1751,13 @@ async def execute_replay_run(run_req: RunRequest) -> None:
                     "currentUrl": result.current_url,
                     "thoughtText": "Deterministic replay step",
                     "extractedContent": result.extracted_content,
-                    "actionInputJson": render_template(step.actionInput, params),
+                    "actionInputJson": rendered_action_input,
                     "actionOutputJson": result.action_output,
                     "modelOutputJson": None,
                     "durationMs": result.duration_ms,
                     "screenshotPath": result.screenshot_path,
                     "failureReason": result.failure_reason,
+                    "anchorResults": anchor_results if anchor_results else None,
                 }
             )
 
@@ -1461,7 +1766,9 @@ async def execute_replay_run(run_req: RunRequest) -> None:
             if result.status == "failed" and not step_is_assertion and not step.continueOnError:
                 raise RuntimeError(f"Step {step.stepNo} failed: {result.message}")
 
-        verdict = compute_replay_verdict(has_assertion, assertion_failed, execution_failed)
+        verdict = compute_combined_verdict(
+            has_assertion, assertion_failed, has_anchors, required_anchor_failed, execution_failed
+        )
 
         await post_final_event(
             {
@@ -1478,6 +1785,8 @@ async def execute_replay_run(run_req: RunRequest) -> None:
                     "scriptType": script.scriptType,
                     "artifactsDir": str(artifacts_dir),
                     "hasAssertion": has_assertion,
+                    "hasAnchors": has_anchors,
+                    "requiredAnchorFailed": required_anchor_failed,
                 },
                 "evidenceSummary": {
                     "screenshots": screenshots_count,

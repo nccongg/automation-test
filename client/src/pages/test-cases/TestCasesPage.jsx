@@ -502,7 +502,7 @@ function SearchResults({ results, projectId, onSuiteClick, onRun, runningId, onD
 export default function TestCasesPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const { testCases, loading: loadingCases } = useTestCases(projectId);
+  const { testCases, loading: loadingCases, refetch: refetchCases } = useTestCases(projectId);
 
   const [tree, setTree] = useState([]);
   const [categorizedIds, setCategorizedIds] = useState(new Set());
@@ -637,7 +637,7 @@ export default function TestCasesPage() {
     try {
       setDeletingTcId(tcId);
       await deleteTestCase(tcId);
-      await fetchTree();
+      await Promise.all([fetchTree(), refetchCases()]);
     } catch { /* ignore */ } finally {
       setDeletingTcId(null);
     }
