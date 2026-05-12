@@ -1,5 +1,46 @@
 import { useState, useEffect, useRef } from "react";
-import { Link2, X, ChevronDown, Check, ShieldCheck, Plus, Wand2 } from "lucide-react";
+import { Link2, X, ChevronDown, Check, ShieldCheck, Plus, Wand2, Link, Eye, EyeOff, Type, Hash } from "lucide-react";
+
+const ANCHOR_TYPE_META = {
+  url_contains:       { icon: Link,       label: "URL contains" },
+  url_changed:        { icon: Link,       label: "URL changed" },
+  text_visible:       { icon: Eye,        label: "Text visible" },
+  text_not_visible:   { icon: EyeOff,     label: "Text hidden" },
+  no_error_message:   { icon: ShieldCheck, label: "No errors" },
+  field_value_equals: { icon: Type,       label: "Field value" },
+};
+
+function StepAnchors({ anchors }) {
+  if (!anchors || anchors.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 rounded-lg border border-violet-100 bg-violet-50/60 px-2.5 py-2">
+      {anchors.map((anchor, i) => {
+        const meta = ANCHOR_TYPE_META[anchor.type] ?? { icon: Hash, label: anchor.type };
+        const Icon = meta.icon;
+        return (
+          <span
+            key={i}
+            title={anchor.reason || anchor.type}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+              anchor.required
+                ? "border-violet-200 bg-violet-100 text-violet-700"
+                : "border-slate-200 bg-slate-100 text-slate-500"
+            }`}
+          >
+            <Icon size={9} className="shrink-0" />
+            <span>{meta.label}</span>
+            {anchor.value && (
+              <span className="font-mono opacity-75">"{anchor.value}"</span>
+            )}
+            {!anchor.required && (
+              <span className="opacity-50">?</span>
+            )}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 const ACTION_COLORS = {
   navigate:        "border-blue-200 bg-blue-50 text-blue-700",
@@ -99,7 +140,8 @@ function ColDropdown({ icon, label, columns, columnValues, onPick, triggerClass 
 }
 
 // Unified field row: handles both template {{var}} fields and hardcoded value fields
-function FieldRow({ fieldKey, pkey, isTemplate, rawValue, paramValue, onChangeValue, readOnly, availableColumns, columnValues, binding, onBind, onUnbind, onParameterize }) {
+function FieldRow({ fieldKey, pkey, isTemplate, rawValue, paramValue, onChangeValue, readOnly, availableColumns, columnValues, binding, onBind, onUnbind, onParameterize, isRedacted }) {
+  const [showValue, setShowValue] = useState(false);
   const hasColumns = availableColumns?.length > 0;
 
   return (
@@ -113,6 +155,31 @@ function FieldRow({ fieldKey, pkey, isTemplate, rawValue, paramValue, onChangeVa
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
         {readOnly ? (
           <span className="text-xs text-slate-600">{rawValue || paramValue || <span className="italic text-slate-300">—</span>}</span>
+        ) : isRedacted ? (
+          <>
+            <span className="shrink-0 rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-500">
+              redacted
+            </span>
+            <input
+              type={showValue ? "text" : "password"}
+              value={paramValue ?? ""}
+              onChange={(e) => onChangeValue(e.target.value)}
+              placeholder="Enter value for replay…"
+              className={`min-w-0 flex-1 rounded border px-2 py-1 text-xs placeholder:text-slate-300 outline-none focus:ring-1 transition-colors ${
+                paramValue
+                  ? "border-emerald-200 bg-emerald-50/40 text-slate-700 focus:border-emerald-300 focus:ring-emerald-100"
+                  : "border-orange-200 bg-orange-50/30 text-slate-700 focus:border-orange-300 focus:ring-orange-100"
+              }`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowValue((v) => !v)}
+              className="shrink-0 rounded p-1 text-slate-300 hover:text-slate-500 transition-colors"
+              title={showValue ? "Hide" : "Show"}
+            >
+              {showValue ? <EyeOff size={11} /> : <Eye size={11} />}
+            </button>
+          </>
         ) : binding ? (
           // Bound to a dataset column
           <>
@@ -407,6 +474,8 @@ export default function ScriptStepEditor({
     (s) => s.actionName?.startsWith("assert_") || s.actionName?.startsWith("verify_"),
   ).length;
 
+  const anchorCount = steps.reduce((n, s) => n + (s.anchors?.length ?? 0), 0);
+
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       {/* Header */}
@@ -419,6 +488,12 @@ export default function ScriptStepEditor({
             <span className="flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-600">
               <ShieldCheck className="size-3" />
               {assertionCount} assertion{assertionCount > 1 ? "s" : ""}
+            </span>
+          )}
+          {anchorCount > 0 && (
+            <span className="flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600">
+              <ShieldCheck className="size-3" />
+              {anchorCount} anchor{anchorCount > 1 ? "s" : ""}
             </span>
           )}
           {availableColumns.length > 0 && (
@@ -435,7 +510,7 @@ export default function ScriptStepEditor({
           const sno = step.stepNo ?? i + 1;
           const desc = stepDescription(step);
 
-          // Collect fields: template vars and hardcoded user-input fields
+          // Collect fields: template vars, redacted values, and hardcoded user-input fields
           const fields = [];
           Object.entries(step.actionInput || {}).forEach(([key, val]) => {
             const vars = extractTemplateVars(String(val));
@@ -443,6 +518,8 @@ export default function ScriptStepEditor({
               vars.forEach((varName) =>
                 fields.push({ key, pkey: varName, isTemplate: true, rawValue: String(val) }),
               );
+            } else if (String(val) === "[REDACTED]" && USER_INPUT_KEYS.has(key)) {
+              fields.push({ key, pkey: `__r${sno}_${key}`, isTemplate: false, rawValue: "[REDACTED]", isRedacted: true });
             } else if (USER_INPUT_KEYS.has(key)) {
               fields.push({ key, pkey: key, isTemplate: false, rawValue: String(val) });
             }
@@ -479,7 +556,7 @@ export default function ScriptStepEditor({
                 {/* Input fields */}
                 {fields.length > 0 && (
                   <div className="space-y-1.5 rounded bg-slate-50/70 px-2.5 py-2">
-                    {fields.map(({ key, pkey, isTemplate, rawValue }) => (
+                    {fields.map(({ key, pkey, isTemplate, rawValue, isRedacted }) => (
                       <FieldRow
                         key={`${sno}-${pkey}`}
                         fieldKey={key}
@@ -495,14 +572,18 @@ export default function ScriptStepEditor({
                         onBind={(col) => bindParam(pkey, col)}
                         onUnbind={() => unbindParam(pkey)}
                         onParameterize={
-                          !readOnly && !isTemplate && onParameterize && !parameterizeDisabled
+                          !readOnly && !isTemplate && !isRedacted && onParameterize && !parameterizeDisabled
                             ? (col) => onParameterize(sno, key, col)
                             : null
                         }
+                        isRedacted={isRedacted ?? false}
                       />
                     ))}
                   </div>
                 )}
+
+                {/* State Anchors */}
+                <StepAnchors anchors={step.anchors} />
               </div>
             </div>
           );

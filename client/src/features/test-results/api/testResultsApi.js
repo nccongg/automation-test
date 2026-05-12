@@ -197,6 +197,7 @@ export async function getTestRunDetail(runId) {
         thoughtText: step.thought_text || "",
         extractedContent: step.extracted_content || "",
         failureReason: step.failure_reason || null,
+        anchorResults: step.anchor_results || null,
         createdAt: formatDateTime(step.created_at),
         screenshots,
       };

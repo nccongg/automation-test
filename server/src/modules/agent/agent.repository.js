@@ -181,6 +181,7 @@ async function insertOrUpdateRunStepLog({
   modelOutputJson = null,
   durationMs = null,
   failureReason = null,
+  anchorResults = null,
 }) {
   const sql = `
     INSERT INTO public.run_step_logs (
@@ -200,13 +201,14 @@ async function insertOrUpdateRunStepLog({
       action_output_json,
       model_output_json,
       duration_ms,
-      failure_reason
+      failure_reason,
+      anchor_results
     )
     VALUES (
       $1, $2, $3, $4, $5, $6, $7,
       NOW(), NOW(),
       $8, $9, $10,
-      $11::jsonb, $12::jsonb, $13::jsonb, $14, $15
+      $11::jsonb, $12::jsonb, $13::jsonb, $14, $15, $16::jsonb
     )
     ON CONFLICT (test_run_attempt_id, step_no)
     DO UPDATE SET
@@ -222,7 +224,8 @@ async function insertOrUpdateRunStepLog({
       action_output_json = EXCLUDED.action_output_json,
       model_output_json = EXCLUDED.model_output_json,
       duration_ms = EXCLUDED.duration_ms,
-      failure_reason = EXCLUDED.failure_reason
+      failure_reason = EXCLUDED.failure_reason,
+      anchor_results = EXCLUDED.anchor_results
     RETURNING *
   `;
 
@@ -242,6 +245,7 @@ async function insertOrUpdateRunStepLog({
     modelOutputJson ? JSON.stringify(modelOutputJson) : null,
     durationMs,
     failureReason || null,
+    anchorResults ? JSON.stringify(anchorResults) : null,
   ]);
 
   return result.rows[0];
@@ -349,9 +353,10 @@ async function updateRunFinal({
 
 async function findRunById(testRunId) {
   const sql = `
-    SELECT *
-    FROM public.test_runs
-    WHERE id = $1
+    SELECT tr.*, tc.id AS "testCaseId", tc.title AS "testCaseTitle"
+    FROM public.test_runs tr
+    LEFT JOIN public.test_cases tc ON tc.id = tr.test_case_id
+    WHERE tr.id = $1
     LIMIT 1
   `;
   const result = await query(sql, [testRunId]);

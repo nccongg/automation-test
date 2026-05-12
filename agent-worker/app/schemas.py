@@ -46,6 +46,14 @@ class ProjectPayload(BaseModel):
     baseUrl: str
 
 
+class StateAnchor(BaseModel):
+    type: str
+    value: Optional[str] = None
+    required: bool = True
+    confidence: float = 1.0
+    reason: Optional[str] = None
+
+
 class ReplayStepPayload(BaseModel):
     stepNo: int
     actionName: str
@@ -55,6 +63,7 @@ class ReplayStepPayload(BaseModel):
     continueOnError: bool = False
     captureScreenshot: bool = False
     notes: Optional[str] = None
+    anchors: List[StateAnchor] = Field(default_factory=list)
 
 
 class ReplayScriptInlinePayload(BaseModel):

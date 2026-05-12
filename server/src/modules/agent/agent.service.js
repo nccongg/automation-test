@@ -154,8 +154,8 @@ async function postToWorkerRun(payload) {
 function mapRuntimeConfig(row) {
   return {
     id: row.id,
-    llmProvider: row.llm_provider,
-    llmModel: row.llm_model,
+    llmProvider: process.env.EXECUTION_LLM_PROVIDER || row.llm_provider,
+    llmModel: process.env.EXECUTION_LLM_MODEL || row.llm_model,
     maxSteps: row.max_steps,
     timeoutSeconds: row.timeout_seconds,
     useVision: row.use_vision,
@@ -518,6 +518,27 @@ async function startAgentRun({
   };
 }
 
+function substituteRedactedValues(steps, params) {
+  if (!params || !Array.isArray(steps)) return steps;
+  const inputActions = new Set(["fill", "type", "input_text", "enter_text", "input"]);
+  return steps.map((step) => {
+    if (!inputActions.has(String(step.actionName || "").toLowerCase())) return step;
+    const sno = step.stepNo ?? 0;
+    const newInput = { ...(step.actionInput || {}) };
+    let changed = false;
+    for (const [key, val] of Object.entries(newInput)) {
+      if (val === "[REDACTED]") {
+        const replacement = params[`__r${sno}_${key}`];
+        if (replacement !== undefined && replacement !== "") {
+          newInput[key] = String(replacement);
+          changed = true;
+        }
+      }
+    }
+    return changed ? { ...step, actionInput: newInput } : step;
+  });
+}
+
 async function replayAgentRun({
   testCaseId,
   testCaseVersionId = null,
@@ -605,13 +626,21 @@ async function replayAgentRun({
     },
   });
 
+  const patchedSteps = substituteRedactedValues(
+    script.script_json?.steps ?? [],
+    resolvedInput.params,
+  );
+  const workerParams = Object.fromEntries(
+    Object.entries(resolvedInput.params || {}).filter(([k]) => !k.startsWith("__r")),
+  );
+
   workerPayload.testCase.executionMode = "replay_script";
   workerPayload.testCase.replay = {
     scriptId: script.id,
     strict: true,
     allowLlmFallback: false,
-    params: resolvedInput.params || {},
-    scriptJson: script.script_json,
+    params: workerParams,
+    scriptJson: { ...script.script_json, steps: patchedSteps },
   };
   try {
     await postToWorkerRun(workerPayload);
@@ -733,6 +762,7 @@ async function handleStepCallback(payload) {
     ),
     durationMs: payload.durationMs || null,
     failureReason: payload.failureReason || null,
+    anchorResults: payload.anchorResults || null,
   });
 
   if (payload.screenshotPath) {

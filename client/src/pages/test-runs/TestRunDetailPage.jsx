@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, ShieldAlert, Sparkles, Lightbulb } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, ShieldAlert, Sparkles, Lightbulb, Link, Eye, EyeOff, ShieldCheck, Type, Hash } from "lucide-react";
 import { getTestRunDetail, analyzeTestRun } from "@/features/test-results/api/testResultsApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
@@ -53,6 +53,76 @@ const ERROR_CATEGORY_STYLE = {
   "Element Not Found":     "bg-orange-50 border-orange-200 text-orange-700",
   "Navigation Failed":     "bg-orange-50 border-orange-200 text-orange-700",
 };
+
+const ANCHOR_TYPE_META = {
+  url_contains:       { icon: Link,       label: "URL contains" },
+  url_changed:        { icon: Link,       label: "URL changed" },
+  text_visible:       { icon: Eye,        label: "Text visible" },
+  text_not_visible:   { icon: EyeOff,     label: "Text hidden" },
+  no_error_message:   { icon: ShieldCheck,label: "No errors" },
+  field_value_equals: { icon: Type,       label: "Field value" },
+};
+
+function AnchorResultsPanel({ anchorResults }) {
+  if (!anchorResults || anchorResults.length === 0) return null;
+
+  const hasFailed = anchorResults.some((a) => !a.passed && a.required);
+  const hasWarning = anchorResults.some((a) => !a.passed && !a.required);
+
+  return (
+    <div className={`mt-3 rounded-lg border px-3 py-2.5 ${
+      hasFailed
+        ? "bg-red-50 border-red-100"
+        : hasWarning
+          ? "bg-amber-50 border-amber-100"
+          : "bg-emerald-50 border-emerald-100"
+    }`}>
+      <p className={`mb-2 text-[10px] font-semibold uppercase tracking-wide ${
+        hasFailed ? "text-red-500" : hasWarning ? "text-amber-500" : "text-emerald-600"
+      }`}>
+        State Anchors
+      </p>
+      <div className="flex flex-col gap-1.5">
+        {anchorResults.map((anchor, i) => {
+          const meta = ANCHOR_TYPE_META[anchor.type] ?? { icon: Hash, label: anchor.type };
+          const Icon = meta.icon;
+          return (
+            <div key={i} className="flex items-start gap-2">
+              <span className={`mt-0.5 flex-shrink-0 rounded-full p-0.5 ${
+                anchor.passed
+                  ? "bg-emerald-100 text-emerald-600"
+                  : anchor.required
+                    ? "bg-red-100 text-red-600"
+                    : "bg-amber-100 text-amber-600"
+              }`}>
+                {anchor.passed
+                  ? <CheckCircle2 size={11} />
+                  : <XCircle size={11} />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-medium text-slate-500">
+                  <Icon size={9} className="mr-0.5 inline-block" />
+                  {meta.label}
+                  {!anchor.required && (
+                    <span className="ml-1 text-slate-400">(optional)</span>
+                  )}
+                </span>
+                {anchor.value && (
+                  <span className="ml-1.5 text-[10px] font-mono text-slate-700">
+                    "{anchor.value}"
+                  </span>
+                )}
+                {!anchor.passed && anchor.message && (
+                  <p className="mt-0.5 text-[10px] text-red-500">{anchor.message}</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function StepErrorMessage({ raw }) {
   const parsed = parseAgentError(raw);
@@ -129,6 +199,7 @@ function StepItem({ step, stepIndex, isLast }) {
             {step.extractedContent}
           </div>
         )}
+        <AnchorResultsPanel anchorResults={step.anchorResults} />
         <ScreenshotList screenshots={step.screenshots} stepNo={step.stepNo} />
       </div>
     </div>
@@ -315,11 +386,11 @@ export default function TestRunDetailPage() {
   return (
     <div className="space-y-6">
       <button
-        onClick={() => navigate(`/projects/${projectId}/test-runs`)}
+        onClick={() => navigate(-1)}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="size-4" />
-        Back to Test Runs
+        Back
       </button>
 
       {/* Header */}
@@ -328,9 +399,18 @@ export default function TestRunDetailPage() {
           <div className="flex items-center gap-3">
             {VERDICT_ICON[verdict] ?? <div className="size-5 rounded-full border-2 border-slate-300" />}
             <div>
-              <h1 className="text-lg font-semibold">
-                {run?.test_case_title || `Run #${runId}`}
-              </h1>
+              {run?.testCaseId || run?.test_case_id ? (
+                <button
+                  onClick={() => navigate(`/projects/${projectId}/test-cases/${run.testCaseId ?? run.test_case_id}`)}
+                  className="text-lg font-semibold hover:text-indigo-600 transition-colors text-left"
+                >
+                  {run?.testCaseTitle ?? run?.test_case_title ?? `Run #${runId}`}
+                </button>
+              ) : (
+                <h1 className="text-lg font-semibold">
+                  {run?.testCaseTitle ?? run?.test_case_title ?? `Run #${runId}`}
+                </h1>
+              )}
               <p className="text-sm text-muted-foreground">
                 Run #{runId}
                 {run?.created_at

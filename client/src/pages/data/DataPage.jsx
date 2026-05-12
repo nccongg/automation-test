@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Database, Plus, Trash2, Pencil, Check, X, Table2 } from "lucide-react";
+import { Database, Plus, Trash2, Pencil, Check, X, Table2, Sparkles, AlertTriangle } from "lucide-react";
 import DatasetTable from "@/features/datasets/components/DatasetTable";
 import {
   listDatasets,
@@ -8,8 +8,126 @@ import {
   createDataset,
   updateDataset,
   deleteDataset,
+  generateDatasetWithAI,
 } from "@/features/datasets/api/datasetsApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+function NewDatasetDialog({ open, onClose, projectId, onCreated }) {
+  const [name, setName] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [rowCount, setRowCount] = useState(5);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  function reset() { setName(""); setPrompt(""); setRowCount(5); setError(""); }
+
+  async function handleCreate() {
+    if (!name.trim()) return;
+    setBusy(true); setError("");
+    try {
+      let created;
+      if (prompt.trim()) {
+        const data = await generateDatasetWithAI({ projectId, prompt: prompt.trim(), rowCount });
+        created = await createDataset({ projectId, name: name.trim() });
+        created = await updateDataset({ id: created.id, projectId, name: name.trim(), rows: data.rows });
+      } else {
+        created = await createDataset({ projectId, name: name.trim() });
+      }
+      reset(); onClose(); onCreated(created);
+    } catch (e) {
+      setError(e?.message || "Failed to create dataset.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { reset(); onClose(); } }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>New Dataset</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-1">
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+              <AlertTriangle className="size-3.5 text-red-500 shrink-0" />
+              <p className="text-xs text-red-600">{error}</p>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-slate-600">Name <span className="text-red-400">*</span></label>
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !prompt.trim()) handleCreate(); }}
+              placeholder="e.g. Login scenarios"
+              disabled={busy}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 disabled:opacity-50"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+              <Sparkles className="size-3 text-violet-500" />
+              Generate with AI (optional)
+            </label>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder={`Describe the data to generate, e.g.\n"5 login scenarios: valid user, wrong password, empty fields..."`}
+              rows={3}
+              disabled={busy}
+              className="w-full resize-none rounded-lg border border-violet-200 bg-violet-50/30 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100 disabled:opacity-50"
+            />
+            {prompt.trim() && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-slate-500 shrink-0">Rows</label>
+                <input
+                  type="number" min={1} max={50}
+                  value={rowCount}
+                  onChange={(e) => setRowCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 5)))}
+                  disabled={busy}
+                  className="w-16 rounded-lg border border-slate-200 px-2 py-1 text-sm text-center outline-none focus:ring-2 focus:ring-violet-100 disabled:opacity-50"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => { reset(); onClose(); }}
+              disabled={busy}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={!name.trim() || busy}
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            >
+              {busy ? (
+                <><span className="size-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />{prompt.trim() ? "Generating…" : "Creating…"}</>
+              ) : (
+                prompt.trim() ? <><Sparkles className="size-3.5" />Generate & Create</> : "Create"
+              )}
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function DataPage() {
   const { projectId } = useOutletContext();
@@ -21,7 +139,6 @@ export default function DataPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [creatingName, setCreatingName] = useState("");
   const [showCreate, setShowCreate] = useState(false);
 
   const [editingName, setEditingName] = useState(false);
@@ -52,12 +169,7 @@ export default function DataPage() {
     }
   }
 
-  async function handleCreate() {
-    const name = creatingName.trim();
-    if (!name) return;
-    const created = await createDataset({ projectId, name });
-    setCreatingName("");
-    setShowCreate(false);
+  async function handleDatasetCreated(created) {
     const data = await listDatasets(projectId);
     setDatasets(data);
     selectDataset(created.id);
@@ -101,6 +213,13 @@ export default function DataPage() {
   }
 
   return (
+    <>
+    <NewDatasetDialog
+      open={showCreate}
+      onClose={() => setShowCreate(false)}
+      projectId={projectId}
+      onCreated={handleDatasetCreated}
+    />
     <div className="flex gap-6 h-full">
       {/* Left — dataset list */}
       <aside className="w-64 shrink-0 space-y-3">
@@ -114,23 +233,6 @@ export default function DataPage() {
             <Plus className="size-3" /> New
           </button>
         </div>
-
-        {/* Create input */}
-        {showCreate && (
-          <div className="flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50/50 px-3 py-2">
-            <input
-              autoFocus
-              type="text"
-              value={creatingName}
-              onChange={(e) => setCreatingName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setShowCreate(false); }}
-              placeholder="Dataset name…"
-              className="min-w-0 flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
-            />
-            <button type="button" onClick={handleCreate} className="text-violet-600 hover:text-violet-800"><Check className="size-3.5" /></button>
-            <button type="button" onClick={() => setShowCreate(false)} className="text-slate-400 hover:text-slate-600"><X className="size-3.5" /></button>
-          </div>
-        )}
 
         {loading ? (
           <div className="flex justify-center py-8"><LoadingSpinner size="sm" /></div>
@@ -217,5 +319,6 @@ export default function DataPage() {
         ) : null}
       </main>
     </div>
+    </>
   );
 }

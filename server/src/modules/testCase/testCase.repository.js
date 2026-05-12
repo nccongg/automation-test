@@ -75,6 +75,7 @@ async function getTestCases(userId, projectId) {
       ) step_stats ON TRUE
       WHERE ${where}
         AND tc.deleted_at IS NULL
+        AND tc.is_ai_draft = FALSE
       ORDER BY tc.updated_at DESC, tc.created_at DESC
     `,
     params
@@ -355,6 +356,7 @@ async function saveCandidatesAsTestCases({
   batchId,
   candidateIds,
   runtimeConfigId,
+  isAiDraft = false,
 }) {
   const client = await pool.connect();
 
@@ -416,9 +418,10 @@ async function saveCandidatesAsTestCases({
             goal,
             status,
             ai_model,
-            created_by
+            created_by,
+            is_ai_draft
           )
-          VALUES ($1, $2, $3, 'draft', $4, $5)
+          VALUES ($1, $2, $3, 'draft', $4, $5, $6)
           RETURNING id
         `,
         [
@@ -430,6 +433,7 @@ async function saveCandidatesAsTestCases({
             GENERATION_LLM_PROVIDER ||
             null,
           userId,
+          Boolean(isAiDraft),
         ]
       );
 
@@ -767,6 +771,45 @@ async function getExecutionScriptsByTestCaseId(testCaseId) {
   return result.rows;
 }
 
+async function commitDraftTestCase(userId, testCaseId) {
+  const result = await pool.query(
+    `
+      UPDATE test_cases tc
+      SET is_ai_draft = FALSE,
+          updated_at  = NOW()
+      FROM projects p
+      WHERE tc.id         = $1
+        AND tc.project_id = p.id
+        AND p.user_id     = $2
+        AND tc.deleted_at IS NULL
+      RETURNING
+        tc.id,
+        tc.title,
+        tc.goal,
+        tc.status,
+        tc.is_ai_draft AS "isAiDraft",
+        tc.updated_at  AS "updatedAt"
+    `,
+    [testCaseId, userId]
+  );
+  return result.rows[0] || null;
+}
+
+async function softDeleteTestCase(testCaseId, userId) {
+  const result = await pool.query(
+    `UPDATE test_cases tc
+        SET deleted_at = NOW()
+       FROM projects p
+      WHERE tc.id         = $1
+        AND tc.project_id = p.id
+        AND p.user_id     = $2
+        AND tc.deleted_at IS NULL
+     RETURNING tc.id`,
+    [testCaseId, userId]
+  );
+  return result.rows[0] || null;
+}
+
 module.exports = {
   findOwnedProjectById,
   getTestCases,
@@ -775,6 +818,8 @@ module.exports = {
   getExecutionScriptsByTestCaseId,
   createGenerationBatchWithCandidates,
   saveCandidatesAsTestCases,
+  commitDraftTestCase,
   updateTestCase,
   applyRefinement,
+  softDeleteTestCase,
 };

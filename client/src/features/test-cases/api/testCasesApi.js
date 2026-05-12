@@ -81,14 +81,26 @@ export async function saveTestCases({
   batchId,
   candidateIds,
   runtimeConfigId = null,
+  isAiDraft = false,
 }) {
   const payload = {
     projectId,
     batchId,
     candidateIds,
+    isAiDraft,
     ...(runtimeConfigId ? { runtimeConfigId } : {}),
   };
 
   const response = await apiClient.post("/test-cases/save", payload);
+  return normalizeApiPayload(response);
+}
+
+export async function commitTestCase(testCaseId) {
+  const response = await apiClient.post(`/test-cases/${testCaseId}/commit`);
+  return normalizeApiPayload(response);
+}
+
+export async function deleteTestCase(testCaseId) {
+  const response = await apiClient.delete(`/test-cases/${testCaseId}`);
   return normalizeApiPayload(response);
 }

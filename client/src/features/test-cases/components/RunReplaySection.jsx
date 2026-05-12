@@ -15,6 +15,8 @@ import {
   Layers,
   AlertTriangle,
   CheckCircle,
+  Sparkles,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import { createTestRun, replayTestRun, batchReplayTestRun, parameterizeScript } from "@/features/test-results/api/testResultsApi";
 import { listDatasets, getDataset } from "@/features/datasets/api/datasetsApi";
@@ -283,6 +291,7 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
   const [datasetPickerKey, setDatasetPickerKey] = useState(0);
   const [autoSelectDatasetId, setAutoSelectDatasetId] = useState(null);
   const [confirmBatch, setConfirmBatch] = useState(false);
+  const [genDialogOpen, setGenDialogOpen] = useState(false);
   const statusTimerRef = useRef(null);
   const pendingMappingRef = useRef(null);
 
@@ -889,15 +898,38 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
                       </div>
                     );
                   })()}
-                  <AIDatasetGenerator
-                    projectId={projectId}
-                    goal={tc.goal}
-                    scriptSteps={scriptSteps}
-                    initialRow={initialRow}
-                    existingDatasetId={datasetDetail?.id}
-                    existingDatasetName={datasetDetail?.name}
-                    onDatasetSaved={handleDatasetSaved}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setGenDialogOpen(true)}
+                    className="flex w-full items-center gap-2 rounded-xl border border-violet-200 bg-violet-50/30 px-3 py-2.5 text-left hover:bg-violet-50/60 transition-colors"
+                  >
+                    <Sparkles className="size-3.5 text-violet-500 shrink-0" />
+                    <span className="text-xs font-semibold text-violet-700">Generate dataset with AI…</span>
+                  </button>
+
+                  <Dialog open={genDialogOpen} onOpenChange={setGenDialogOpen}>
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Sparkles className="size-4 text-violet-500" />
+                          Generate Dataset with AI
+                        </DialogTitle>
+                      </DialogHeader>
+                      <AIDatasetGenerator
+                        alwaysOpen
+                        projectId={projectId}
+                        goal={tc.goal}
+                        scriptSteps={scriptSteps}
+                        initialRow={initialRow}
+                        existingDatasetId={datasetDetail?.id}
+                        existingDatasetName={datasetDetail?.name}
+                        onDatasetSaved={(dataset, mapping) => {
+                          handleDatasetSaved(dataset, mapping);
+                          setGenDialogOpen(false);
+                        }}
+                      />
+                    </DialogContent>
+                  </Dialog>
 
                   <DatasetPicker
                     key={datasetPickerKey}
