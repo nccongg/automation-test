@@ -138,3 +138,13 @@ class RunRequest(BaseModel):
     testCase: TestCasePayload
     runtimeConfig: RuntimeConfigPayload
     browserProfile: Optional[BrowserProfilePayload] = None
+
+
+class FastForwardInspectRequest(BaseModel):
+    steps: List[Dict[str, Any]]
+    targetStepIndex: int
+    params: Dict[str, Any] = Field(default_factory=dict)
+    headless: bool = True
+    browserType: str = "chromium"
+    viewport: Optional[Dict[str, int]] = None
+    executeTargetStep: bool = False

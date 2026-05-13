@@ -52,5 +52,21 @@ router.post('/callbacks/final', agentController.handleFinalCallback);
  * body: { steps: [...] }
  */
 router.patch('/execution-scripts/:id/steps', agentController.parameterizeScript);
+router.delete('/execution-scripts/:id', agentController.deleteScript);
+
+/**
+ * Fast-forward a script to targetStepIndex and return a screenshot + DOM elements.
+ * Optionally executes the target step (executeTargetStep=true).
+ * POST /api/agent/execution-scripts/:id/fast-forward-inspect
+ * body: { targetStepIndex, params?, executeTargetStep? }
+ */
+router.post('/execution-scripts/:id/fast-forward-inspect', agentController.handleFastForwardInspect);
+
+/**
+ * Fast-forward + AI-powered selector suggestion for a failing step.
+ * POST /api/agent/execution-scripts/:id/suggest-fix
+ * body: { targetStepIndex, params? }
+ */
+router.post('/execution-scripts/:id/suggest-fix', agentController.handleSuggestFix);
 
 module.exports = router;

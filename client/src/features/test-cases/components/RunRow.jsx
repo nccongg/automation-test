@@ -1,5 +1,29 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+
+const FAILURE_REASON_LABEL = {
+  element_not_found:  "Element not found",
+  timeout:            "Timed out",
+  navigation_failed:  "Navigation failed",
+  selector_invalid:   "Invalid selector",
+  assertion_mismatch: "Assertion failed",
+  value_not_set:      "Value not set",
+  unexpected_error:   "Unexpected error",
+};
+
+function buildFailureHint(run) {
+  const stepNo = run.failedStepNo ?? null;
+  const reason = run.failureReason
+    ? FAILURE_REASON_LABEL[run.failureReason] ?? run.failureReason
+    : null;
+  const msg = run.errorMessage ?? null;
+
+  if (stepNo && reason) return `↳ Failed at step ${stepNo} — ${reason}`;
+  if (stepNo && msg)    return `↳ Failed at step ${stepNo} — ${msg.slice(0, 80)}${msg.length > 80 ? "…" : ""}`;
+  if (reason)           return `↳ ${reason}`;
+  if (msg)              return `↳ ${msg.slice(0, 100)}${msg.length > 100 ? "…" : ""}`;
+  return "↳ Failed — expand to see step details";
+}
 import { ChevronDown, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
@@ -14,8 +38,17 @@ export default function RunRow({ run, projectId, index }) {
   const [expanded, setExpanded] = useState(false);
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
 
   const isLive = run.status === "queued" || run.status === "running";
+
+  useEffect(() => {
+    if (run.status !== "running" || !run.startedAt) return;
+    const tick = () => setElapsed(Math.floor((Date.now() - new Date(run.startedAt).getTime()) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [run.status, run.startedAt]);
   const stripe = VERDICT_STRIPE[run.verdict] ?? "border-l-slate-200";
   const bg = VERDICT_BG[run.verdict] ?? "";
 
@@ -68,6 +101,11 @@ export default function RunRow({ run, projectId, index }) {
                 {fmt(run.createdAt)}
                 {dur ? ` · ${dur}` : ""}
               </p>
+              {(run.verdict === "fail" || run.verdict === "error") && !expanded && (
+                <p className="mt-0.5 text-xs font-medium text-slate-500">
+                  {buildFailureHint(run)}
+                </p>
+              )}
             </div>
           </div>
 
@@ -82,8 +120,13 @@ export default function RunRow({ run, projectId, index }) {
                 </Badge>
               </div>
             ) : isLive ? (
-              <span className="flex items-center gap-1 text-blue-600 text-xs font-medium">
-                <Clock className="size-3.5 animate-pulse" /> Running
+              <span className="flex items-center gap-1.5 text-blue-600 text-xs font-medium">
+                <Clock className="size-3.5 animate-pulse" />
+                {run.status === "running" && elapsed > 0 ? (
+                  <>Running · <span className="tabular-nums text-blue-400">{elapsed >= 60 ? `${Math.floor(elapsed / 60)}m ${elapsed % 60}s` : `${elapsed}s`}</span></>
+                ) : (
+                  run.status === "queued" ? "Queued" : "Running"
+                )}
               </span>
             ) : null}
 

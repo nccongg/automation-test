@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
-import { Database, Plus, Trash2, Pencil, Check, X, Table2, Sparkles, AlertTriangle } from "lucide-react";
+import { useOutletContext, useNavigate } from "react-router-dom";
+import { Database, Plus, Trash2, Pencil, Check, X, Table2, Sparkles, AlertTriangle, Link2 } from "lucide-react";
 import DatasetTable from "@/features/datasets/components/DatasetTable";
 import {
   listDatasets,
@@ -129,8 +129,16 @@ function NewDatasetDialog({ open, onClose, projectId, onCreated }) {
   );
 }
 
+function parseSourceTestCase(description) {
+  if (!description) return null;
+  const match = description.match(/\(#(\d+)\)$/);
+  if (!match) return null;
+  return { id: match[1] };
+}
+
 export default function DataPage() {
   const { projectId } = useOutletContext();
+  const navigate = useNavigate();
 
   const [datasets, setDatasets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -258,6 +266,12 @@ export default function DataPage() {
                   <p className={`text-[10px] ${selectedId === ds.id ? "text-violet-200" : "text-slate-400"}`}>
                     {ds.rowCount} {ds.rowCount === 1 ? "row" : "rows"}
                   </p>
+                  {parseSourceTestCase(ds.description) && (
+                    <p className={`mt-0.5 flex items-center gap-0.5 text-[10px] ${selectedId === ds.id ? "text-violet-300" : "text-slate-400"}`}>
+                      <Link2 className="size-2.5 shrink-0" />
+                      <span className="truncate">From test case #{parseSourceTestCase(ds.description).id}</span>
+                    </p>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -287,28 +301,46 @@ export default function DataPage() {
         ) : detail ? (
           <div className="space-y-4">
             {/* Dataset header */}
-            <div className="flex items-center gap-3">
-              {editingName ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    autoFocus
-                    value={draftName}
-                    onChange={(e) => setDraftName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); if (e.key === "Escape") setEditingName(false); }}
-                    onBlur={handleSaveName}
-                    disabled={saving}
-                    className="text-lg font-bold text-slate-800 border-b-2 border-violet-400 bg-transparent outline-none"
-                  />
-                  <button onClick={handleSaveName} className="text-violet-600"><Check className="size-4" /></button>
-                  <button onClick={() => setEditingName(false)} className="text-slate-400"><X className="size-4" /></button>
-                </div>
-              ) : (
-                <div className="group flex items-center gap-2 cursor-pointer" onClick={() => { setDraftName(detail.name); setEditingName(true); }}>
-                  <h2 className="text-lg font-bold text-slate-800">{detail.name}</h2>
-                  <Pencil className="size-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              )}
-              {saving && <LoadingSpinner size="sm" />}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-3">
+                {editingName ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      autoFocus
+                      value={draftName}
+                      onChange={(e) => setDraftName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); if (e.key === "Escape") setEditingName(false); }}
+                      onBlur={handleSaveName}
+                      disabled={saving}
+                      className="text-lg font-bold text-slate-800 border-b-2 border-violet-400 bg-transparent outline-none"
+                    />
+                    <button onClick={handleSaveName} className="text-violet-600"><Check className="size-4" /></button>
+                    <button onClick={() => setEditingName(false)} className="text-slate-400"><X className="size-4" /></button>
+                  </div>
+                ) : (
+                  <div className="group flex items-center gap-2 cursor-pointer" onClick={() => { setDraftName(detail.name); setEditingName(true); }}>
+                    <h2 className="text-lg font-bold text-slate-800">{detail.name}</h2>
+                    <Pencil className="size-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                )}
+                {saving && <LoadingSpinner size="sm" />}
+              </div>
+
+              {(() => {
+                const source = parseSourceTestCase(detail.description);
+                if (!source) return null;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/projects/${projectId}/test-cases/${source.id}`)}
+                    className="flex items-center gap-1.5 w-fit rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+                  >
+                    <Link2 className="size-3 shrink-0" />
+                    {detail.description.replace(/\s*\(#\d+\)$/, "")}
+                    <span className="text-violet-400">→</span>
+                  </button>
+                );
+              })()}
             </div>
 
             <DatasetTable

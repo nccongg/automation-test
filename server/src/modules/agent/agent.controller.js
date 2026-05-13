@@ -174,10 +174,61 @@ async function parameterizeScript(req, res) {
   }
 }
 
+async function handleFastForwardInspect(req, res) {
+  try {
+    const scriptId = Number(req.params?.id);
+    if (!scriptId || scriptId <= 0) return res.status(400).json({ status: "error", message: "Invalid script id" });
+    const targetStepIndex = toNullableNumber(req.body?.targetStepIndex);
+    if (targetStepIndex === null || targetStepIndex < 0) {
+      return res.status(400).json({ status: "error", message: "targetStepIndex is required" });
+    }
+    const params = req.body?.params && typeof req.body.params === "object" ? req.body.params : {};
+    const executeTargetStep = Boolean(req.body?.executeTargetStep);
+    const result = await agentService.fastForwardInspect({ scriptId, targetStepIndex, params, executeTargetStep });
+    return res.json({ status: "ok", data: result });
+  } catch (error) {
+    console.error("[AgentController.handleFastForwardInspect]", error);
+    return sendError(res, error, "Fast-forward inspect failed");
+  }
+}
+
+async function handleSuggestFix(req, res) {
+  try {
+    const scriptId = Number(req.params?.id);
+    if (!scriptId || scriptId <= 0) return res.status(400).json({ status: "error", message: "Invalid script id" });
+    const targetStepIndex = toNullableNumber(req.body?.targetStepIndex);
+    if (targetStepIndex === null || targetStepIndex < 0) {
+      return res.status(400).json({ status: "error", message: "targetStepIndex is required" });
+    }
+    const params = req.body?.params && typeof req.body.params === "object" ? req.body.params : {};
+    const result = await agentService.suggestStepFix({ scriptId, targetStepIndex, params });
+    return res.json({ status: "ok", data: result });
+  } catch (error) {
+    console.error("[AgentController.handleSuggestFix]", error);
+    return sendError(res, error, "Suggest fix failed");
+  }
+}
+
+async function deleteScript(req, res) {
+  try {
+    const scriptId = Number(req.params?.id);
+    if (!scriptId || !Number.isInteger(scriptId) || scriptId <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid script id" });
+    }
+    await agentService.deleteExecutionScript({ scriptId });
+    return res.json({ success: true });
+  } catch (error) {
+    return sendError(res, error, "Failed to delete script");
+  }
+}
+
 module.exports = {
   startRun,
   replayRun,
   handleStepCallback,
   handleFinalCallback,
   parameterizeScript,
+  deleteScript,
+  handleFastForwardInspect,
+  handleSuggestFix,
 };

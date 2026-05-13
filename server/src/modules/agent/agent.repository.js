@@ -690,6 +690,17 @@ async function updateExecutionScriptSteps({ id, steps }) {
   return result.rows[0] || null;
 }
 
+async function deactivateExecutionScript(scriptId) {
+  const sql = `
+    UPDATE public.execution_scripts
+    SET status = 'inactive'
+    WHERE id = $1
+    RETURNING id
+  `;
+  const result = await query(sql, [scriptId]);
+  return result.rows[0] || null;
+}
+
 async function createTestRunBatch({ projectId, testCaseId, datasetId, executionScriptId, totalRows, triggeredBy }) {
   const sql = `
     INSERT INTO public.test_run_batches
@@ -830,6 +841,7 @@ module.exports = {
   insertExecutionScript,
 
   updateExecutionScriptSteps,
+  deactivateExecutionScript,
   extractTemplateVariables,
   findDefaultDatasetBindingForTestCase,
   findDatasetBindingForTestCase,

@@ -207,6 +207,8 @@ export default function AIDatasetGenerator({
   existingDatasetName,
   onDatasetSaved,
   alwaysOpen = false,
+  sourceTestCaseId = null,
+  sourceTestCaseTitle = null,
 }) {
   const [_open, setOpen] = useState(false);
   const open = alwaysOpen || _open;
@@ -264,11 +266,19 @@ export default function AIDatasetGenerator({
           rows: result.rows,
         });
       } else {
-        const created = await createDataset({ projectId, name: result.datasetName });
+        const autoDescription = sourceTestCaseId
+          ? `Generated from test case: ${sourceTestCaseTitle || `#${sourceTestCaseId}`} (#${sourceTestCaseId})`
+          : "";
+        const created = await createDataset({
+          projectId,
+          name: result.datasetName,
+          description: autoDescription,
+        });
         dataset = await updateDataset({
           id: created.id,
           projectId,
           name: result.datasetName,
+          description: autoDescription,
           rows: result.rows,
         });
       }

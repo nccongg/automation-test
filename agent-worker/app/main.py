@@ -16,8 +16,9 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from .runner import execute_run
-from .schemas import RunRequest, CrawlRequest
+import base64
+from .runner import execute_run, create_simple_playwright_context
+from .schemas import RunRequest, CrawlRequest, FastForwardInspectRequest
 from .crawler import SiteCrawler
 
 if sys.platform.startswith("win"):
@@ -147,6 +148,160 @@ async def serve_screenshot_by_name(file_path: str):
         raise HTTPException(status_code=400, detail="Unsupported file type")
 
     return FileResponse(str(requested), media_type=f"image/{suffix}")
+
+
+_DOM_EXTRACT_JS = """
+() => {
+    const results = [];
+    const seen = new Set();
+    const selectors = [
+        'button', 'a[href]', 'input:not([type=hidden])', 'select', 'textarea',
+        '[onclick]', '[role="button"]', '[role="link"]', '[role="checkbox"]',
+        '[role="textbox"]', '[role="combobox"]',
+    ];
+    selectors.forEach(sel => {
+        document.querySelectorAll(sel).forEach(el => {
+            try {
+                const rect = el.getBoundingClientRect();
+                if (rect.width === 0 && rect.height === 0) return;
+                const text = (
+                    el.innerText || el.value || el.placeholder ||
+                    el.getAttribute('aria-label') || el.title || ''
+                ).trim().slice(0, 80);
+                const id = el.id ? `#${el.id}` : '';
+                const cls = el.className
+                    ? '.' + [...el.classList].filter(c => c && !/^[0-9]/.test(c))[0] || ''
+                    : '';
+                const key = el.tagName + '|' + id + '|' + text;
+                if (seen.has(key)) return;
+                seen.add(key);
+                results.push({
+                    tag: el.tagName.toLowerCase(),
+                    type: el.type || null,
+                    text,
+                    selector: el.tagName.toLowerCase() + (id || cls),
+                    id: el.id || null,
+                    placeholder: el.placeholder || null,
+                    name: el.name || null,
+                    ariaLabel: el.getAttribute('aria-label') || null,
+                    title: el.title || null,
+                });
+            } catch {}
+        });
+    });
+    return results.slice(0, 50);
+}
+"""
+
+
+@app.post("/fast-forward-inspect")
+async def fast_forward_inspect(req: FastForwardInspectRequest) -> dict:
+    """
+    Fast-forward a replay script to targetStepIndex, then:
+    - If executeTargetStep=False: take a screenshot of the page BEFORE that step.
+    - If executeTargetStep=True:  also execute that step and screenshot AFTER.
+
+    Returns screenshot (base64), current URL, and interactive DOM elements.
+    Used by the Guided Mode editor for "Pick from Page" and "Fix with AI".
+    """
+    from .fast_forward import FastForwardEngine, FastForwardError
+    from .schemas import ReplayStepPayload
+    from .runner import execute_replay_step, render_template
+    from pathlib import Path
+    import tempfile
+
+    playwright = None
+    browser = None
+    context = None
+    page = None
+
+    def _coerce_step(raw: dict) -> ReplayStepPayload:
+        try:
+            return ReplayStepPayload(**raw)
+        except Exception:
+            return ReplayStepPayload(
+                stepNo=int(raw.get("stepNo", 0)),
+                actionName=str(raw.get("actionName", "unknown")),
+                actionInput=raw.get("actionInput") or {},
+            )
+
+    try:
+        playwright, browser, context = await create_simple_playwright_context(
+            headless=req.headless,
+            browser_type=req.browserType,
+            viewport=req.viewport,
+        )
+        page = await context.new_page()
+
+        steps = [_coerce_step(s) for s in req.steps]
+        engine = FastForwardEngine(page, steps, req.params)
+        await engine.fast_forward(req.targetStepIndex)
+
+        step_result = None
+        if req.executeTargetStep and req.targetStepIndex < len(steps):
+            dummy_dir = Path(tempfile.gettempdir())
+            step_result = await execute_replay_step(
+                page, steps[req.targetStepIndex], req.params, dummy_dir, dummy_dir
+            )
+
+        screenshot_bytes = await page.screenshot(full_page=False)
+        screenshot_b64 = base64.b64encode(screenshot_bytes).decode()
+
+        try:
+            interactive = await page.evaluate(_DOM_EXTRACT_JS)
+        except Exception:
+            interactive = []
+
+        result: dict = {
+            "ok": True,
+            "screenshotBase64": screenshot_b64,
+            "currentUrl": page.url,
+            "interactiveElements": interactive,
+            "errorMessage": None,
+            "failedAtIndex": None,
+        }
+        if step_result is not None:
+            result["stepResult"] = {
+                "status": step_result.status,
+                "message": step_result.message,
+                "failureReason": step_result.failure_reason,
+            }
+        return result
+
+    except FastForwardError as exc:
+        screenshot_b64 = None
+        current_url = None
+        if page is not None:
+            try:
+                screenshot_bytes = await page.screenshot(full_page=False)
+                screenshot_b64 = base64.b64encode(screenshot_bytes).decode()
+                current_url = page.url
+            except Exception:
+                pass
+        return {
+            "ok": False,
+            "screenshotBase64": screenshot_b64,
+            "currentUrl": current_url,
+            "interactiveElements": [],
+            "errorMessage": str(exc),
+            "failedAtIndex": exc.step_index,
+        }
+
+    except Exception as exc:
+        logging.exception("[fast_forward_inspect] unexpected error")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    finally:
+        try:
+            if context is not None:
+                await context.close()
+        finally:
+            try:
+                if browser is not None:
+                    await browser.close()
+            finally:
+                if playwright is not None:
+                    await playwright.stop()
 
 
 @app.post("/crawl")
