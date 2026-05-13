@@ -17,6 +17,11 @@ import {
   CheckCircle,
   Sparkles,
   X,
+  Terminal,
+  ShieldCheck,
+  Plus,
+  Trash2,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,7 +38,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import { createTestRun, replayTestRun, batchReplayTestRun, parameterizeScript } from "@/features/test-results/api/testResultsApi";
+import { createTestRun, replayTestRun, batchReplayTestRun, parameterizeScript, deleteScript } from "@/features/test-results/api/testResultsApi";
 import { listDatasets, getDataset } from "@/features/datasets/api/datasetsApi";
 import DatasetTable from "@/features/datasets/components/DatasetTable";
 import AIDatasetGenerator from "@/features/datasets/components/AIDatasetGenerator";
@@ -46,6 +51,8 @@ import {
   parseJsonObject,
 } from "../utils/testCaseUtils";
 import ScriptStepEditor from "./ScriptStepEditor";
+import ReplayScriptEditor from "./ReplayScriptEditor";
+import { saveScriptSteps } from "@/features/test-results/api/testResultsApi";
 
 const USER_INPUT_KEYS_FOR_WARN = new Set(["text", "url", "value", "contains"]);
 
@@ -263,7 +270,249 @@ function DatasetPicker({ projectId, onSelectRow, onDetailLoaded, selectedRowInde
   );
 }
 
-export default function RunReplaySection({ tc, projectId, scripts, scriptsLoading, scriptsError, onRunCreated, onScriptStepsUpdated }) {
+// ── Human-readable step label for read-only list ──────────────────────────────
+
+function labelFromSelector(selector) {
+  if (!selector) return null;
+  const m =
+    selector.match(/\[aria-label=["']?([^"'\]]+)["']?\]/i)?.[1] ||
+    selector.match(/\[title=["']?([^"'\]]+)["']?\]/i)?.[1] ||
+    selector.match(/\[data-(?:testid|qa|cy|test)=["']?([^"'\]]+)["']?\]/i)?.[1] ||
+    selector.match(/\[name=["']?([^"'\]]+)["']?\]/i)?.[1] ||
+    selector.match(/^#([a-zA-Z_-][a-zA-Z0-9_-]*)$/)?.[1];
+  return m || null;
+}
+
+function readonlyStepLabel(step) {
+  const { actionName = "", actionInput = {}, notes = "" } = step;
+  const a = actionName.toLowerCase();
+  const raw = actionInput.selector || "";
+  const t = actionInput.axName || actionInput.title || actionInput.placeholder ||
+            actionInput.nameAttr || labelFromSelector(raw) || raw || "";
+  const q = (s, n = 38) => s ? `"${String(s).slice(0, n)}${String(s).length > n ? "…" : ""}"` : null;
+  switch (a) {
+    case "navigate": case "goto": case "go_to_url": case "open_url":
+      return `Open ${q(actionInput.url || actionInput.href) || "page"}`;
+    case "click": case "tap": return `Click ${q(t) || "element"}`;
+    case "fill": case "type": case "input_text": case "enter_text": case "input": {
+      const text = actionInput.text || "";
+      if (text && t) return `Enter ${q(text)} into ${q(t)}`;
+      if (text) return `Enter ${q(text)}`;
+      if (t) return `Fill in ${q(t)}`;
+      return "Fill input";
+    }
+    case "select": case "select_option":
+      return `Select ${q(actionInput.value || actionInput.labelValue) || "option"}`;
+    case "press": case "press_key": case "keyboard_press":
+      return `Press ${actionInput.key || "key"}`;
+    case "check": return `Check ${q(t) || "element"}`;
+    case "uncheck": return `Uncheck ${q(t) || "element"}`;
+    case "assert_visible": case "assert_element_visible": case "verify_element_visible": {
+      const elem = t || actionInput.text || "";
+      return `Check ${q(elem) || "element"} is visible`;
+    }
+    case "assert_text": case "assert_text_present": case "verify_text":
+      return `Check text ${q(actionInput.text || actionInput.value || "")}`;
+    case "assert_url_contains":
+      return `Check URL contains ${q(actionInput.contains || actionInput.value || "")}`;
+    case "assert_url_changed": case "assert_url":
+      return "Check page changed";
+    case "assert_value": case "assert_input_value":
+      return `Check input value = ${q(actionInput.value || "")}`;
+    case "wait_for_selector": case "wait_for_visible":
+      return `Wait for ${q(t) || "element"} to appear`;
+    default:
+      return t ? `${actionName} ${q(t)}` : (notes || actionName);
+  }
+}
+
+function scriptTypeLabel(scriptType) {
+  if (scriptType === "strict_replay_json") return "Recorded replay script";
+  if (scriptType === "browser_use_history") return "AI agent recording";
+  return scriptType || "Replay script";
+}
+
+// ── Read-only step list ───────────────────────────────────────────────────────
+
+function ReadOnlyStepList({ steps }) {
+  if (!steps.length) return (
+    <div className="px-6 py-8 text-center">
+      <p className="text-sm text-slate-400">No steps recorded in this script.</p>
+    </div>
+  );
+  return (
+    <ol className="px-5 py-3 space-y-2">
+      {steps.map((step, i) => {
+        const isAssertion = (step.actionName || "").startsWith("assert_") || (step.actionName || "").startsWith("verify_");
+
+        return (
+          <li key={i} className="flex items-start gap-3">
+            <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+              isAssertion ? "bg-purple-100 text-purple-600" : "bg-slate-100 text-slate-500"
+            }`}>
+              {step.stepNo ?? i + 1}
+            </span>
+            <div className="pt-px">
+              <span className="text-sm text-slate-600 leading-relaxed">
+                {readonlyStepLabel(step)}
+              </span>
+              {step.notes && (
+                <p className="text-[11px] text-slate-400 mt-0.5">{step.notes}</p>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+// ── Simple dataset runner (normal mode) ──────────────────────────────────────
+
+function SimpleDatasetRunner({ projectId, selectedScriptId, tc, scriptSteps, navigate }) {
+  const [datasets, setDatasets] = useState([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [selectedId, setSelectedId] = useState("");
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState("");
+  const [genOpen, setGenOpen] = useState(false);
+
+  useEffect(() => {
+    listDatasets(projectId)
+      .then(setDatasets)
+      .catch(() => {})
+      .finally(() => setLoadingList(false));
+  }, [projectId]);
+
+  async function handleSelect(id) {
+    setSelectedId(id);
+    setDetail(null);
+    setError("");
+    if (!id) return;
+    setDetailLoading(true);
+    try {
+      setDetail(await getDataset(id, projectId));
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function handleDatasetSaved(dataset) {
+    setGenOpen(false);
+    const refreshed = await listDatasets(projectId);
+    setDatasets(refreshed);
+    handleSelect(String(dataset.id));
+  }
+
+  async function handleRun() {
+    if (!detail || !selectedScriptId) return;
+    setRunning(true);
+    setError("");
+    try {
+      const result = await batchReplayTestRun({
+        testCaseId: tc.id,
+        testCaseVersionId: getCurrentVersionId(tc),
+        runtimeConfigId: getRuntimeConfigId(tc),
+        executionScriptId: toNullablePositiveInt(selectedScriptId),
+        datasetId: detail.id,
+      });
+      if (result?.batchId) {
+        navigate(`/projects/${projectId}/test-runs/batches/${result.batchId}`);
+      }
+    } catch (e) {
+      setError(e?.message || "Failed to start batch run.");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <div className="px-5 pb-4 space-y-3">
+      {/* Generate with AI */}
+      <button
+        type="button"
+        onClick={() => setGenOpen(true)}
+        className="flex w-full items-center gap-2 rounded-xl border border-violet-200 bg-violet-50/40 px-3 py-2.5 text-left hover:bg-violet-50 transition-colors"
+      >
+        <Sparkles className="size-3.5 text-violet-500 shrink-0" />
+        <span className="text-xs font-semibold text-violet-700">Generate dataset with AI…</span>
+      </button>
+
+      <Dialog open={genOpen} onOpenChange={setGenOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="size-4 text-violet-500" />
+              Generate Dataset with AI
+            </DialogTitle>
+          </DialogHeader>
+          <AIDatasetGenerator
+            alwaysOpen
+            projectId={projectId}
+            goal={tc.goal}
+            scriptSteps={scriptSteps}
+            initialRow={null}
+            sourceTestCaseId={tc.id}
+            sourceTestCaseTitle={tc.title}
+            onDatasetSaved={handleDatasetSaved}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Or pick existing */}
+      {loadingList ? (
+        <div className="flex justify-center py-2"><LoadingSpinner size="sm" /></div>
+      ) : datasets.length > 0 && (
+        <Select value={selectedId} onValueChange={handleSelect}>
+          <SelectTrigger className="w-full bg-white">
+            <SelectValue placeholder="Or pick an existing dataset…" />
+          </SelectTrigger>
+          <SelectContent>
+            {datasets.map((ds) => (
+              <SelectItem key={ds.id} value={String(ds.id)}>
+                {ds.name}
+                <span className="ml-2 text-slate-400 text-[11px]">· {ds.rowCount} rows</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {detailLoading && <div className="flex justify-center py-2"><LoadingSpinner size="sm" /></div>}
+
+      {detail && !detailLoading && (
+        <Button onClick={handleRun} disabled={running} className="w-full bg-sky-600 hover:bg-sky-700">
+          {running ? (
+            <><LoadingSpinner size="sm" /><span className="ml-2">Starting…</span></>
+          ) : (
+            <><Layers className="mr-2 size-4" />Run all {detail.rows?.length ?? 0} rows</>
+          )}
+        </Button>
+      )}
+
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+          <AlertTriangle className="size-3.5 text-red-500 shrink-0" />
+          <span className="text-xs text-red-600 flex-1">{error}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+export default function RunReplaySection({
+  tc, projectId, scripts, scriptsLoading, scriptsError,
+  onRunCreated, onScriptStepsUpdated,
+  // New props for simplified UX
+  editStepsOpen = false,
+  onEditStepsOpenChange = null,
+  developerMode = false,
+  onDeveloperModeChange = null,
+}) {
   const navigate = useNavigate();
   const [datasetId, setDatasetId] = useState("");
   const [datasetAlias, setDatasetAlias] = useState("");
@@ -272,7 +521,7 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
   const [paramsOverrideText, setParamsOverrideText] = useState("{}");
   const [replayParamsText, setReplayParamsText] = useState("{}");
   const [selectedScriptId, setSelectedScriptId] = useState("");
-  const [showScript, setShowScript] = useState(false);
+  const [scriptEditorSteps, setScriptEditorSteps] = useState(null); // null = unmodified
   const [busyAction, setBusyAction] = useState("");
   const [actionError, setActionError] = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
@@ -292,6 +541,9 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
   const [autoSelectDatasetId, setAutoSelectDatasetId] = useState(null);
   const [confirmBatch, setConfirmBatch] = useState(false);
   const [genDialogOpen, setGenDialogOpen] = useState(false);
+  const [showNormalDataset, setShowNormalDataset] = useState(false);
+  const [confirmDeleteScriptId, setConfirmDeleteScriptId] = useState(null);
+  const [deletingScript, setDeletingScript] = useState(false);
   const statusTimerRef = useRef(null);
   const pendingMappingRef = useRef(null);
 
@@ -442,6 +694,52 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
     setVariableMapping({});
     setQuickParamMap({});
     setActiveReplayTab("steps");
+    setScriptEditorSteps(null);
+  }
+
+  async function handleDeleteScript(scriptId) {
+    setDeletingScript(true);
+    setActionError("");
+    try {
+      await deleteScript({ scriptId });
+      setConfirmDeleteScriptId(null);
+      const remaining = scripts.filter((s) => s.id !== scriptId);
+      onScriptStepsUpdated?.(scriptId, null); // signal parent to remove this script
+      if (remaining.length > 0) {
+        handleScriptChange(String(remaining[0].id));
+      } else {
+        setSelectedScriptId("");
+      }
+      setActionSuccess("Script deleted.");
+    } catch (e) {
+      setActionError(e?.message || "Failed to delete script.");
+    } finally {
+      setDeletingScript(false);
+    }
+  }
+
+  // Sync editor steps when script changes externally
+  useEffect(() => { setScriptEditorSteps(null); }, [selectedScriptId]);
+
+  // The effective steps: use editor's local edits if any, otherwise the script's stored steps
+  const editorSteps = scriptEditorSteps ?? scriptSteps;
+
+  async function handleSaveEditorSteps() {
+    if (!selectedScript || !scriptEditorSteps) return;
+    setParamSaving(true);
+    setActionError("");
+    try {
+      const result = await saveScriptSteps({ scriptId: selectedScript.id, steps: scriptEditorSteps });
+      if (result?.steps) {
+        onScriptStepsUpdated?.(selectedScript.id, result.steps);
+        setScriptEditorSteps(null);
+        setActionSuccess("Script saved.");
+      }
+    } catch (e) {
+      setActionError(e?.message || "Failed to save script.");
+    } finally {
+      setParamSaving(false);
+    }
   }
 
   function handleSelectDatasetRow(row, idx) {
@@ -645,20 +943,247 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
   }
 
   const defaultRuntimeConfigId = getRuntimeConfigId(tc);
+  const assertionCount = editorSteps.filter(s => (s.actionName||"").startsWith("assert_") || (s.actionName||"").startsWith("verify_")).length;
 
+  // ── Non-developer mode: clean, focused view ──────────────────────────────────
+  if (!developerMode) {
+    if (!scripts.length && !scriptsLoading) {
+      return (
+        <section className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 px-6 py-10 text-center">
+          <p className="text-sm text-slate-500 font-medium">No recorded script yet</p>
+          <p className="mt-1 text-xs text-slate-400">Run the test once with AI Agent to generate a replay script.</p>
+          <button type="button" onClick={() => onDeveloperModeChange?.(true)}
+            className="mt-3 flex items-center gap-1.5 mx-auto text-xs text-slate-400 hover:text-amber-600 transition-colors">
+            <Terminal className="size-3.5" />Enable developer mode for more options
+          </button>
+        </section>
+      );
+    }
+
+    return (
+      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        {/* Script metadata header */}
+        <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-3.5">
+          <div className="flex flex-1 items-center gap-2.5 min-w-0">
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50">
+              <RotateCcw className="size-3.5 text-indigo-600" />
+            </div>
+            <div className="min-w-0">
+              {scriptsLoading ? (
+                <span className="text-sm text-slate-400">Loading script…</span>
+              ) : selectedScript ? (
+                <>
+                  <span className="text-sm font-medium text-slate-700">
+                    {scriptTypeLabel(selectedScript.scriptType || selectedScript.script_type)}
+                  </span>
+                  <span className="ml-2 text-xs text-slate-400">
+                    {editorSteps.length} step{editorSteps.length !== 1 ? "s" : ""}
+                    {assertionCount > 0 && ` · ${assertionCount} check${assertionCount !== 1 ? "s" : ""}`}
+                    {scriptEditorSteps && " · unsaved changes"}
+                  </span>
+                </>
+              ) : (
+                <span className="text-sm text-slate-400">No script selected</span>
+              )}
+            </div>
+          </div>
+          {/* Right controls: selector + delete */}
+          <div className="flex shrink-0 items-center gap-2">
+            {scripts.length > 1 && (
+              <Select value={selectedScriptId} onValueChange={handleScriptChange}>
+                <SelectTrigger className="w-44 text-xs bg-white h-8">
+                  <SelectValue placeholder="Select script" />
+                </SelectTrigger>
+                <SelectContent>
+                  {scripts.map(s => (
+                    <SelectItem key={s.id} value={String(s.id)} className="text-xs">
+                      #{s.id} · {scriptTypeLabel(s.scriptType || s.script_type)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {selectedScript && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteScriptId(
+                    confirmDeleteScriptId === selectedScript.id ? null : selectedScript.id
+                  )}
+                  className={`rounded-lg p-1.5 transition-colors ${
+                    confirmDeleteScriptId === selectedScript.id
+                      ? "bg-red-50 text-red-400"
+                      : "text-slate-300 hover:bg-red-50 hover:text-red-400"
+                  }`}
+                  title="Delete this script"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+                {confirmDeleteScriptId === selectedScript.id && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setConfirmDeleteScriptId(null)}
+                    />
+                    <div className="absolute right-0 top-full mt-1.5 z-20 w-44 rounded-xl border border-red-200 bg-white shadow-lg p-3 space-y-2.5">
+                      <p className="text-xs font-medium text-slate-700">Delete this script?</p>
+                      <p className="text-[11px] text-slate-400">This cannot be undone.</p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteScript(selectedScript.id)}
+                          disabled={deletingScript}
+                          className="flex-1 rounded-lg bg-red-500 px-2 py-1.5 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+                        >
+                          {deletingScript ? "Deleting…" : "Delete"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteScriptId(null)}
+                          className="flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Unsaved changes warning */}
+        {scriptEditorSteps && (
+          <div className="flex items-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-2">
+            <AlertTriangle className="size-3.5 shrink-0 text-amber-500" />
+            <span className="flex-1 text-xs text-amber-700">Unsaved changes — save before replaying.</span>
+          </div>
+        )}
+
+        {/* Steps: read-only list OR editor */}
+        {editStepsOpen && selectedScript ? (
+          <div className="px-5 py-4">
+            <ReplayScriptEditor
+              scriptId={selectedScript.id}
+              steps={editorSteps}
+              onStepsChange={setScriptEditorSteps}
+              onSave={scriptEditorSteps ? handleSaveEditorSteps : undefined}
+              saving={paramSaving}
+              params={replayParams}
+              developerMode={false}
+            />
+          </div>
+        ) : (
+          <ReadOnlyStepList steps={editorSteps} />
+        )}
+
+        {/* Run with dataset */}
+        {selectedScript && (
+          <div className="border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setShowNormalDataset((o) => !o)}
+              className={`flex w-full items-center gap-2 px-5 py-3 text-left text-xs font-medium transition-colors ${
+                showNormalDataset
+                  ? "bg-sky-50 text-sky-700"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <Database className={`size-3.5 ${showNormalDataset ? "text-sky-500" : "text-slate-400"}`} />
+              Run with dataset
+              {showNormalDataset
+                ? <ChevronDown className="size-3 ml-auto text-sky-400" />
+                : <ChevronRight className="size-3 ml-auto text-slate-300" />}
+            </button>
+            {showNormalDataset && (
+              <SimpleDatasetRunner
+                projectId={projectId}
+                selectedScriptId={selectedScriptId}
+                tc={tc}
+                scriptSteps={scriptSteps}
+                navigate={navigate}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
+          {editStepsOpen ? (
+            <button
+              type="button"
+              onClick={() => onEditStepsOpenChange?.(false)}
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors"
+            >
+              <Check className="size-3.5" />
+              Done editing
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onEditStepsOpenChange?.(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-dashed border-purple-200 px-3 py-1.5 text-xs font-medium text-purple-500 hover:border-purple-300 hover:bg-purple-50 transition-colors"
+            >
+              <ShieldCheck className="size-3.5" />
+              Add check
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onDeveloperModeChange?.(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 transition-colors"
+          >
+            <Terminal className="size-3.5" />
+            Developer mode
+          </button>
+        </div>
+
+        {/* Status messages */}
+        {(actionError || actionSuccess) && (
+          <div className="px-5 pb-3 space-y-1.5">
+            {actionError && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5">
+                <AlertTriangle className="size-3.5 text-red-500 shrink-0" />
+                <span className="text-sm text-red-600 flex-1">{actionError}</span>
+                <button onClick={() => setActionError("")} className="text-red-300 hover:text-red-500 text-sm">✕</button>
+              </div>
+            )}
+            {actionSuccess && (
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5">
+                <CheckCircle className="size-3.5 text-emerald-500 shrink-0" />
+                <span className="text-sm text-emerald-700 flex-1">{actionSuccess}</span>
+                <button onClick={() => setActionSuccess("")} className="text-emerald-300 hover:text-emerald-500 text-sm">✕</button>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  // ── Developer mode: full existing UI ─────────────────────────────────────────
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-100 bg-slate-50/60">
-        <PlayCircle className="size-4 text-sky-600" />
-        <h2 className="text-sm font-semibold text-slate-700">Run / Replay</h2>
+    <section className="rounded-2xl border border-amber-200 bg-white shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-b border-amber-100 bg-amber-50/60">
+        <div className="flex items-center gap-2">
+          <Terminal className="size-4 text-amber-600" />
+          <h2 className="text-sm font-semibold text-amber-800">Developer Mode</h2>
+          <span className="text-[10px] text-amber-500">Advanced replay controls are visible</span>
+        </div>
+        <button type="button" onClick={() => onDeveloperModeChange?.(false)}
+          className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs text-amber-600 hover:bg-amber-100 transition-colors">
+          <X className="size-3.5" />Exit
+        </button>
       </div>
 
       <div className="divide-y divide-slate-100">
-        {/* ── New Run ─────────────────────────────────────────── */}
+        {/* ── Run with AI Agent ────────────────────────────────── */}
         <div className="px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
             <Play className="size-3.5 text-emerald-600" />
-            <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">New Run</h3>
+            <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Run with AI Agent</h3>
           </div>
 
           {goalVars.length > 0 && (
@@ -694,7 +1219,7 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
           </div>
         </div>
 
-        {/* ── Replay ──────────────────────────────────────────── */}
+        {/* ── Replay Script ───────────────────────────────────── */}
         <div className="px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
             <RotateCcw className="size-3.5 text-violet-600" />
@@ -739,33 +1264,40 @@ export default function RunReplaySection({ tc, projectId, scripts, scriptsLoadin
             {selectedScript && (
               <button
                 type="button"
-                onClick={() => setShowScript((s) => !s)}
+                onClick={() => onEditStepsOpenChange?.(!editStepsOpen)}
                 className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                  showScript
+                  editStepsOpen
                     ? "border-violet-300 bg-violet-50 text-violet-700"
                     : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
                 }`}
               >
-                {showScript ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                {showScript ? "Hide script" : "View script"}
+                {editStepsOpen ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                {editStepsOpen ? "Hide editor" : "Edit script"}
+                {scriptEditorSteps && (
+                  <span className="rounded-full bg-amber-400 size-1.5 shrink-0" title="Unsaved changes" />
+                )}
               </button>
             )}
           </div>
 
-          {/* Script JSON viewer */}
-          {showScript && selectedScript && (
-            <div className="mb-4 rounded-xl border border-violet-200 bg-violet-50/40 overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-violet-100">
-                <span className="text-[10px] font-semibold text-violet-600 uppercase tracking-wide">
-                  Script JSON — #{selectedScript.id}
-                </span>
-                <span className="text-[10px] text-violet-400">
-                  {selectedScript.scriptType || selectedScript.script_type} · {scriptSteps.length} steps
-                </span>
-              </div>
-              <pre className="overflow-auto px-4 py-3 text-[11px] text-slate-600 font-mono max-h-72 leading-relaxed">
-                {JSON.stringify(selectedScript.scriptJson, null, 2)}
-              </pre>
+          {/* Script editor — shown when "Edit script" is toggled (dev mode) */}
+          {editStepsOpen && selectedScript && (
+            <div className="mb-4">
+              {scriptEditorSteps && (
+                <div className="mb-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                  <AlertTriangle className="size-3.5 shrink-0 text-amber-500" />
+                  <span className="flex-1 text-xs text-amber-700">Unsaved changes — click Save inside the editor or they will be lost.</span>
+                </div>
+              )}
+              <ReplayScriptEditor
+                scriptId={selectedScript.id}
+                steps={editorSteps}
+                onStepsChange={setScriptEditorSteps}
+                onSave={scriptEditorSteps ? handleSaveEditorSteps : undefined}
+                saving={paramSaving}
+                params={replayParams}
+                developerMode={developerMode}
+              />
             </div>
           )}
 

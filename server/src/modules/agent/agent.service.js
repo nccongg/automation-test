@@ -552,16 +552,21 @@ async function replayAgentRun({
   params = {},
   triggeredBy = null,
 }) {
+  const script =
+    await agentRepository.findExecutionScriptById(executionScriptId);
+  if (!script) throw new Error("Execution script not found");
+
+  const resolvedVersionId =
+    script.test_case_version_id ?? testCaseVersionId ?? null;
+
   const bundle = await agentRepository.findTestCaseBundle(
     testCaseId,
-    testCaseVersionId,
+    resolvedVersionId,
   );
   if (!bundle) {
     throw new Error("Test case or test case version not found");
   }
 
-  const script =
-    await agentRepository.findExecutionScriptById(executionScriptId);
   assertExecutionScriptMatchesTestCase(script, bundle);
 
   const resolvedRuntimeConfigId = runtimeConfigId || bundle.runtime_config_id;
@@ -672,10 +677,17 @@ async function startBatchReplayRun({
   variableMapping = null,
   triggeredBy = null,
 }) {
-  const bundle = await agentRepository.findTestCaseBundle(testCaseId, testCaseVersionId);
+  const script = await agentRepository.findExecutionScriptById(executionScriptId);
+  if (!script) throw new Error("Execution script not found");
+
+  // Use the script's own version first — client-provided version may point to a newer
+  // version that doesn't match the script, causing a false mismatch error.
+  const resolvedVersionId =
+    script.test_case_version_id ?? testCaseVersionId ?? null;
+
+  const bundle = await agentRepository.findTestCaseBundle(testCaseId, resolvedVersionId);
   if (!bundle) throw new Error("Test case or test case version not found");
 
-  const script = await agentRepository.findExecutionScriptById(executionScriptId);
   assertExecutionScriptMatchesTestCase(script, bundle);
 
   const dataset = await agentRepository.findDatasetById(datasetId);
@@ -854,6 +866,131 @@ async function startWorkerRun(payload) {
   return postToWorkerRun(payload);
 }
 
+async function postToWorkerInspect(payload) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
+  try {
+    const response = await fetch(`${AGENT_WORKER_BASE_URL}/fast-forward-inspect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Worker /fast-forward-inspect failed: ${response.status} ${text}`);
+    }
+    return response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fastForwardInspect({ scriptId, targetStepIndex, params = {}, executeTargetStep = false }) {
+  const script = await agentRepository.findExecutionScriptById(scriptId);
+  if (!script) throw { status: 404, message: "Script not found" };
+
+  const steps = script.script_json?.steps ?? [];
+  if (targetStepIndex < 0 || targetStepIndex > steps.length) {
+    throw { status: 400, message: `targetStepIndex ${targetStepIndex} out of range [0, ${steps.length}]` };
+  }
+
+  return postToWorkerInspect({ steps, targetStepIndex, params, executeTargetStep });
+}
+
+async function suggestStepFix({ scriptId, targetStepIndex, params = {} }) {
+  const script = await agentRepository.findExecutionScriptById(scriptId);
+  if (!script) throw { status: 404, message: "Script not found" };
+
+  const steps = script.script_json?.steps ?? [];
+  const failingStep = steps[targetStepIndex];
+  if (!failingStep) throw { status: 400, message: `No step at index ${targetStepIndex}` };
+
+  const inspectResult = await postToWorkerInspect({ steps, targetStepIndex, params, executeTargetStep: false });
+
+  const elementsText = (inspectResult.interactiveElements || [])
+    .slice(0, 30)
+    .map((el, i) => {
+      const attrs = [
+        el.id ? `id="${el.id}"` : null,
+        el.name ? `name="${el.name}"` : null,
+        el.placeholder ? `placeholder="${el.placeholder}"` : null,
+        el.ariaLabel ? `aria-label="${el.ariaLabel}"` : null,
+        el.title ? `title="${el.title}"` : null,
+        el.type ? `type="${el.type}"` : null,
+      ].filter(Boolean).join(" ");
+      return `${i + 1}. <${el.tag}${attrs ? " " + attrs : ""}> "${el.text || ""}"`;
+    })
+    .join("\n");
+
+  const llmService = require("../llm/llm.service");
+  const messages = [
+    {
+      role: "system",
+      content: `You are a Playwright test repair assistant. Given a failing automation step and the interactive elements visible on the page, suggest a corrected actionInput.
+
+Return ONLY a JSON object — no explanation, no markdown:
+{
+  "actionInput": { corrected locator/value fields },
+  "reasoning": "one sentence explaining why",
+  "confidence": 0.0-1.0
+}
+
+Locator preference order (use the most stable available):
+1. placeholder — for input fields
+2. axName / ariaLabel — for buttons, links
+3. nameAttr / name — for form controls
+4. title — for elements with explicit titles
+5. selector (CSS) — last resort`,
+    },
+    {
+      role: "user",
+      content: `Current URL: ${inspectResult.currentUrl || "unknown"}
+
+Failing step:
+  actionName: ${failingStep.actionName}
+  actionInput: ${JSON.stringify(failingStep.actionInput, null, 2)}
+
+Interactive elements on the page right now:
+${elementsText || "(none found — page may not have loaded)"}
+
+Suggest a corrected actionInput for the failing step.`,
+    },
+  ];
+
+  let suggestion = { actionInput: null, reasoning: "LLM unavailable", confidence: 0 };
+  try {
+    const rawText = await llmService.generateFromLLM(messages, {
+      provider: process.env.GEMINI_API_KEY ? "gemini" : undefined,
+      model: process.env.GEMINI_API_KEY ? "gemini-2.0-flash" : undefined,
+      maxOutputTokens: 512,
+      temperature: 0.1,
+    });
+    const match = rawText.match(/\{[\s\S]*\}/);
+    if (match) {
+      const parsed = JSON.parse(match[0]);
+      suggestion = {
+        actionInput: parsed.actionInput || null,
+        reasoning: parsed.reasoning || "",
+        confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
+      };
+    }
+  } catch (err) {
+    console.error("[suggestStepFix] LLM call failed:", err.message);
+    suggestion.reasoning = `AI unavailable: ${err.message}`;
+  }
+
+  return {
+    screenshotBase64: inspectResult.screenshotBase64,
+    currentUrl: inspectResult.currentUrl,
+    interactiveElements: inspectResult.interactiveElements || [],
+    failingStep: deepSanitize(failingStep),
+    suggestion,
+    inspectOk: inspectResult.ok,
+    inspectError: inspectResult.errorMessage || null,
+  };
+}
+
 const VALID_VAR_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 async function parameterizeExecutionScript({ scriptId, steps, userId }) {
@@ -880,11 +1017,22 @@ async function parameterizeExecutionScript({ scriptId, steps, userId }) {
   };
 }
 
+async function deleteExecutionScript({ scriptId }) {
+  const script = await agentRepository.findExecutionScriptById(scriptId);
+  if (!script) throw { status: 404, message: "Execution script not found" };
+  const deleted = await agentRepository.deactivateExecutionScript(scriptId);
+  if (!deleted) throw { status: 404, message: "Execution script not found" };
+  return { id: deleted.id };
+}
+
 module.exports = {
   startAgentRun,
   replayAgentRun,
   startBatchReplayRun,
   parameterizeExecutionScript,
+  deleteExecutionScript,
+  fastForwardInspect,
+  suggestStepFix,
   handleStepCallback,
   handleFinalCallback,
   startWorkerRun,

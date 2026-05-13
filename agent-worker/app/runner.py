@@ -1822,6 +1822,25 @@ async def execute_replay_run(run_req: RunRequest) -> None:
                 if playwright is not None:
                     await playwright.stop()
 
+async def create_simple_playwright_context(
+    headless: bool = True,
+    browser_type: str = "chromium",
+    viewport: Optional[Dict[str, int]] = None,
+) -> Tuple[Any, Any, Any]:
+    """Minimal Playwright context for fast-forward-inspect; no RunRequest needed."""
+    if async_playwright is None:
+        raise RuntimeError("playwright is not installed in this environment")
+    playwright = await async_playwright().start()
+    launcher = getattr(playwright, browser_type.lower(), None)
+    if launcher is None:
+        await playwright.stop()
+        raise ValueError(f"Unsupported browserType: {browser_type}")
+    browser = await launcher.launch(headless=headless)
+    vp = viewport or {"width": 1280, "height": 720}
+    context = await browser.new_context(viewport=vp)
+    return playwright, browser, context
+
+
 async def execute_run(run_req: RunRequest) -> None:
     if run_req.testCase.executionMode == "replay_script":
         await execute_replay_run(run_req)

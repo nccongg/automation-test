@@ -647,10 +647,21 @@ async function getRunsByTestCaseId(testCaseId, limit = 20) {
         tr.test_case_id       AS "testCaseId",
         tr.status,
         tr.verdict,
+        tr.error_message      AS "errorMessage",
         tr.started_at         AS "startedAt",
         tr.finished_at        AS "finishedAt",
-        tr.created_at         AS "createdAt"
+        tr.created_at         AS "createdAt",
+        fs.step_no            AS "failedStepNo",
+        fs.failure_reason     AS "failureReason"
       FROM public.test_runs tr
+      LEFT JOIN LATERAL (
+        SELECT rsl.step_no, rsl.failure_reason
+        FROM public.run_step_logs rsl
+        WHERE rsl.test_run_id = tr.id
+          AND rsl.status IN ('failed', 'error')
+        ORDER BY rsl.step_no ASC
+        LIMIT 1
+      ) fs ON true
       WHERE tr.test_case_id = $1
       ORDER BY COALESCE(tr.started_at, tr.created_at) DESC
       LIMIT $2

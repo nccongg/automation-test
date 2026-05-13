@@ -270,6 +270,11 @@ export async function parameterizeScript({ scriptId, steps }) {
   return normalizeApiPayload(response);
 }
 
+export async function deleteScript({ scriptId }) {
+  const response = await apiClient.delete(`/agent/execution-scripts/${scriptId}`);
+  return normalizeApiPayload(response);
+}
+
 export async function batchReplayTestRun({
   testCaseId,
   testCaseVersionId = null,
@@ -324,5 +329,27 @@ export async function generateTestCase(promptText) {
     promptText,
   });
 
+  return normalizeApiPayload(response);
+}
+
+export async function fastForwardInspect({ scriptId, targetStepIndex, params = {}, executeTargetStep = false }) {
+  const response = await apiClient.post(`/agent/execution-scripts/${scriptId}/fast-forward-inspect`, {
+    targetStepIndex,
+    params,
+    executeTargetStep,
+  });
+  return normalizeApiPayload(response);
+}
+
+export async function suggestStepFix({ scriptId, targetStepIndex, params = {} }) {
+  const response = await apiClient.post(`/agent/execution-scripts/${scriptId}/suggest-fix`, {
+    targetStepIndex,
+    params,
+  });
+  return normalizeApiPayload(response);
+}
+
+export async function saveScriptSteps({ scriptId, steps }) {
+  const response = await apiClient.patch(`/agent/execution-scripts/${scriptId}/steps`, { steps });
   return normalizeApiPayload(response);
 }
