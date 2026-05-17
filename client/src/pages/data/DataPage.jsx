@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useOutletContext, useNavigate, useSearchParams } from "react-router-dom";
 import { Database, Plus, Trash2, Pencil, Check, X, Table2, Sparkles, AlertTriangle, Link2 } from "lucide-react";
 import DatasetTable from "@/features/datasets/components/DatasetTable";
 import {
-  listDatasets,
   getDataset,
   createDataset,
   updateDataset,
@@ -11,6 +10,7 @@ import {
   generateDatasetWithAI,
 } from "@/features/datasets/api/datasetsApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import PageHeader from "@/shared/components/common/PageHeader";
 import {
   Dialog,
   DialogContent,
@@ -137,13 +137,13 @@ function parseSourceTestCase(description) {
 }
 
 export default function DataPage() {
-  const { projectId } = useOutletContext();
+  const { projectId, onDatasetsUpdated } = useOutletContext();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [datasets, setDatasets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState(null);
-  const [detail, setDetail] = useState(null); // { id, name, rows }
+  const selectedId = searchParams.get("datasetId");
+
+  const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -154,33 +154,37 @@ export default function DataPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    listDatasets(projectId)
-      .then((data) => { if (!cancelled) setDatasets(data); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [projectId]);
 
-  async function selectDataset(id) {
-    if (id === selectedId) return;
-    setSelectedId(id);
-    setDetail(null);
-    setEditingName(false);
-    setDetailLoading(true);
-    try {
-      const d = await getDataset(id, projectId);
-      setDetail(d);
-      setDraftName(d.name);
-    } finally {
-      setDetailLoading(false);
+    async function loadDetail() {
+      if (!selectedId) {
+        setDetail(null);
+        setEditingName(false);
+        return;
+      }
+
+      setDetail(null);
+      setEditingName(false);
+      setDetailLoading(true);
+
+      try {
+        const d = await getDataset(selectedId, projectId);
+        if (!cancelled) {
+          setDetail(d);
+          setDraftName(d.name);
+        }
+      } finally {
+        if (!cancelled) setDetailLoading(false);
+      }
     }
-  }
+
+    loadDetail();
+
+    return () => { cancelled = true; };
+  }, [selectedId, projectId]);
 
   async function handleDatasetCreated(created) {
-    const data = await listDatasets(projectId);
-    setDatasets(data);
-    selectDataset(created.id);
+    onDatasetsUpdated?.();
+    setSearchParams({ datasetId: String(created.id) });
   }
 
   async function handleSaveRows(rows) {
@@ -189,9 +193,7 @@ export default function DataPage() {
     try {
       const updated = await updateDataset({ id: detail.id, projectId, rows });
       setDetail((prev) => ({ ...prev, rows: updated.rows }));
-      setDatasets((prev) =>
-        prev.map((d) => d.id === detail.id ? { ...d, rowCount: updated.rows.length } : d),
-      );
+      onDatasetsUpdated?.();
     } finally {
       setSaving(false);
     }
@@ -206,125 +208,94 @@ export default function DataPage() {
     try {
       const updated = await updateDataset({ id: detail.id, projectId, name: draftName.trim(), rows: detail.rows });
       setDetail((prev) => ({ ...prev, name: updated.name }));
-      setDatasets((prev) => prev.map((d) => d.id === detail.id ? { ...d, name: updated.name } : d));
+      onDatasetsUpdated?.();
     } finally {
       setSaving(false);
       setEditingName(false);
     }
   }
 
-  async function handleDelete(id) {
-    await deleteDataset(id, projectId);
-    if (selectedId === id) { setSelectedId(null); setDetail(null); }
-    const data = await listDatasets(projectId);
-    setDatasets(data);
+  async function handleDeleteCurrent() {
+    if (!detail) return;
+    if (!window.confirm("Delete this dataset?")) return;
+
+    await deleteDataset(detail.id, projectId);
+    setDetail(null);
+    setSearchParams({});
+    onDatasetsUpdated?.();
   }
 
   return (
     <>
-    <NewDatasetDialog
-      open={showCreate}
-      onClose={() => setShowCreate(false)}
-      projectId={projectId}
-      onCreated={handleDatasetCreated}
-    />
-    <div className="flex gap-6 h-full">
-      {/* Left — dataset list */}
-      <aside className="w-64 shrink-0 space-y-3">
-        <div className="flex items-center justify-between">
-          <h1 className="text-sm font-semibold text-slate-700">Data</h1>
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-[11px] font-medium text-violet-700 hover:bg-violet-100 transition-colors"
-          >
-            <Plus className="size-3" /> New
-          </button>
-        </div>
+      <NewDatasetDialog
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        projectId={projectId}
+        onCreated={handleDatasetCreated}
+      />
 
-        {loading ? (
-          <div className="flex justify-center py-8"><LoadingSpinner size="sm" /></div>
-        ) : datasets.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-200 py-8 text-center">
-            <Database className="size-6 text-slate-300 mx-auto mb-2" />
-            <p className="text-xs text-slate-400">No datasets yet</p>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {datasets.map((ds) => (
-              <div
-                key={ds.id}
-                onClick={() => selectDataset(ds.id)}
-                className={`group flex cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 transition-colors ${
-                  selectedId === ds.id
-                    ? "bg-violet-600 text-white"
-                    : "hover:bg-slate-100 text-slate-700"
-                }`}
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{ds.name}</p>
-                  <p className={`text-[10px] ${selectedId === ds.id ? "text-violet-200" : "text-slate-400"}`}>
-                    {ds.rowCount} {ds.rowCount === 1 ? "row" : "rows"}
-                  </p>
-                  {parseSourceTestCase(ds.description) && (
-                    <p className={`mt-0.5 flex items-center gap-0.5 text-[10px] ${selectedId === ds.id ? "text-violet-300" : "text-slate-400"}`}>
-                      <Link2 className="size-2.5 shrink-0" />
-                      <span className="truncate">From test case #{parseSourceTestCase(ds.description).id}</span>
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); handleDelete(ds.id); }}
-                  className={`shrink-0 rounded p-1 transition-colors opacity-0 group-hover:opacity-100 ${
-                    selectedId === ds.id ? "hover:bg-violet-500 text-violet-200" : "hover:bg-red-50 text-slate-400 hover:text-red-500"
-                  }`}
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </aside>
+      <div className="space-y-6">
+        <PageHeader
+          title="Data"
+          description="Create and manage datasets for test case variables"
+          action={
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+            >
+              <Plus className="size-4" />
+              New Dataset
+            </button>
+          }
+        />
 
-      {/* Right — table */}
-      <main className="min-w-0 flex-1">
         {!selectedId ? (
           <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60">
             <Table2 className="size-8 text-slate-300 mb-3" />
-            <p className="text-sm font-medium text-slate-400">Select a dataset to view and edit</p>
+            <p className="text-sm font-medium text-slate-400">Select a dataset from the sidebar to view and edit</p>
             <p className="text-xs text-slate-300 mt-1">Or create a new one</p>
           </div>
         ) : detailLoading ? (
           <div className="flex h-64 items-center justify-center"><LoadingSpinner size="lg" /></div>
         ) : detail ? (
           <div className="space-y-4">
-            {/* Dataset header */}
             <div className="space-y-1.5">
-              <div className="flex items-center gap-3">
-                {editingName ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      autoFocus
-                      value={draftName}
-                      onChange={(e) => setDraftName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); if (e.key === "Escape") setEditingName(false); }}
-                      onBlur={handleSaveName}
-                      disabled={saving}
-                      className="text-lg font-bold text-slate-800 border-b-2 border-violet-400 bg-transparent outline-none"
-                    />
-                    <button onClick={handleSaveName} className="text-violet-600"><Check className="size-4" /></button>
-                    <button onClick={() => setEditingName(false)} className="text-slate-400"><X className="size-4" /></button>
-                  </div>
-                ) : (
-                  <div className="group flex items-center gap-2 cursor-pointer" onClick={() => { setDraftName(detail.name); setEditingName(true); }}>
-                    <h2 className="text-lg font-bold text-slate-800">{detail.name}</h2>
-                    <Pencil className="size-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                )}
-                {saving && <LoadingSpinner size="sm" />}
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  {editingName ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        value={draftName}
+                        onChange={(e) => setDraftName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); if (e.key === "Escape") setEditingName(false); }}
+                        onBlur={handleSaveName}
+                        disabled={saving}
+                        className="text-lg font-bold text-slate-800 border-b-2 border-violet-400 bg-transparent outline-none"
+                      />
+                      <button onClick={handleSaveName} className="text-violet-600"><Check className="size-4" /></button>
+                      <button onClick={() => setEditingName(false)} className="text-slate-400"><X className="size-4" /></button>
+                    </div>
+                  ) : (
+                    <div className="group flex items-center gap-2 cursor-pointer" onClick={() => { setDraftName(detail.name); setEditingName(true); }}>
+                      <h2 className="text-lg font-bold text-slate-800 truncate">{detail.name}</h2>
+                      <Pencil className="size-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleDeleteCurrent}
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-red-100 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                >
+                  <Trash2 className="size-3.5" />
+                  Delete
+                </button>
               </div>
+
+              {saving && <LoadingSpinner size="sm" />}
 
               {(() => {
                 const source = parseSourceTestCase(detail.description);
@@ -349,8 +320,7 @@ export default function DataPage() {
             />
           </div>
         ) : null}
-      </main>
-    </div>
+      </div>
     </>
   );
 }

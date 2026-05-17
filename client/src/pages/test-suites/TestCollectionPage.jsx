@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { Plus, FolderOpen, ChevronRight, Layers, Trash2 } from "lucide-react";
+import { useOutletContext, useParams } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { useTestSheets } from "@/features/test-collection/hooks/useTestSheets";
-import { createTestSheet, deleteTestSheet } from "@/features/test-collection/api/testSheetApi";
+import { createTestSheet } from "@/features/test-collection/api/testSheetApi";
 import PageHeader from "@/shared/components/common/PageHeader";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
-import EmptyState from "@/shared/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -84,21 +83,13 @@ function CreateSuiteDialog({ open, onClose, onCreated, projectId }) {
 
 export default function TestSuitesPage() {
   const { projectId } = useParams();
-  const navigate = useNavigate();
-  const { sheets, loading, error, refetch } = useTestSheets(projectId);
+  const { onSuitesUpdated } = useOutletContext();
+  const { loading, error, refetch } = useTestSheets(projectId);
   const [showCreate, setShowCreate] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
 
-  async function handleDelete(e, sheetId) {
-    e.stopPropagation();
-    if (!window.confirm("Delete this test suite?")) return;
-    try {
-      setDeletingId(sheetId);
-      await deleteTestSheet(sheetId);
-      refetch();
-    } finally {
-      setDeletingId(null);
-    }
+  function handleCreated(sheet) {
+    refetch();
+    onSuitesUpdated?.();
   }
 
   if (loading) {
@@ -126,59 +117,10 @@ export default function TestSuitesPage() {
         }
       />
 
-      {sheets.length === 0 ? (
-        <EmptyState
-          title="No Test Suites"
-          description="Create a suite to group and run test cases together in order"
-        />
-      ) : (
-        <div className="rounded-xl border bg-white divide-y">
-          {sheets.map((sheet) => (
-            <div
-              key={sheet.id}
-              className="group flex items-center justify-between gap-4 p-4 hover:bg-slate-50 cursor-pointer"
-              onClick={() =>
-                navigate(`/projects/${projectId}/suites/${sheet.id}`)
-              }
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                  <FolderOpen className="size-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold truncate">{sheet.name}</p>
-                  {sheet.description && (
-                    <p className="text-sm text-muted-foreground truncate">
-                      {sheet.description}
-                    </p>
-                  )}
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    <Layers className="size-3" />
-                    <span>{sheet.itemCount ?? 0} test case{sheet.itemCount !== 1 ? "s" : ""}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  className="rounded-lg p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 transition-all"
-                  onClick={(e) => handleDelete(e, sheet.id)}
-                  disabled={deletingId === sheet.id}
-                  title="Delete sheet"
-                >
-                  <Trash2 className="size-4" />
-                </button>
-                <ChevronRight className="size-4 text-muted-foreground" />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
       <CreateSuiteDialog
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        onCreated={refetch}
+        onCreated={handleCreated}
         projectId={projectId}
       />
     </div>

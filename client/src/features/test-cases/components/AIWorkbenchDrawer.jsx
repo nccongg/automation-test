@@ -64,8 +64,6 @@ function CandidateCard({ candidate, state, batchId, projectId, onUpdate, onSaved
     runPhase, runId, runVerdict, runError,
   } = state;
 
-  // ── Edit helpers ────────────────────────────────────────────────────────────
-
   function startEdit() { onUpdate({ editing: true }); }
 
   function cancelEdit() {
@@ -81,8 +79,6 @@ function CandidateCard({ candidate, state, batchId, projectId, onUpdate, onSaved
       editing: false,
     });
   }
-
-  // ── Save to Library ─────────────────────────────────────────────────────────
 
   async function handleSaveToLibrary() {
     if (isSaved || saving) return;
@@ -103,8 +99,6 @@ function CandidateCard({ candidate, state, batchId, projectId, onUpdate, onSaved
       toast.error(e?.message || "Failed to save.");
     }
   }
-
-  // ── Run Draft ───────────────────────────────────────────────────────────────
 
   async function handleRunDraft() {
     if (runPhase !== "idle" && runPhase !== "done") return;
@@ -133,13 +127,10 @@ function CandidateCard({ candidate, state, batchId, projectId, onUpdate, onSaved
     }
   }
 
-  // ── Verdict UI ──────────────────────────────────────────────────────────────
-
   const verdictStyle = VERDICT_STYLE[runVerdict] ?? null;
   const isRunning = runPhase === "saving" || runPhase === "starting" || runPhase === "running";
   const isDone = runPhase === "done";
 
-  // ── Card border style ───────────────────────────────────────────────────────
   const borderClass = isSaved
     ? "border-emerald-200 bg-emerald-50/30"
     : isDone && verdictStyle
@@ -148,9 +139,7 @@ function CandidateCard({ candidate, state, batchId, projectId, onUpdate, onSaved
 
   return (
     <div className={`rounded-xl border transition-colors ${borderClass}`}>
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-start gap-2 p-4 pb-2">
-        {/* expand/collapse */}
         <button
           onClick={() => onUpdate({ expanded: !expanded })}
           className="mt-0.5 shrink-0 text-slate-400 hover:text-slate-600"
@@ -171,7 +160,6 @@ function CandidateCard({ candidate, state, batchId, projectId, onUpdate, onSaved
           )}
         </div>
 
-        {/* status badges */}
         <div className="flex shrink-0 items-center gap-1.5">
           {isSaved && (
             <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
@@ -189,7 +177,6 @@ function CandidateCard({ candidate, state, batchId, projectId, onUpdate, onSaved
               {runPhase === "saving" ? "Preparing…" : runPhase === "starting" ? "Starting…" : "Running…"}
             </span>
           )}
-          {/* Edit icon — only when not saved, not running */}
           {!isSaved && !isRunning && !editing && (
             <button
               onClick={startEdit}
@@ -202,10 +189,8 @@ function CandidateCard({ candidate, state, batchId, projectId, onUpdate, onSaved
         </div>
       </div>
 
-      {/* ── Body ───────────────────────────────────────────────────────────── */}
       {expanded && (
         <div className="px-4 pb-4 pl-10 space-y-3">
-          {/* Steps */}
           {editing ? (
             <div className="space-y-2">
               <textarea
@@ -256,7 +241,6 @@ function CandidateCard({ candidate, state, batchId, projectId, onUpdate, onSaved
             </>
           )}
 
-          {/* Run result details */}
           {isDone && runError && (
             <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 p-3">
               <AlertCircle className="size-4 shrink-0 text-red-500 mt-0.5" />
@@ -264,12 +248,10 @@ function CandidateCard({ candidate, state, batchId, projectId, onUpdate, onSaved
             </div>
           )}
 
-          {/* Actions */}
           {!editing && (
             <div className="flex flex-wrap gap-2 pt-1">
               {!isSaved && (
                 <>
-                  {/* Run Draft */}
                   <button
                     onClick={handleRunDraft}
                     disabled={isRunning}
@@ -284,7 +266,6 @@ function CandidateCard({ candidate, state, batchId, projectId, onUpdate, onSaved
                     {runPhase === "done" ? "Run Again" : "Run Draft"}
                   </button>
 
-                  {/* Save to Library */}
                   <button
                     onClick={handleSaveToLibrary}
                     disabled={saving || isRunning}
@@ -299,7 +280,6 @@ function CandidateCard({ candidate, state, batchId, projectId, onUpdate, onSaved
                 </>
               )}
 
-              {/* Open run in full view */}
               {runId && (
                 <button
                   onClick={() => navigate(`/projects/${projectId}/test-runs/${runId}`)}
@@ -309,7 +289,6 @@ function CandidateCard({ candidate, state, batchId, projectId, onUpdate, onSaved
                 </button>
               )}
 
-              {/* View detail if saved */}
               {isSaved && savedTestCaseId && (
                 <button
                   onClick={() => navigate(`/projects/${projectId}/test-cases/${savedTestCaseId}`)}
@@ -319,7 +298,6 @@ function CandidateCard({ candidate, state, batchId, projectId, onUpdate, onSaved
                 </button>
               )}
 
-              {/* Discard — always visible when not running */}
               {!isRunning && (
                 <button
                   onClick={onDiscard}
@@ -370,10 +348,9 @@ function useRunPolling(candidates, updateCandidate) {
     }
 
     pollingRefs.current[candidateId] = setInterval(poll, 3000);
-    poll(); // immediate first check
+    poll();
   }, [updateCandidate]);
 
-  // Watch for candidates that just entered 'running' phase
   useEffect(() => {
     candidates.forEach((c) => {
       if (c.runPhase === "running" && c.runId && !pollingRefs.current[c.id]) {
@@ -382,7 +359,6 @@ function useRunPolling(candidates, updateCandidate) {
     });
   }, [candidates, startPolling]);
 
-  // Cleanup on unmount
   useEffect(() => {
     const refs = pollingRefs.current;
     return () => { Object.values(refs).forEach(clearInterval); };
@@ -400,7 +376,6 @@ function loadSession(projectId) {
     const raw = localStorage.getItem(sessionKey(projectId));
     if (!raw) return null;
     const { prompt, batchId, candidates } = JSON.parse(raw);
-    // Reset transient states that can't survive a remount
     const restoredCandidates = (candidates ?? []).map((c) => ({
       ...c,
       saving: false,
@@ -429,7 +404,7 @@ function clearSession(projectId) {
 
 // ─── AIWorkbenchDrawer ────────────────────────────────────────────────────────
 
-export default function AIWorkbenchDrawer({ open, onClose, projectId, onSaved }) {
+export default function AIWorkbenchDrawer({ open, onClose, projectId, onSaved, inline = false }) {
   const session = loadSession(projectId);
 
   const [prompt, setPrompt] = useState(session?.prompt ?? "");
@@ -448,18 +423,14 @@ export default function AIWorkbenchDrawer({ open, onClose, projectId, onSaved })
 
   useRunPolling(candidates, updateCandidate);
 
-  // Persist to sessionStorage whenever key state changes
   useEffect(() => {
     if (!projectId) return;
     saveSession(projectId, { prompt, batchId, candidates });
   }, [projectId, prompt, batchId, candidates]);
 
-  // Focus textarea when drawer opens
   useEffect(() => {
     if (open) setTimeout(() => textareaRef.current?.focus(), 150);
   }, [open]);
-
-  // ── Generate ────────────────────────────────────────────────────────────────
 
   async function handleGenerate() {
     if (!prompt.trim() || generating) return;
@@ -477,8 +448,6 @@ export default function AIWorkbenchDrawer({ open, onClose, projectId, onSaved })
       setGenerating(false);
     }
   }
-
-  // ── Save All ─────────────────────────────────────────────────────────────────
 
   async function handleSaveAll() {
     const unsaved = candidates.filter((c) => !c.isSaved && !c.saving);
@@ -517,8 +486,6 @@ export default function AIWorkbenchDrawer({ open, onClose, projectId, onSaved })
     }
   }
 
-  // ── Clear ─────────────────────────────────────────────────────────────────
-
   function handleClearCandidates() {
     setCandidates([]);
     setBatchId(null);
@@ -530,8 +497,6 @@ export default function AIWorkbenchDrawer({ open, onClose, projectId, onSaved })
     setCandidates((prev) => prev.filter((c) => c.id !== candidateId));
   }
 
-  // ── Derived ──────────────────────────────────────────────────────────────────
-
   const hasResults = candidates.length > 0;
   const unsavedCount = candidates.filter((c) => !c.isSaved).length;
   const allSaved = hasResults && unsavedCount === 0;
@@ -539,11 +504,162 @@ export default function AIWorkbenchDrawer({ open, onClose, projectId, onSaved })
     (c) => c.runPhase === "saving" || c.runPhase === "starting" || c.runPhase === "running"
   );
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  const content = (
+    <>
+      <div className="flex shrink-0 items-center justify-between border-b px-5 py-4">
+        <div className="flex items-center gap-2">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-100">
+            <Sparkles className="size-4 text-indigo-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">AI Test Case Generator</h2>
+            <p className="text-xs text-slate-500">Generate, validate, then save to library</p>
+          </div>
+        </div>
+        {!inline && (
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+          >
+            <X className="size-4" />
+          </button>
+        )}
+      </div>
+
+      <div className={inline ? "flex-1" : "flex-1 overflow-y-auto"}>
+        <div className="border-b px-5 py-4 space-y-3">
+          <textarea
+            ref={textareaRef}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleGenerate();
+              }
+            }}
+            placeholder={
+              "Describe what you want to test…\n\nE.g. Login with valid and invalid credentials, check error messages and redirect on success."
+            }
+            rows={4}
+            disabled={generating}
+            className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
+          />
+
+          {genError && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5">
+              <AlertCircle className="size-4 shrink-0 text-red-500" />
+              <p className="text-xs text-red-700">{genError}</p>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-slate-400">Enter to generate · Shift+Enter for new line</p>
+            <button
+              onClick={handleGenerate}
+              disabled={!prompt.trim() || generating}
+              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-3.5" />
+                  Generate
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {hasResults && (
+          <div className="px-5 py-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {candidates.length} candidate{candidates.length !== 1 ? "s" : ""} generated
+                {unsavedCount > 0 && ` · ${unsavedCount} unsaved`}
+              </p>
+              <div className="flex items-center gap-2">
+                {allSaved ? (
+                  <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                    <CheckCircle2 className="size-3.5" /> All saved
+                  </span>
+                ) : (
+                  <button
+                    onClick={handleSaveAll}
+                    disabled={anyRunning || allSaved}
+                    className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Save className="size-3" />
+                    Save All ({unsavedCount})
+                  </button>
+                )}
+                <button
+                  onClick={handleClearCandidates}
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+                >
+                  <RefreshCw className="size-3" />
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {candidates.map((c) => (
+                <CandidateCard
+                  key={c.id}
+                  candidate={c}
+                  state={c}
+                  batchId={batchId}
+                  projectId={projectId}
+                  onUpdate={(updates) => updateCandidate(c.id, updates)}
+                  onSaved={onSaved}
+                  onDiscard={() => handleDiscard(c.id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!hasResults && !generating && !genError && (
+          <div className="flex flex-col items-center justify-center gap-3 px-5 py-16 text-center">
+            <div className="flex size-14 items-center justify-center rounded-full bg-indigo-50">
+              <Sparkles className="size-6 text-indigo-400" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-slate-700">Describe your test scenario</p>
+              <p className="text-xs text-slate-400 max-w-xs">
+                Enter a prompt above and click Generate. AI will create test case candidates you can review, edit, validate, and save.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="shrink-0 border-t bg-slate-50/80 px-5 py-3">
+        <p className="text-[11px] text-slate-400 text-center">
+          Candidates stay here until you <strong>Save to Library</strong>. Run Draft tests won&apos;t appear in your test case list.
+        </p>
+      </div>
+    </>
+  );
+
+  if (inline) {
+    return (
+      <section
+        id="ai-test-case-generator"
+        className="overflow-hidden rounded-xl border bg-white shadow-sm"
+      >
+        {content}
+      </section>
+    );
+  }
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 ${
           open ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -551,156 +667,12 @@ export default function AIWorkbenchDrawer({ open, onClose, projectId, onSaved })
         onClick={onClose}
       />
 
-      {/* Drawer panel */}
       <div
         className={`fixed right-0 top-0 z-50 flex h-full w-[520px] max-w-[95vw] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b px-5 py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-100">
-              <Sparkles className="size-4 text-indigo-600" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-slate-800">AI Test Case Generator</h2>
-              <p className="text-xs text-slate-500">Generate, validate, then save to library</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
-          {/* Prompt area */}
-          <div className="border-b px-5 py-4 space-y-3">
-            <textarea
-              ref={textareaRef}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleGenerate();
-                }
-              }}
-              placeholder={
-                "Describe what you want to test…\n\nE.g. Login with valid and invalid credentials, check error messages and redirect on success."
-              }
-              rows={4}
-              disabled={generating}
-              className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
-            />
-
-            {genError && (
-              <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5">
-                <AlertCircle className="size-4 shrink-0 text-red-500" />
-                <p className="text-xs text-red-700">{genError}</p>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs text-slate-400">Enter to generate · Shift+Enter for new line</p>
-              <button
-                onClick={handleGenerate}
-                disabled={!prompt.trim() || generating}
-                className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {generating ? (
-                  <>
-                    <Loader2 className="size-3.5 animate-spin" />
-                    Generating…
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="size-3.5" />
-                    Generate
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Candidates list */}
-          {hasResults && (
-            <div className="px-5 py-4 space-y-3">
-              {/* Batch actions header */}
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {candidates.length} candidate{candidates.length !== 1 ? "s" : ""} generated
-                  {unsavedCount > 0 && ` · ${unsavedCount} unsaved`}
-                </p>
-                <div className="flex items-center gap-2">
-                  {allSaved ? (
-                    <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
-                      <CheckCircle2 className="size-3.5" /> All saved
-                    </span>
-                  ) : (
-                    <button
-                      onClick={handleSaveAll}
-                      disabled={anyRunning || allSaved}
-                      className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Save className="size-3" />
-                      Save All ({unsavedCount})
-                    </button>
-                  )}
-                  <button
-                    onClick={handleClearCandidates}
-                    className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
-                  >
-                    <RefreshCw className="size-3" />
-                    Clear
-                  </button>
-                </div>
-              </div>
-
-              {/* Candidate cards */}
-              <div className="space-y-3">
-                {candidates.map((c) => (
-                  <CandidateCard
-                    key={c.id}
-                    candidate={c}
-                    state={c}
-                    batchId={batchId}
-                    projectId={projectId}
-                    onUpdate={(updates) => updateCandidate(c.id, updates)}
-                    onSaved={onSaved}
-                    onDiscard={() => handleDiscard(c.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {!hasResults && !generating && !genError && (
-            <div className="flex flex-col items-center justify-center gap-3 px-5 py-16 text-center">
-              <div className="flex size-14 items-center justify-center rounded-full bg-indigo-50">
-                <Sparkles className="size-6 text-indigo-400" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-slate-700">Describe your test scenario</p>
-                <p className="text-xs text-slate-400 max-w-xs">
-                  Enter a prompt above and click Generate. AI will create test case candidates you can review, edit, validate, and save.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="shrink-0 border-t bg-slate-50/80 px-5 py-3">
-          <p className="text-[11px] text-slate-400 text-center">
-            Candidates stay here until you <strong>Save to Library</strong>. Run Draft tests won&apos;t appear in your test case list.
-          </p>
-        </div>
+        {content}
       </div>
     </>
   );
