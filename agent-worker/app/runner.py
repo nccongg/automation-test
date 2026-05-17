@@ -1732,7 +1732,7 @@ async def execute_replay_step(
             output = {"pressed": key}
 
         elif action_name in {"select", "select_option"}:
-            locator = await resolve_locator(page, action_input)
+            locator = await resolve_locator_with_fallback(page, action_input)
             value = action_input.get("value")
             label = action_input.get("labelValue")
             if value is None and label is None:
@@ -1745,19 +1745,19 @@ async def execute_replay_step(
             output = {"selected": value or label}
 
         elif action_name in {"check", "set_checked"}:
-            locator = await resolve_locator(page, action_input)
+            locator = await resolve_locator_with_fallback(page, action_input)
             await locator.check(timeout=timeout_ms)
             message = "Checked"
             output = {"checked": True}
 
         elif action_name in {"uncheck"}:
-            locator = await resolve_locator(page, action_input)
+            locator = await resolve_locator_with_fallback(page, action_input)
             await locator.uncheck(timeout=timeout_ms)
             message = "Unchecked"
             output = {"checked": False}
 
         elif action_name in {"wait_for_selector"}:
-            locator = await resolve_locator(page, action_input)
+            locator = await resolve_locator_with_fallback(page, action_input)
             state = action_input.get("state", "visible")
             await locator.wait_for(timeout=timeout_ms, state=state)
             message = f"Selector ready with state={state}"
@@ -1781,7 +1781,7 @@ async def execute_replay_step(
             output = {"url": page.url}
 
         elif action_name in {"extract_text"}:
-            locator = await resolve_locator(page, action_input)
+            locator = await resolve_locator_with_fallback(page, action_input)
             text = await locator.inner_text(timeout=timeout_ms)
             message = "Text extracted"
             output = {"text": text}
@@ -1808,7 +1808,7 @@ async def execute_replay_step(
         # ── Assertion actions ──────────────────────────────────────────────────
 
         elif action_name in {"assert_text", "assert_text_present", "verify_text"}:
-            locator = await resolve_locator(page, action_input)
+            locator = await resolve_locator_with_fallback(page, action_input)
             expected = str(action_input.get("text") or action_input.get("value") or "")
             exact = bool(action_input.get("exact", False))
             actual = await locator.first.inner_text(timeout=timeout_ms)
@@ -1826,13 +1826,13 @@ async def execute_replay_step(
             output = {"text": actual, "expected": expected}
 
         elif action_name in {"assert_visible", "assert_element_visible", "assert_element_present", "verify_element_visible"}:
-            locator = await resolve_locator(page, action_input)
+            locator = await resolve_locator_with_fallback(page, action_input)
             await locator.first.wait_for(state="visible", timeout=timeout_ms)
             message = "Element is visible"
             output = {"visible": True}
 
         elif action_name in {"assert_value", "assert_input_value", "verify_input_value"}:
-            locator = await resolve_locator(page, action_input)
+            locator = await resolve_locator_with_fallback(page, action_input)
             expected = str(action_input.get("value") or action_input.get("text") or "")
             actual = await locator.first.input_value(timeout=timeout_ms)
             if actual != expected:
@@ -1877,7 +1877,7 @@ async def execute_replay_step(
         # ── Wait actions ───────────────────────────────────────────────────────
 
         elif action_name in {"wait_for_visible", "wait_element_visible", "wait_for_element"}:
-            locator = await resolve_locator(page, action_input)
+            locator = await resolve_locator_with_fallback(page, action_input)
             await locator.first.wait_for(state="visible", timeout=timeout_ms)
             message = "Element is visible"
             output = {"visible": True}
