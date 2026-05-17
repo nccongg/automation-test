@@ -38,5 +38,6 @@ router.use("/test-suites", require("./modules/testSheet/testSheet.routes"));
 router.use("/test-suite-runs", require("./modules/testSheet/testSheetRun.routes"));
 router.use("/test-collections", require("./modules/testCollection/testCollection.routes"));
 router.use("/datasets", require("./modules/dataset/dataset.routes"));
+router.use("/projects/:projectId/test-objects", require("./modules/objectRepository/objectRepository.routes"));
 
 module.exports = router;

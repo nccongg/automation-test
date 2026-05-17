@@ -20,6 +20,7 @@ import {
   Database,
   Pencil,
   Globe,
+  Layers,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -192,6 +193,11 @@ export default function ProjectDetailPage() {
           <NavLink to="data" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}>
             <Database className="size-5 shrink-0" />
             {!isSidebarCollapsed && "Data"}
+          </NavLink>
+
+          <NavLink to="objects" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}>
+            <Layers className="size-5 shrink-0" />
+            {!isSidebarCollapsed && "Objects"}
           </NavLink>
 
           <NavLink to="test-runs" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}>

@@ -353,7 +353,8 @@ async function updateRunFinal({
 
 async function findRunById(testRunId) {
   const sql = `
-    SELECT tr.*, tc.id AS "testCaseId", tc.title AS "testCaseTitle"
+    SELECT tr.*, tc.id AS "testCaseId", tc.title AS "testCaseTitle",
+           tc.project_id AS "projectId"
     FROM public.test_runs tr
     LEFT JOIN public.test_cases tc ON tc.id = tr.test_case_id
     WHERE tr.id = $1
