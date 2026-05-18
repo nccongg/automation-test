@@ -23,6 +23,7 @@ import {
   ChevronDown,
   FlaskConical,
   Database,
+  Layers,
   Pencil,
   Globe,
   FileText,
@@ -611,6 +612,11 @@ export default function ProjectDetailPage() {
           <NavLink to="test-runs" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}>
             <BarChart3 className="size-5 shrink-0" />
             {!isSidebarCollapsed && "Test Runs"}
+          </NavLink>
+
+          <NavLink to="objects" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}>
+            <Layers className="size-5 shrink-0" />
+            {!isSidebarCollapsed && "Objects"}
           </NavLink>
 
           <NavLink to="settings" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}>
