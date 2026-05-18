@@ -539,6 +539,38 @@ function substituteRedactedValues(steps, params) {
   });
 }
 
+async function resolveObjectRefs(projectId, steps) {
+  if (!Array.isArray(steps) || !steps.length) return steps;
+
+  // Collect all objectRefs from steps
+  const refs = steps
+    .filter((s) => s.objectRef?.name)
+    .map((s) => ({ pageKey: s.objectRef.pageKey || "", name: s.objectRef.name }));
+
+  if (!refs.length) return steps;
+
+  const objRepo = require("../objectRepository/objectRepository.repository");
+  const objMap = await objRepo.findObjectsByRefs(projectId, refs);
+
+  return steps.map((step) => {
+    if (!step.objectRef?.name) return step;
+
+    const key = `${step.objectRef.pageKey || ""}||${step.objectRef.name}`;
+    const obj = objMap[key];
+    if (!obj) return step;
+
+    // Inject latest locators from test_objects, overwriting baked-in values
+    return {
+      ...step,
+      actionInput: {
+        ...step.actionInput,
+        _selectorCollection: obj.selectorCollection,
+        _primarySelector:    obj.selectorMethod,
+      },
+    };
+  });
+}
+
 async function replayAgentRun({
   testCaseId,
   testCaseVersionId = null,
@@ -639,13 +671,16 @@ async function replayAgentRun({
     Object.entries(resolvedInput.params || {}).filter(([k]) => !k.startsWith("__r")),
   );
 
+  // Resolve objectRefs → inject fresh locators from test_objects before sending to worker
+  const resolvedSteps = await resolveObjectRefs(bundle.project_id, patchedSteps);
+
   workerPayload.testCase.executionMode = "replay_script";
   workerPayload.testCase.replay = {
     scriptId: script.id,
     strict: true,
     allowLlmFallback: false,
     params: workerParams,
-    scriptJson: { ...script.script_json, steps: patchedSteps },
+    scriptJson: { ...script.script_json, steps: resolvedSteps },
   };
   try {
     await postToWorkerRun(workerPayload);
@@ -840,6 +875,23 @@ async function handleFinalCallback(payload) {
           sanitized: true,
         },
       });
+    }
+  }
+
+  // Upsert auto-detected test objects from agent run
+  if (Array.isArray(payload.testObjects) && payload.testObjects.length > 0) {
+    try {
+      const run = await agentRepository.findRunById(payload.testRunId);
+      const projectId = run?.projectId ?? run?.project_id;
+      if (projectId) {
+        const objRepo = require("../objectRepository/objectRepository.repository");
+        await objRepo.upsertObjects(projectId, payload.testObjects);
+        console.log(`[agent] Upserted ${payload.testObjects.length} test objects for project ${projectId}`);
+      } else {
+        console.warn("[agent] Cannot upsert test objects — projectId not found for run", payload.testRunId);
+      }
+    } catch (objErr) {
+      console.error("[agent] Failed to upsert test objects (non-fatal):", objErr.message);
     }
   }
 
