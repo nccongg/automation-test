@@ -18,7 +18,6 @@ import UpdateProjectDialog from "@/features/projects/components/UpdateProjectDia
 import {
   BarChart3,
   PlayCircle,
-  Settings,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -417,7 +416,7 @@ export default function ProjectDetailPage() {
   return (
     <div className="flex gap-6">
       <aside
-        className={`sticky top-0 self-start relative shrink-0 rounded-xl border bg-white p-2 ease-in-out overflow-y-auto ${
+        className={`sticky top-0 self-start relative shrink-0 rounded-xl border bg-white p-2 ease-in-out overflow-y-auto max-h-screen ${
           isResizing ? "" : "transition-all duration-300"
         }`}
         style={{
@@ -451,7 +450,9 @@ export default function ProjectDetailPage() {
         {/* Nav links */}
         <nav className="space-y-1">
           <div className="relative">
-            <NavLink to="test-cases" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}>
+            <NavLink to="test-cases" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}
+              onClick={() => setIsTestCasesOpen((prev) => !prev)}
+            >
               <PlayCircle className="size-5 shrink-0" />
               {!isSidebarCollapsed && "Test Cases"}
             </NavLink>
@@ -519,7 +520,9 @@ export default function ProjectDetailPage() {
           )}
 
           <div className="relative">
-            <NavLink to="suites" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}>
+            <NavLink to="suites" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}
+              onClick={() => setIsTestSuitesOpen((prev) => !prev)}
+            >
               <FlaskConical className="size-5 shrink-0" />
               {!isSidebarCollapsed && "Test Suites"}
             </NavLink>
@@ -576,7 +579,9 @@ export default function ProjectDetailPage() {
           )}
 
           <div className="relative">
-            <NavLink to="data" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}>
+            <NavLink to="data" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}
+              onClick={() => setIsDataOpen((prev) => !prev)}
+            >
               <Database className="size-5 shrink-0" />
               {!isSidebarCollapsed && "Data"}
             </NavLink>
@@ -636,7 +641,7 @@ export default function ProjectDetailPage() {
             <NavLink
               to="objects"
               className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}
-              onClick={() => setIsObjectsOpen(true)}
+              onClick={() => setIsObjectsOpen((prev) => !prev)}
             >
               <Layers className="size-5 shrink-0" />
               {!isSidebarCollapsed && "Objects"}
@@ -694,10 +699,6 @@ export default function ProjectDetailPage() {
 
        
 
-          <NavLink to="settings" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}>
-            <Settings className="size-5 shrink-0" />
-            {!isSidebarCollapsed && "Settings"}
-          </NavLink>
         </nav>
 
         {!isSidebarCollapsed && (
