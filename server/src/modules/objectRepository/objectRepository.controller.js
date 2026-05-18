@@ -18,13 +18,23 @@ async function getOne(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    const { name, pageKey, description, selectors, attributesSnapshot, createdFromRunId } = req.body;
+    const {
+      name, pageKey, description,
+      selectorMethod, selectorCollection,
+      elementProperties, selectedProperties,
+      parentFrameObjectId, sourceUrl,
+      createdFromRunId, status,
+    } = req.body;
     if (!name?.trim()) return res.status(400).json({ status: "error", message: "name is required" });
-    if (!Array.isArray(selectors) || selectors.length === 0) {
-      return res.status(400).json({ status: "error", message: "selectors must be a non-empty array" });
+    if (!selectorCollection || typeof selectorCollection !== "object" || !Object.keys(selectorCollection).length) {
+      return res.status(400).json({ status: "error", message: "selectorCollection must be a non-empty object" });
     }
     const data = await svc.createObject(req.user.userId, Number(req.params.projectId), {
-      name: name.trim(), pageKey, description, selectors, attributesSnapshot, createdFromRunId,
+      name: name.trim(), pageKey, description,
+      selectorMethod, selectorCollection,
+      elementProperties, selectedProperties,
+      parentFrameObjectId, sourceUrl,
+      createdFromRunId, status,
     });
     res.status(201).json({ status: "ok", data });
   } catch (err) {
