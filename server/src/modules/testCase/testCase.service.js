@@ -137,6 +137,46 @@ async function getTestCases(userId, projectId) {
   return testCaseRepository.getTestCases(userId, projectId);
 }
 
+async function getLatestAiGeneration(userId, projectId) {
+  assertUser(userId);
+
+  const projectIdNum = toPositiveInt(projectId, "projectId");
+
+  const ownedProject = await testCaseRepository.findOwnedProjectById(
+    userId,
+    projectIdNum,
+  );
+
+  if (!ownedProject) {
+    throw { status: 404, message: "Project not found or access denied" };
+  }
+
+  return testCaseRepository.getLatestAiGeneration({
+    userId,
+    projectId: projectIdNum,
+  });
+}
+
+async function clearUnselectedAiGeneration(userId, projectId) {
+  assertUser(userId);
+
+  const projectIdNum = toPositiveInt(projectId, "projectId");
+
+  const ownedProject = await testCaseRepository.findOwnedProjectById(
+    userId,
+    projectIdNum,
+  );
+
+  if (!ownedProject) {
+    throw { status: 404, message: "Project not found or access denied" };
+  }
+
+  return testCaseRepository.clearUnselectedAiGeneration({
+    userId,
+    projectId: projectIdNum,
+  });
+}
+
 async function generateTestCases(userId, { prompt, projectId }) {
   assertUser(userId);
 
@@ -149,12 +189,17 @@ async function generateTestCases(userId, { prompt, projectId }) {
 
   const ownedProject = await testCaseRepository.findOwnedProjectById(
     userId,
-    projectIdNum
+    projectIdNum,
   );
 
   if (!ownedProject) {
     throw { status: 404, message: "Project not found or access denied" };
   }
+
+  await testCaseRepository.clearUnselectedAiGeneration({
+    userId,
+    projectId: projectIdNum,
+  });
 
   const scanContext =
     await scanRepository.getLatestCompletedScanByProject(projectIdNum);
@@ -162,14 +207,14 @@ async function generateTestCases(userId, { prompt, projectId }) {
   const llmResult = await llmService.generateTestCases(
     userId,
     trimmedPrompt,
-    scanContext
+    scanContext,
   );
 
   const rawCases = Array.isArray(llmResult)
     ? llmResult
     : Array.isArray(llmResult?.testCases)
-    ? llmResult.testCases
-    : [];
+      ? llmResult.testCases
+      : [];
 
   const normalizedCandidates = normalizeGeneratedCandidates(rawCases);
 
@@ -177,17 +222,19 @@ async function generateTestCases(userId, { prompt, projectId }) {
     projectId: projectIdNum,
     userId,
     prompt: trimmedPrompt,
-    llmProvider:
-      llmResult?.llmProvider || process.env.LLM_PROVIDER || null,
+    llmProvider: llmResult?.llmProvider || process.env.LLM_PROVIDER || null,
     llmModel:
-      llmResult?.llmModel || process.env.LLM_MODEL || process.env.LLM_PROVIDER || null,
+      llmResult?.llmModel ||
+      process.env.LLM_MODEL ||
+      process.env.LLM_PROVIDER ||
+      null,
     candidates: normalizedCandidates,
   });
 }
 
 async function saveTestCases(
   userId,
-  { projectId, batchId, candidateIds, runtimeConfigId, isAiDraft = false }
+  { projectId, batchId, candidateIds, runtimeConfigId, isAiDraft = false },
 ) {
   assertUser(userId);
 
@@ -196,8 +243,8 @@ async function saveTestCases(
 
   const normalizedCandidateIds = Array.from(
     new Set(
-      (candidateIds || []).map((id) => toPositiveInt(id, "candidateIds"))
-    )
+      (candidateIds || []).map((id) => toPositiveInt(id, "candidateIds")),
+    ),
   );
 
   if (normalizedCandidateIds.length === 0) {
@@ -206,7 +253,7 @@ async function saveTestCases(
 
   const ownedProject = await testCaseRepository.findOwnedProjectById(
     userId,
-    projectIdNum
+    projectIdNum,
   );
 
   if (!ownedProject) {
@@ -266,7 +313,10 @@ async function updateTestCase(userId, testCaseId, { title, goal, status }) {
 async function refineTestCase(userId, testCaseId, prompt) {
   assertUser(userId);
   const id = toPositiveInt(testCaseId, "testCaseId");
-  if (!prompt || !String(prompt).trim()) throw { status: 400, message: "prompt is required" };
+
+  if (!prompt || !String(prompt).trim()) {
+    throw { status: 400, message: "prompt is required" };
+  }
 
   const tc = await testCaseRepository.getTestCaseById(userId, id);
   if (!tc) throw { status: 404, message: "Test case not found" };
@@ -275,27 +325,40 @@ async function refineTestCase(userId, testCaseId, prompt) {
   return llmRefine(tc, String(prompt).trim());
 }
 
-async function applyRefinement(userId, testCaseId, { title, goal, steps, expectedResult, promptText }) {
+async function applyRefinement(
+  userId,
+  testCaseId,
+  { title, goal, steps, expectedResult, promptText },
+) {
   assertUser(userId);
   const id = toPositiveInt(testCaseId, "testCaseId");
+
   if (!title || !goal || !Array.isArray(steps) || steps.length === 0) {
     throw { status: 400, message: "title, goal, and steps are required" };
   }
-  return testCaseRepository.applyRefinement(userId, id, { title, goal, steps, expectedResult, promptText });
+
+  return testCaseRepository.applyRefinement(userId, id, {
+    title,
+    goal,
+    steps,
+    expectedResult,
+    promptText,
+  });
 }
 
 async function getTestCaseById(userId, testCaseId) {
   assertUser(userId);
   const id = toPositiveInt(testCaseId, "testCaseId");
   const tc = await testCaseRepository.getTestCaseById(userId, id);
+
   if (!tc) throw { status: 404, message: "Test case not found" };
+
   return tc;
 }
 
 async function getRunsByTestCaseId(userId, testCaseId) {
   assertUser(userId);
   const id = toPositiveInt(testCaseId, "testCaseId");
-  // ownership check
   await getTestCaseById(userId, id);
   return testCaseRepository.getRunsByTestCaseId(id, 50);
 }
@@ -315,25 +378,31 @@ async function getTestCaseScripts(userId, testCaseId) {
 async function commitTestCase(userId, testCaseId) {
   assertUser(userId);
   const id = toPositiveInt(testCaseId, "testCaseId");
+
   const updated = await testCaseRepository.commitDraftTestCase(userId, id);
   if (!updated) {
     throw { status: 404, message: "Test case not found or access denied" };
   }
+
   return updated;
 }
 
 async function deleteTestCase(userId, testCaseId) {
   assertUser(userId);
   const id = toPositiveInt(testCaseId, "testCaseId");
+
   const deleted = await testCaseRepository.softDeleteTestCase(id, userId);
   if (!deleted) {
     throw { status: 404, message: "Test case not found or access denied" };
   }
+
   return deleted;
 }
 
 module.exports = {
   getTestCases,
+  getLatestAiGeneration,
+  clearUnselectedAiGeneration,
   getTestCaseById,
   getRunsByTestCaseId,
   getTestCaseScripts,

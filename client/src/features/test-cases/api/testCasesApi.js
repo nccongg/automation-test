@@ -17,6 +17,25 @@ export async function getTestCases(projectId) {
   return Array.isArray(raw) ? raw : [];
 }
 
+export async function getLatestAiGeneration(projectId) {
+  const response = await apiClient.get("/test-cases/ai-generation/latest", {
+    params: { projectId },
+  });
+
+  return normalizeApiPayload(response);
+}
+
+export async function clearUnselectedAiGeneration(projectId) {
+  const response = await apiClient.delete(
+    "/test-cases/ai-generation/unselected",
+    {
+      params: { projectId },
+    },
+  );
+
+  return normalizeApiPayload(response);
+}
+
 export async function getTestCaseById(testCaseId) {
   const response = await apiClient.get(`/test-cases/${testCaseId}`);
   return normalizeApiPayload(response);

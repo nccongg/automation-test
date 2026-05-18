@@ -26,7 +26,7 @@ async function findOwnedProjectById(userId, projectId) {
       WHERE id = $1 AND user_id = $2
       LIMIT 1
     `,
-    [projectId, userId]
+    [projectId, userId],
   );
 
   return result.rows[0] || null;
@@ -78,7 +78,7 @@ async function getTestCases(userId, projectId) {
         AND tc.is_ai_draft = FALSE
       ORDER BY tc.updated_at DESC, tc.created_at DESC
     `,
-    params
+    params,
   );
 
   return result.rows;
@@ -118,7 +118,7 @@ async function createGenerationBatchWithCandidates({
         llmModel,
         candidates.length,
         userId,
-      ]
+      ],
     );
 
     const batch = batchResult.rows[0];
@@ -165,7 +165,7 @@ async function createGenerationBatchWithCandidates({
           JSON.stringify(candidate.planSnapshot),
           JSON.stringify(candidate.variablesSchema || {}),
           index + 1,
-        ]
+        ],
       );
 
       insertedCandidates.push(candidateResult.rows[0]);
@@ -197,7 +197,7 @@ async function createGenerationBatchWithCandidates({
 async function findRuntimeConfigByIdForProject(
   client,
   projectId,
-  runtimeConfigId
+  runtimeConfigId,
 ) {
   const result = await client.query(
     `
@@ -208,7 +208,7 @@ async function findRuntimeConfigByIdForProject(
         AND deleted_at IS NULL
       LIMIT 1
     `,
-    [runtimeConfigId, projectId]
+    [runtimeConfigId, projectId],
   );
 
   return result.rows[0] || null;
@@ -227,7 +227,7 @@ async function ensureReusableRuntimeConfig(client, projectId, userId) {
         id DESC
       LIMIT 1
     `,
-    [projectId]
+    [projectId],
   );
 
   if (existing.rows[0]) {
@@ -269,7 +269,7 @@ async function ensureReusableRuntimeConfig(client, projectId, userId) {
       EXECUTION_LLM_PROVIDER,
       EXECUTION_LLM_MODEL,
       userId,
-    ]
+    ],
   );
 
   return created.rows[0].id;
@@ -280,7 +280,7 @@ async function getSelectableCandidates(
   userId,
   projectId,
   batchId,
-  candidateIds
+  candidateIds,
 ) {
   const result = await client.query(
     `
@@ -294,6 +294,7 @@ async function getSelectableCandidates(
         c.plan_snapshot,
         c.variables_schema,
         c.candidate_order,
+        c.selected_test_case_id,
         b.source_prompt,
         b.llm_provider,
         b.llm_model
@@ -308,7 +309,7 @@ async function getSelectableCandidates(
         AND c.id = ANY($4::bigint[])
       ORDER BY c.candidate_order ASC, c.id ASC
     `,
-    [userId, projectId, batchId, candidateIds]
+    [userId, projectId, batchId, candidateIds],
   );
 
   return result.rows;
@@ -368,7 +369,7 @@ async function saveCandidatesAsTestCases({
       userId,
       projectId,
       batchId,
-      candidateIds
+      candidateIds,
     );
 
     if (candidates.length !== candidateIds.length) {
@@ -384,7 +385,7 @@ async function saveCandidatesAsTestCases({
       const runtimeConfig = await findRuntimeConfigByIdForProject(
         client,
         projectId,
-        resolvedRuntimeConfigId
+        resolvedRuntimeConfigId,
       );
 
       if (!runtimeConfig) {
@@ -397,13 +398,20 @@ async function saveCandidatesAsTestCases({
       resolvedRuntimeConfigId = await ensureReusableRuntimeConfig(
         client,
         projectId,
-        userId
+        userId,
       );
     }
 
     const saved = [];
 
     for (const candidate of candidates) {
+      if (candidate.selected_test_case_id) {
+        throw {
+          status: 409,
+          message: "This candidate has already been saved as a draft",
+        };
+      }
+
       const planSnapshot = candidate.plan_snapshot || {};
       const steps = extractStepsFromPlanSnapshot(planSnapshot);
 
@@ -434,7 +442,7 @@ async function saveCandidatesAsTestCases({
             null,
           userId,
           Boolean(isAiDraft),
-        ]
+        ],
       );
 
       const testCaseId = tcResult.rows[0].id;
@@ -470,7 +478,7 @@ async function saveCandidatesAsTestCases({
           candidate.execution_mode || "step_based",
           resolvedRuntimeConfigId,
           candidate.display_text || null,
-        ]
+        ],
       );
 
       const versionId = versionResult.rows[0].id;
@@ -496,7 +504,7 @@ async function saveCandidatesAsTestCases({
             step.action || "custom",
             JSON.stringify({ description: step.text }),
             step.expectedResult || (isLast ? expectedResult : null),
-          ]
+          ],
         );
       }
 
@@ -507,18 +515,28 @@ async function saveCandidatesAsTestCases({
               updated_at = NOW()
           WHERE id = $2
         `,
-        [versionId, testCaseId]
+        [versionId, testCaseId],
       );
 
-      await client.query(
-        `
-          UPDATE test_case_generation_candidates
-          SET is_selected = TRUE,
-              selected_test_case_id = $1
-          WHERE id = $2
-        `,
-        [testCaseId, candidate.id]
-      );
+      if (isAiDraft) {
+        await client.query(
+          `
+            UPDATE test_case_generation_candidates
+            SET is_selected = TRUE,
+                selected_test_case_id = $1
+            WHERE id = $2
+          `,
+          [testCaseId, candidate.id],
+        );
+      } else {
+        await client.query(
+          `
+            DELETE FROM test_case_generation_candidates
+            WHERE id = $1
+          `,
+          [candidate.id],
+        );
+      }
 
       saved.push({
         id: testCaseId,
@@ -530,8 +548,178 @@ async function saveCandidatesAsTestCases({
       });
     }
 
+    await client.query(
+      `
+        DELETE FROM test_case_generation_batches b
+        WHERE b.id = $1
+          AND NOT EXISTS (
+            SELECT 1
+            FROM test_case_generation_candidates c
+            WHERE c.batch_id = b.id
+          )
+      `,
+      [batchId],
+    );
+
     await client.query("COMMIT");
     return saved;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function getLatestAiGeneration({ userId, projectId }) {
+  const batchResult = await pool.query(
+    `
+      SELECT
+        b.id,
+        b.project_id,
+        b.source_prompt,
+        b.status,
+        b.llm_provider,
+        b.llm_model,
+        b.candidate_count,
+        b.created_at
+      FROM test_case_generation_batches b
+      JOIN projects p
+        ON p.id = b.project_id
+      WHERE b.project_id = $1
+        AND p.user_id = $2
+        AND EXISTS (
+          SELECT 1
+          FROM test_case_generation_candidates c
+          WHERE c.batch_id = b.id
+        )
+      ORDER BY b.created_at DESC, b.id DESC
+      LIMIT 1
+    `,
+    [projectId, userId],
+  );
+
+  const batch = batchResult.rows[0];
+
+  if (!batch) {
+    return {
+      batch: null,
+      candidates: [],
+    };
+  }
+
+  const candidatesResult = await pool.query(
+    `
+      SELECT
+        c.id,
+        c.batch_id AS "batchId",
+        c.title,
+        c.goal,
+        c.display_text AS "displayText",
+        c.prompt_text AS "promptText",
+        c.execution_mode AS "executionMode",
+        c.plan_snapshot AS "planSnapshot",
+        c.variables_schema AS "variablesSchema",
+        c.candidate_order AS "candidateOrder",
+        c.is_selected AS "isSelected",
+        c.selected_test_case_id AS "selectedTestCaseId",
+        tc.is_ai_draft AS "selectedIsAiDraft",
+        c.created_at AS "createdAt"
+      FROM test_case_generation_candidates c
+      LEFT JOIN test_cases tc
+        ON tc.id = c.selected_test_case_id
+       AND tc.deleted_at IS NULL
+      WHERE c.batch_id = $1
+      ORDER BY c.candidate_order ASC, c.id ASC
+    `,
+    [batch.id],
+  );
+
+  return {
+    batch: {
+      id: batch.id,
+      projectId: batch.project_id,
+      sourcePrompt: batch.source_prompt,
+      status: batch.status,
+      llmProvider: batch.llm_provider,
+      llmModel: batch.llm_model,
+      candidateCount: batch.candidate_count,
+      createdAt: batch.created_at,
+    },
+    candidates: candidatesResult.rows,
+  };
+}
+
+async function clearUnselectedAiGeneration({ userId, projectId }) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const projectResult = await client.query(
+      `
+        SELECT id
+        FROM projects
+        WHERE id = $1
+          AND user_id = $2
+        LIMIT 1
+      `,
+      [projectId, userId],
+    );
+
+    if (!projectResult.rows[0]) {
+      throw { status: 404, message: "Project not found or access denied" };
+    }
+
+    const draftResult = await client.query(
+      `
+        UPDATE test_cases
+        SET deleted_at = NOW(),
+            deleted_by = $2,
+            updated_at = NOW()
+        WHERE project_id = $1
+          AND created_by = $2
+          AND is_ai_draft = TRUE
+          AND deleted_at IS NULL
+        RETURNING id
+      `,
+      [projectId, userId],
+    );
+
+    const candidateResult = await client.query(
+      `
+        DELETE FROM test_case_generation_candidates c
+        USING test_case_generation_batches b
+        WHERE c.batch_id = b.id
+          AND b.project_id = $1
+          AND b.created_by = $2
+        RETURNING c.id
+      `,
+      [projectId, userId],
+    );
+
+    const batchResult = await client.query(
+      `
+        DELETE FROM test_case_generation_batches b
+        WHERE b.project_id = $1
+          AND b.created_by = $2
+          AND NOT EXISTS (
+            SELECT 1
+            FROM test_case_generation_candidates c
+            WHERE c.batch_id = b.id
+          )
+        RETURNING b.id
+      `,
+      [projectId, userId],
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      deletedDraftCount: draftResult.rowCount,
+      deletedCandidateCount: candidateResult.rowCount,
+      deletedBatchCount: batchResult.rowCount,
+    };
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
@@ -561,7 +749,7 @@ async function updateTestCase(userId, testCaseId, { title, goal, status }) {
         tc.status,
         tc.updated_at AS "updatedAt"
     `,
-    [testCaseId, userId, title ?? null, goal ?? null, status ?? null]
+    [testCaseId, userId, title ?? null, goal ?? null, status ?? null],
   );
 
   return result.rows[0] || null;
@@ -599,14 +787,14 @@ async function getTestCaseById(userId, testCaseId) {
       WHERE tc.id = $1 AND p.user_id = $2 AND tc.deleted_at IS NULL
       LIMIT 1
     `,
-    [testCaseId, userId]
+    [testCaseId, userId],
   );
 
   const tc = result.rows[0];
   if (!tc) return null;
 
-  // Fetch steps from test_steps table (saved test cases)
   let steps = [];
+
   if (tc.currentVersionId) {
     const stepsResult = await pool.query(
       `
@@ -620,8 +808,9 @@ async function getTestCaseById(userId, testCaseId) {
         WHERE test_case_version_id = $1
         ORDER BY step_order ASC
       `,
-      [tc.currentVersionId]
+      [tc.currentVersionId],
     );
+
     steps = stepsResult.rows.map((s) => ({
       id: s.id,
       order: s.stepOrder,
@@ -631,7 +820,6 @@ async function getTestCaseById(userId, testCaseId) {
     }));
   }
 
-  // Fallback to planSnapshot if no rows in test_steps
   if (steps.length === 0 && tc.planSnapshot) {
     steps = extractStepsFromPlanSnapshot(tc.planSnapshot);
   }
@@ -666,32 +854,46 @@ async function getRunsByTestCaseId(testCaseId, limit = 20) {
       ORDER BY COALESCE(tr.started_at, tr.created_at) DESC
       LIMIT $2
     `,
-    [testCaseId, limit]
+    [testCaseId, limit],
   );
+
   return result.rows;
 }
 
-/**
- * Create a new version for an existing test case with refined content.
- * Updates title/goal on the test case and sets current_version_id to the new version.
- */
-async function applyRefinement(userId, testCaseId, { title, goal, steps, expectedResult, promptText }) {
+async function applyRefinement(
+  userId,
+  testCaseId,
+  { title, goal, steps, expectedResult, promptText },
+) {
   const client = await pool.connect();
+
   try {
     await client.query("BEGIN");
 
-    // Verify ownership and get current version info
     const tcResult = await client.query(
-      `SELECT tc.id, tc.current_version_id, tcv.version_no, tcv.execution_mode, tcv.runtime_config_id
-       FROM test_cases tc
-       JOIN projects p ON p.id = tc.project_id
-       LEFT JOIN test_case_versions tcv ON tcv.id = tc.current_version_id
-       WHERE tc.id = $1 AND p.user_id = $2 AND tc.deleted_at IS NULL
-       LIMIT 1`,
-      [testCaseId, userId]
+      `
+        SELECT
+          tc.id,
+          tc.current_version_id,
+          tcv.version_no,
+          tcv.execution_mode,
+          tcv.runtime_config_id
+        FROM test_cases tc
+        JOIN projects p
+          ON p.id = tc.project_id
+        LEFT JOIN test_case_versions tcv
+          ON tcv.id = tc.current_version_id
+        WHERE tc.id = $1
+          AND p.user_id = $2
+          AND tc.deleted_at IS NULL
+        LIMIT 1
+      `,
+      [testCaseId, userId],
     );
 
-    if (!tcResult.rows[0]) throw { status: 404, message: "Test case not found" };
+    if (!tcResult.rows[0]) {
+      throw { status: 404, message: "Test case not found" };
+    }
 
     const tc = tcResult.rows[0];
     const nextVersionNo = (tc.version_no || 0) + 1;
@@ -700,17 +902,28 @@ async function applyRefinement(userId, testCaseId, { title, goal, steps, expecte
       title,
       goal,
       expectedResult: expectedResult || "",
-      steps: steps.map((s, i) => ({ order: s.order ?? i + 1, text: s.text, action: s.action || "custom" })),
+      steps: steps.map((s, i) => ({
+        order: s.order ?? i + 1,
+        text: s.text,
+        action: s.action || "custom",
+      })),
     };
 
-    // Insert new version
     const versionResult = await client.query(
-      `INSERT INTO test_case_versions (
-         test_case_id, version_no, source_type, prompt_text,
-         plan_snapshot, variables_schema, execution_mode, runtime_config_id
-       )
-       VALUES ($1, $2, 'user_edited', $3, $4::jsonb, '{}'::jsonb, $5, $6)
-       RETURNING id`,
+      `
+        INSERT INTO test_case_versions (
+          test_case_id,
+          version_no,
+          source_type,
+          prompt_text,
+          plan_snapshot,
+          variables_schema,
+          execution_mode,
+          runtime_config_id
+        )
+        VALUES ($1, $2, 'user_edited', $3, $4::jsonb, '{}'::jsonb, $5, $6)
+        RETURNING id
+      `,
       [
         testCaseId,
         nextVersionNo,
@@ -718,36 +931,54 @@ async function applyRefinement(userId, testCaseId, { title, goal, steps, expecte
         JSON.stringify(planSnapshot),
         tc.execution_mode || "step_based",
         tc.runtime_config_id || null,
-      ]
+      ],
     );
 
     const newVersionId = versionResult.rows[0].id;
 
-    // Insert steps for new version
-    for (let i = 0; i < steps.length; i++) {
+    for (let i = 0; i < steps.length; i += 1) {
       const step = steps[i];
       const isLast = i === steps.length - 1;
+
       await client.query(
-        `INSERT INTO test_steps (test_case_version_id, step_order, action_type, input_data, expected_result)
-         VALUES ($1, $2, $3, $4::jsonb, $5)`,
+        `
+          INSERT INTO test_steps (
+            test_case_version_id,
+            step_order,
+            action_type,
+            input_data,
+            expected_result
+          )
+          VALUES ($1, $2, $3, $4::jsonb, $5)
+        `,
         [
           newVersionId,
           step.order ?? i + 1,
           step.action || "custom",
           JSON.stringify({ description: step.text }),
           step.expectedResult || (isLast ? expectedResult || null : null),
-        ]
+        ],
       );
     }
 
-    // Update test case
     await client.query(
-      `UPDATE test_cases SET title = $1, goal = $2, current_version_id = $3, updated_at = NOW() WHERE id = $4`,
-      [title, goal, newVersionId, testCaseId]
+      `
+        UPDATE test_cases
+        SET title = $1,
+            goal = $2,
+            current_version_id = $3,
+            updated_at = NOW()
+        WHERE id = $4
+      `,
+      [title, goal, newVersionId, testCaseId],
     );
 
     await client.query("COMMIT");
-    return { versionId: newVersionId, versionNo: nextVersionNo };
+
+    return {
+      versionId: newVersionId,
+      versionNo: nextVersionNo,
+    };
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
@@ -776,54 +1007,111 @@ async function getExecutionScriptsByTestCaseId(testCaseId) {
         AND es.status = 'active'
       ORDER BY es.created_at DESC, es.id DESC
     `,
-    [testCaseId]
+    [testCaseId],
   );
 
   return result.rows;
 }
 
 async function commitDraftTestCase(userId, testCaseId) {
-  const result = await pool.query(
-    `
-      UPDATE test_cases tc
-      SET is_ai_draft = FALSE,
-          updated_at  = NOW()
-      FROM projects p
-      WHERE tc.id         = $1
-        AND tc.project_id = p.id
-        AND p.user_id     = $2
-        AND tc.deleted_at IS NULL
-      RETURNING
-        tc.id,
-        tc.title,
-        tc.goal,
-        tc.status,
-        tc.is_ai_draft AS "isAiDraft",
-        tc.updated_at  AS "updatedAt"
-    `,
-    [testCaseId, userId]
-  );
-  return result.rows[0] || null;
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const result = await client.query(
+      `
+        UPDATE test_cases tc
+        SET is_ai_draft = FALSE,
+            updated_at  = NOW()
+        FROM projects p
+        WHERE tc.id         = $1
+          AND tc.project_id = p.id
+          AND p.user_id     = $2
+          AND tc.deleted_at IS NULL
+        RETURNING
+          tc.id,
+          tc.title,
+          tc.goal,
+          tc.status,
+          tc.is_ai_draft AS "isAiDraft",
+          tc.updated_at  AS "updatedAt"
+      `,
+      [testCaseId, userId],
+    );
+
+    const updated = result.rows[0] || null;
+
+    if (!updated) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+
+    const deletedCandidates = await client.query(
+      `
+        DELETE FROM test_case_generation_candidates c
+        USING test_case_generation_batches b
+        WHERE c.batch_id = b.id
+          AND c.selected_test_case_id = $1
+          AND b.created_by = $2
+        RETURNING c.batch_id
+      `,
+      [testCaseId, userId],
+    );
+
+    const affectedBatchIds = Array.from(
+      new Set(deletedCandidates.rows.map((row) => row.batch_id)),
+    );
+
+    for (const affectedBatchId of affectedBatchIds) {
+      await client.query(
+        `
+          DELETE FROM test_case_generation_batches b
+          WHERE b.id = $1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM test_case_generation_candidates c
+              WHERE c.batch_id = b.id
+            )
+        `,
+        [affectedBatchId],
+      );
+    }
+
+    await client.query("COMMIT");
+
+    return updated;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 async function softDeleteTestCase(testCaseId, userId) {
   const result = await pool.query(
-    `UPDATE test_cases tc
-        SET deleted_at = NOW()
-       FROM projects p
-      WHERE tc.id         = $1
+    `
+      UPDATE test_cases tc
+      SET deleted_at = NOW()
+      FROM projects p
+      WHERE tc.id = $1
         AND tc.project_id = p.id
-        AND p.user_id     = $2
+        AND p.user_id = $2
         AND tc.deleted_at IS NULL
-     RETURNING tc.id`,
-    [testCaseId, userId]
+      RETURNING tc.id
+    `,
+    [testCaseId, userId],
   );
+
   return result.rows[0] || null;
 }
 
 module.exports = {
   findOwnedProjectById,
   getTestCases,
+  getLatestAiGeneration,
+  clearUnselectedAiGeneration,
   getTestCaseById,
   getRunsByTestCaseId,
   getExecutionScriptsByTestCaseId,
