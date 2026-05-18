@@ -11,6 +11,7 @@ import { useTestCases } from "@/features/test-cases/hooks/useTestCases";
 import { useTestSheets } from "@/features/test-collection/hooks/useTestSheets";
 import { getCollectionTree } from "@/features/test-collection/api/testCollectionApi";
 import { listDatasets } from "@/features/datasets/api/datasetsApi";
+import { getTestObjects } from "@/features/object-repository/api/objectRepositoryApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import UpdateProjectDialog from "@/features/projects/components/UpdateProjectDialog";
@@ -24,6 +25,7 @@ import {
   FlaskConical,
   Database,
   Layers,
+  Box,
   Pencil,
   Globe,
   FileText,
@@ -256,6 +258,7 @@ export default function ProjectDetailPage() {
   const [isTestCasesOpen, setIsTestCasesOpen] = useState(true);
   const [isTestSuitesOpen, setIsTestSuitesOpen] = useState(true);
   const [isDataOpen, setIsDataOpen] = useState(true);
+  const [isObjectsOpen, setIsObjectsOpen] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -267,6 +270,9 @@ export default function ProjectDetailPage() {
 
   const [datasets, setDatasets] = useState([]);
   const [loadingDatasets, setLoadingDatasets] = useState(false);
+
+  const [sidebarObjects, setSidebarObjects] = useState([]);
+  const [loadingObjects, setLoadingObjects] = useState(false);
 
   const { data, loading, error } = useProject(
     reloadKey > 0 ? `${projectId}-${reloadKey}` : projectId,
@@ -329,6 +335,19 @@ export default function ProjectDetailPage() {
     }
   }, [projectId]);
 
+  const refetchObjects = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      setLoadingObjects(true);
+      const data = await getTestObjects(projectId);
+      setSidebarObjects(data ?? []);
+    } catch {
+      setSidebarObjects([]);
+    } finally {
+      setLoadingObjects(false);
+    }
+  }, [projectId]);
+
   useEffect(() => {
     refetchCollections();
   }, [refetchCollections]);
@@ -336,6 +355,10 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     refetchDatasets();
   }, [refetchDatasets]);
+
+  useEffect(() => {
+    refetchObjects();
+  }, [refetchObjects]);
 
   function toggleCollection(collectionId) {
     setExpandedCollections((prev) => {
@@ -609,15 +632,67 @@ export default function ProjectDetailPage() {
             </div>
           )}
 
+             <div className="relative">
+            <NavLink
+              to="objects"
+              className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}
+              onClick={() => setIsObjectsOpen(true)}
+            >
+              <Layers className="size-5 shrink-0" />
+              {!isSidebarCollapsed && "Objects"}
+            </NavLink>
+
+            {!isSidebarCollapsed && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsObjectsOpen((prev) => !prev);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-white/90 hover:bg-white/20"
+                title={isObjectsOpen ? "Collapse objects" : "Expand objects"}
+              >
+                {isObjectsOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+              </button>
+            )}
+          </div>
+
+          {!isSidebarCollapsed && isObjectsOpen && (
+            <div className="ml-5 mt-1 mb-2 space-y-0.5 border-l border-slate-200 pl-2">
+              {loadingObjects ? (
+                <div className="px-2 py-2 text-xs text-muted-foreground">Loading…</div>
+              ) : sidebarObjects.length === 0 ? (
+                <div className="px-2 py-2 text-xs text-muted-foreground">No objects</div>
+              ) : (
+                sidebarObjects.map((obj) => {
+                  const activeObjectId = new URLSearchParams(location.search).get("objectId");
+                  const isActive = location.pathname.endsWith("/objects") && String(activeObjectId) === String(obj.id);
+                  return (
+                    <button
+                      key={obj.id}
+                      type="button"
+                      onClick={() => navigate(`/projects/${projectId}/objects?objectId=${obj.id}`)}
+                      className={childItemClass(isActive)}
+                    >
+                      <Box className={childIconClass(isActive)} />
+                      <span className="min-w-0 flex-1 truncate font-mono">{obj.name}</span>
+                      {obj.pageKey && (
+                        <span className="shrink-0 text-[10px] text-slate-400 truncate max-w-[60px]">{obj.pageKey}</span>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
+          
           <NavLink to="test-runs" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}>
             <BarChart3 className="size-5 shrink-0" />
             {!isSidebarCollapsed && "Test Runs"}
           </NavLink>
 
-          <NavLink to="objects" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}>
-            <Layers className="size-5 shrink-0" />
-            {!isSidebarCollapsed && "Objects"}
-          </NavLink>
+       
 
           <NavLink to="settings" className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}>
             <Settings className="size-5 shrink-0" />
@@ -646,6 +721,7 @@ export default function ProjectDetailPage() {
             onCollectionsUpdated: refetchCollections,
             onSuitesUpdated: refetchSuites,
             onDatasetsUpdated: refetchDatasets,
+            onObjectsUpdated: refetchObjects,
           }}
         />
       </main>
