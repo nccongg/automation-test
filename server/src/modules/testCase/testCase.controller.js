@@ -18,6 +18,55 @@ async function getTestCases(req, res, next) {
   }
 }
 
+async function getLatestAiGeneration(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const { projectId } = req.query;
+
+    if (!projectId) {
+      return res.status(400).json({
+        status: "error",
+        message: "projectId is required",
+      });
+    }
+
+    const data = await testCaseService.getLatestAiGeneration(userId, projectId);
+
+    res.json({
+      status: "ok",
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function clearUnselectedAiGeneration(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const { projectId } = req.query;
+
+    if (!projectId) {
+      return res.status(400).json({
+        status: "error",
+        message: "projectId is required",
+      });
+    }
+
+    const data = await testCaseService.clearUnselectedAiGeneration(
+      userId,
+      projectId,
+    );
+
+    res.json({
+      status: "ok",
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function generateTestCases(req, res, next) {
   try {
     const userId = req.user?.userId;
@@ -80,8 +129,7 @@ async function saveTestCases(req, res, next) {
 
     const hasCandidateIds =
       Array.isArray(candidateIds) && candidateIds.length > 0;
-    const hasCandidates =
-      Array.isArray(candidates) && candidates.length > 0;
+    const hasCandidates = Array.isArray(candidates) && candidates.length > 0;
 
     if (!hasCandidateIds && !hasCandidates) {
       return res.status(400).json({
@@ -132,7 +180,11 @@ async function refineTestCase(req, res, next) {
     const userId = req.user?.userId;
     const testCaseId = Number(req.params.id);
     const { prompt } = req.body;
-    const data = await testCaseService.refineTestCase(userId, testCaseId, prompt);
+    const data = await testCaseService.refineTestCase(
+      userId,
+      testCaseId,
+      prompt,
+    );
     res.json({ status: "ok", data });
   } catch (err) {
     next(err);
@@ -145,7 +197,11 @@ async function applyRefinement(req, res, next) {
     const testCaseId = Number(req.params.id);
     const { title, goal, steps, expectedResult, promptText } = req.body;
     const data = await testCaseService.applyRefinement(userId, testCaseId, {
-      title, goal, steps, expectedResult, promptText,
+      title,
+      goal,
+      steps,
+      expectedResult,
+      promptText,
     });
     res.json({ status: "ok", data });
   } catch (err) {
@@ -210,6 +266,8 @@ async function deleteTestCase(req, res, next) {
 
 module.exports = {
   getTestCases,
+  getLatestAiGeneration,
+  clearUnselectedAiGeneration,
   getTestCaseById,
   getRunsByTestCaseId,
   getTestCaseScripts,
