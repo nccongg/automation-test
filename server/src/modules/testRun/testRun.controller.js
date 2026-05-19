@@ -122,25 +122,43 @@ async function createTestRun(req, res, next) {
 async function getRecentTestRuns(req, res, next) {
   try {
     const userId = req.user?.userId;
-    const rawLimit = req.query?.limit ? parseInt(req.query.limit, 10) : 20;
     const rawProjectId = req.query?.projectId
       ? parseInt(req.query.projectId, 10)
       : null;
+    const rawPage = req.query?.page ? parseInt(req.query.page, 10) : 1;
+    const rawPageSize = req.query?.pageSize
+      ? parseInt(req.query.pageSize, 10)
+      : req.query?.limit
+      ? parseInt(req.query.limit, 10)
+      : 20;
 
-    const limit =
-      Number.isInteger(rawLimit) && rawLimit > 0 ? rawLimit : 20;
     const projectId =
       Number.isInteger(rawProjectId) && rawProjectId > 0 ? rawProjectId : null;
+    const page =
+      Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+    const pageSize =
+      Number.isInteger(rawPageSize) && rawPageSize > 0
+        ? Math.min(rawPageSize, 100)
+        : 20;
+    const offset = (page - 1) * pageSize;
 
-    const data = await testRunService.listRecentTestRuns({
+    const { rows, total, stats } = await testRunService.listRecentTestRuns({
       userId,
       projectId,
-      limit,
+      limit: pageSize,
+      offset,
     });
 
     return res.status(200).json({
       success: true,
-      data,
+      data: rows,
+      pagination: {
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      },
+      stats,
     });
   } catch (error) {
     next(error);

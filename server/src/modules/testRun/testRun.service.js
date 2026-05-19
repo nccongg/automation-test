@@ -107,7 +107,7 @@ async function replayTestRun({
   });
 }
 
-async function listRecentTestRuns({ userId, projectId = null, limit = 20 }) {
+async function listRecentTestRuns({ userId, projectId = null, limit = 20, offset = 0 }) {
   const params = [userId];
   let where = "p.user_id = $1";
 
@@ -116,32 +116,55 @@ async function listRecentTestRuns({ userId, projectId = null, limit = 20 }) {
     where += ` AND p.id = $${params.length}`;
   }
 
-  params.push(limit);
+  const baseWhere = `${where} AND tsri.id IS NULL`;
 
-  const sql = `
-    SELECT
-      tr.id,
-      tr.test_case_id       AS "testCaseId",
-      tr.status,
-      tr.verdict,
-      tr.started_at         AS "startedAt",
-      tr.finished_at        AS "finishedAt",
-      tr.created_at         AS "createdAt",
-      tc.title              AS "testCaseTitle",
-      p.id                  AS "projectId",
-      p.name                AS "projectName",
-      (tsri.id IS NOT NULL) AS "fromSheet"
-    FROM public.test_runs tr
-    JOIN public.test_cases tc ON tc.id = tr.test_case_id
-    JOIN public.projects p ON p.id = tc.project_id
-    LEFT JOIN public.test_suite_run_items tsri ON tsri.test_run_id = tr.id
-    WHERE ${where}
-    ORDER BY COALESCE(tr.started_at, tr.created_at) DESC
-    LIMIT $${params.length}
-  `;
+  const [statsResult, dataResult] = await Promise.all([
+    query(
+      `SELECT
+         COUNT(*) AS total,
+         COUNT(*) FILTER (WHERE tr.verdict IN ('pass', 'pass_with_warning')) AS passed,
+         COUNT(*) FILTER (WHERE tr.verdict = 'fail') AS failed
+       FROM public.test_runs tr
+       JOIN public.test_cases tc ON tc.id = tr.test_case_id
+       JOIN public.projects p ON p.id = tc.project_id
+       LEFT JOIN public.test_suite_run_items tsri ON tsri.test_run_id = tr.id
+       WHERE ${baseWhere}`,
+      params
+    ),
+    query(
+      `SELECT
+         tr.id,
+         tr.test_case_id       AS "testCaseId",
+         tr.status,
+         tr.verdict,
+         tr.started_at         AS "startedAt",
+         tr.finished_at        AS "finishedAt",
+         tr.created_at         AS "createdAt",
+         tc.title              AS "testCaseTitle",
+         p.id                  AS "projectId",
+         p.name                AS "projectName"
+       FROM public.test_runs tr
+       JOIN public.test_cases tc ON tc.id = tr.test_case_id
+       JOIN public.projects p ON p.id = tc.project_id
+       LEFT JOIN public.test_suite_run_items tsri ON tsri.test_run_id = tr.id
+       WHERE ${baseWhere}
+       ORDER BY COALESCE(tr.started_at, tr.created_at) DESC
+       LIMIT $${params.length + 1}
+       OFFSET $${params.length + 2}`,
+      [...params, limit, offset]
+    ),
+  ]);
 
-  const result = await query(sql, params);
-  return result.rows || [];
+  const statsRow = statsResult.rows[0] ?? {};
+  const total = parseInt(statsRow.total ?? 0, 10);
+  const passed = parseInt(statsRow.passed ?? 0, 10);
+  const failed = parseInt(statsRow.failed ?? 0, 10);
+
+  return {
+    rows: dataResult.rows || [],
+    total,
+    stats: { total, passed, failed },
+  };
 }
 
 async function getTestRunDetail(runId, userId) {

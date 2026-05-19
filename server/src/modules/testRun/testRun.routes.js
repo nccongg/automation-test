@@ -30,10 +30,17 @@ router.use(authMiddleware);
  *           type: integer
  *         description: Optional project filter
  *       - in: query
- *         name: limit
+ *         name: page
  *         schema:
  *           type: integer
- *         description: Max number of runs to return
+ *           default: 1
+ *         description: Page number (1-indexed)
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of runs per page (max 100)
  *     responses:
  *       200:
  *         description: List of recent test runs

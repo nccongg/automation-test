@@ -2,10 +2,16 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getTestResults, getTestRunDetail, listBatchesForProject } from '../api/testResultsApi';
 import { getSheetRuns } from '@/features/test-collection/api/testSheetApi';
 
+const PAGE_SIZE = 15;
+
 export function useTestResults(projectId) {
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, page: 1, pageSize: PAGE_SIZE, totalPages: 1 });
+
   const [individualRuns, setIndividualRuns] = useState([]);
   const [sheetRuns, setSheetRuns] = useState([]);
   const [datasetBatches, setDatasetBatches] = useState([]);
+  const [summary, setSummary] = useState({ totalRuns: 0, passed: 0, failed: 0, passRate: '0%' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -19,7 +25,10 @@ export function useTestResults(projectId) {
   useEffect(() => { individualRunsRef.current = individualRuns; }, [individualRuns]);
   useEffect(() => { runDetailsRef.current = runDetails; }, [runDetails]);
 
-  // Poll both lists every 3s
+  // Reset to page 1 when projectId changes
+  useEffect(() => { setPage(1); }, [projectId]);
+
+  // Poll list every 3s
   useEffect(() => {
     let mounted = true;
 
@@ -27,9 +36,8 @@ export function useTestResults(projectId) {
       try {
         if (!silent) setLoading(true);
 
-        // Fetch independently so a sheet-runs failure doesn't block individual runs
         const [runsResult, sheetsResult, batchesResult] = await Promise.allSettled([
-          getTestResults(projectId),
+          getTestResults(projectId, { page, pageSize: PAGE_SIZE }),
           projectId ? getSheetRuns(projectId) : Promise.resolve([]),
           projectId ? listBatchesForProject(projectId) : Promise.resolve([]),
         ]);
@@ -37,8 +45,10 @@ export function useTestResults(projectId) {
         if (!mounted) return;
 
         if (runsResult.status === 'fulfilled') {
-          const allRuns = runsResult.value?.recentRuns ?? [];
-          setIndividualRuns(allRuns.filter((r) => !r.fromSheet));
+          const { recentRuns = [], pagination: pg, summary: sm } = runsResult.value ?? {};
+          setIndividualRuns(recentRuns);
+          if (pg) setPagination(pg);
+          if (sm) setSummary(sm);
           setError('');
         } else {
           console.error('[useTestResults] individual runs fetch failed:', runsResult.reason);
@@ -46,13 +56,11 @@ export function useTestResults(projectId) {
         }
 
         if (sheetsResult.status === 'fulfilled') {
-          const sheetsData = sheetsResult.value;
-          setSheetRuns(Array.isArray(sheetsData) ? sheetsData : []);
+          setSheetRuns(Array.isArray(sheetsResult.value) ? sheetsResult.value : []);
         }
 
         if (batchesResult.status === 'fulfilled') {
-          const batchesData = batchesResult.value;
-          setDatasetBatches(Array.isArray(batchesData) ? batchesData : []);
+          setDatasetBatches(Array.isArray(batchesResult.value) ? batchesResult.value : []);
         }
       } catch (e) {
         if (!mounted) return;
@@ -71,7 +79,7 @@ export function useTestResults(projectId) {
       mounted = false;
       clearInterval(intervalId);
     };
-  }, [projectId]);
+  }, [projectId, page]);
 
   // Poll expanded individual run detail every 3s
   useEffect(() => {
@@ -125,21 +133,14 @@ export function useTestResults(projectId) {
     }
   }, [expandedRunId]);
 
-  // summary derived from individual runs only
-  const summary = (() => {
-    const runs = individualRuns ?? [];
-    const total = runs.length;
-    const passed = runs.filter((r) => r.result === 'Passed' || r.result === 'Pass (no assertion)').length;
-    const failed = runs.filter((r) => r.result === 'Failed').length;
-    const passRate = total > 0 ? `${((passed / total) * 100).toFixed(1)}%` : '0%';
-    return { totalRuns: total, passed, failed, passRate };
-  })();
-
   return {
     individualRuns,
     sheetRuns,
     datasetBatches,
     summary,
+    pagination,
+    page,
+    setPage,
     loading,
     error,
     expandedRunId,
