@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-import { LayoutList, Sheet, CheckCircle2, XCircle, Clock, ShieldAlert, AlertTriangle, Database } from "lucide-react";
+import { LayoutList, Sheet, CheckCircle2, XCircle, Clock, ShieldAlert, AlertTriangle, Database, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTestResults } from "@/features/test-results/hooks/useTestResults";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
@@ -276,6 +276,63 @@ function SheetRunCard({ run, onClick }) {
   );
 }
 
+/* ─── Pagination ──────────────────────────────────────────────────────── */
+
+function Pagination({ page, totalPages, total, pageSize, onPageChange }) {
+  if (totalPages <= 1) return null;
+
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+
+  const getPages = () => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    if (page <= 4) return [1, 2, 3, 4, 5, "…", totalPages];
+    if (page >= totalPages - 3) return [1, "…", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    return [1, "…", page - 1, page, page + 1, "…", totalPages];
+  };
+
+  return (
+    <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
+      <p className="text-xs text-slate-400 tabular-nums">
+        {from}–{to} of {total} runs
+      </p>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onPageChange(page - 1)}
+          disabled={page === 1}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronLeft className="size-4" />
+        </button>
+        {getPages().map((p, i) =>
+          p === "…" ? (
+            <span key={`ellipsis-${i}`} className="px-1 text-xs text-slate-400">…</span>
+          ) : (
+            <button
+              key={p}
+              onClick={() => onPageChange(p)}
+              className={`h-8 min-w-8 px-2 rounded-lg text-xs font-medium transition-colors ${
+                p === page
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {p}
+            </button>
+          )
+        )}
+        <button
+          onClick={() => onPageChange(page + 1)}
+          disabled={page === totalPages}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronRight className="size-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Page ────────────────────────────────────────────────────────────── */
 
 const TABS = [
@@ -294,9 +351,16 @@ export default function TestResultsPage() {
     sheetRuns = [],
     datasetBatches = [],
     summary = { totalRuns: 0, passed: 0, failed: 0, passRate: "0%" },
+    pagination = { total: 0, page: 1, pageSize: 15, totalPages: 1 },
+    setPage,
     loading,
     error,
   } = useTestResults(projectId ?? project?.id);
+
+  const handlePageChange = useCallback((newPage) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [setPage]);
 
   if (loading) {
     return (
@@ -329,7 +393,7 @@ export default function TestResultsPage() {
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl bg-slate-100 p-1 w-fit">
         {TABS.map(({ id, label, icon: Icon }) => {
-          const count = id === "cases" ? individualRuns.length : id === "sheets" ? sheetRuns.length : datasetBatches.length;
+          const count = id === "cases" ? pagination.total : id === "sheets" ? sheetRuns.length : datasetBatches.length;
           const isActive = activeTab === id;
           return (
             <button
@@ -396,6 +460,14 @@ export default function TestResultsPage() {
               ))
             )}
           </div>
+
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            pageSize={pagination.pageSize}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
 

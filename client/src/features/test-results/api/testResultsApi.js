@@ -119,11 +119,18 @@ function normalizeScreenshotUrl(filePath) {
   return "";
 }
 
-export async function getTestResults(projectId) {
-  const params = projectId ? { projectId } : {};
+export async function getTestResults(projectId, { page = 1, pageSize = 20 } = {}) {
+  const params = { page, pageSize, ...(projectId ? { projectId } : {}) };
   const response = await apiClient.get("/test-runs", { params });
-  const payload = normalizeApiPayload(response);
-  const rawRuns = Array.isArray(payload) ? payload : [];
+  // apiClient returns parsed JSON directly: { success, data, pagination, stats }
+  const rawRuns = Array.isArray(response?.data) ? response.data : [];
+  const pagination = response?.pagination ?? {
+    total: rawRuns.length,
+    page,
+    pageSize,
+    totalPages: 1,
+  };
+  const backendStats = response?.stats ?? null;
 
   const recentRuns = rawRuns.map((run) => {
     const result = mapVerdictToResult(run.verdict, run.status);
@@ -147,9 +154,22 @@ export async function getTestResults(projectId) {
     };
   });
 
+  const summary = backendStats
+    ? {
+        totalRuns: backendStats.total,
+        passed: backendStats.passed,
+        failed: backendStats.failed,
+        passRate:
+          backendStats.total > 0
+            ? `${((backendStats.passed / backendStats.total) * 100).toFixed(1)}%`
+            : "0%",
+      }
+    : calculateSummary(recentRuns);
+
   return {
-    summary: calculateSummary(recentRuns),
+    summary,
     recentRuns,
+    pagination,
   };
 }
 
