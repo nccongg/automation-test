@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useOutletContext, useSearchParams } from "react-router-dom";
 import {
   Layers, Plus, ChevronDown, ChevronRight,
   Copy, Check, Sparkles, ShieldCheck, Pencil,
-  Trash2,
+  Trash2, Box, Globe,
 } from "lucide-react";
 import { useObjectRepository, useCandidates } from "@/features/object-repository/hooks/useObjectRepository";
 import { SELECTOR_TYPES } from "@/features/object-repository/components/ObjectFormDrawer";
@@ -294,13 +294,77 @@ function DeleteConfirm({ object, onConfirm, onCancel, loading }) {
   );
 }
 
+// ─── Page folder tree (left panel) ───────────────────────────────────────────
+
+function PageFolder({ pageKey, objects, selectedId, onSelect, expandedPages, togglePage }) {
+  const isOpen = expandedPages.has(pageKey);
+  const confirmedCount = objects.filter((o) => o.status === "confirmed").length;
+  const autoCount = objects.length - confirmedCount;
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => togglePage(pageKey)}
+        className="group flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-50 transition-colors"
+      >
+        {isOpen ? (
+          <ChevronDown className="size-3.5 shrink-0 text-slate-400" />
+        ) : (
+          <ChevronRight className="size-3.5 shrink-0 text-slate-400" />
+        )}
+        <Globe className="size-3.5 shrink-0 text-slate-400 group-hover:text-indigo-400 transition-colors" />
+        <span className="flex-1 truncate text-sm font-medium text-slate-700">
+          {pageKey === "(No Page)" ? "Uncategorized" : pageKey}
+        </span>
+        <span className="shrink-0 text-[11px] text-slate-400">{objects.length}</span>
+        {autoCount > 0 && (
+          <span className="shrink-0 rounded bg-amber-50 px-1 text-[10px] text-amber-500">{autoCount} auto</span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="ml-4 mt-0.5 mb-1 border-l border-slate-100 pl-2 space-y-0.5">
+          {objects.map((obj) => {
+            const isActive = String(selectedId) === String(obj.id);
+            return (
+              <button
+                key={obj.id}
+                type="button"
+                onClick={() => onSelect(obj.id)}
+                className={[
+                  "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
+                  isActive
+                    ? "bg-indigo-50 text-indigo-700 font-medium ring-1 ring-indigo-100"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                ].join(" ")}
+              >
+                <Box className={[
+                  "size-3.5 shrink-0",
+                  isActive ? "text-indigo-500" : "text-slate-300 group-hover:text-slate-400",
+                ].join(" ")} />
+                <span className="min-w-0 flex-1 truncate font-mono text-[12px]">{obj.name}</span>
+                {obj.status === "confirmed" ? (
+                  <ShieldCheck className="size-3 shrink-0 text-emerald-400" />
+                ) : (
+                  <Sparkles className="size-3 shrink-0 text-amber-400" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ObjectRepositoryPage() {
   const { projectId, onObjectsUpdated } = useOutletContext();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const { objects, loading, error, reload, create, update, remove, confirm } =
+  const { objects, grouped, loading, error, reload, create, update, remove, confirm } =
     useObjectRepository(projectId);
 
   const objectId = searchParams.get("objectId");
@@ -311,8 +375,31 @@ export default function ObjectRepositoryPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Track which page folders are expanded — all open by default
+  const [expandedPages, setExpandedPages] = useState(new Set());
+
+  // Auto-expand all pages when objects load
+  useEffect(() => {
+    if (objects.length > 0) {
+      setExpandedPages(new Set(Object.keys(grouped)));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [objects.length]);
+
   // Clear edit mode when objectId changes
   useEffect(() => { setEditMode(null); }, [objectId]);
+
+  function togglePage(pageKey) {
+    setExpandedPages((prev) => {
+      const next = new Set(prev);
+      next.has(pageKey) ? next.delete(pageKey) : next.add(pageKey);
+      return next;
+    });
+  }
+
+  function handleSelectObject(id) {
+    setSearchParams({ objectId: String(id) });
+  }
 
   async function handleSave(payload) {
     if (editMode === "edit" && selectedObj?.id) {
@@ -343,6 +430,8 @@ export default function ObjectRepositoryPage() {
       setDeleting(false);
     }
   }
+
+  const pageEntries = useMemo(() => Object.entries(grouped), [grouped]);
 
   if (loading) return (
     <div className="flex min-h-[400px] items-center justify-center">
@@ -376,45 +465,11 @@ export default function ObjectRepositoryPage() {
     );
   }
 
-  // No object selected
-  if (!selectedObj) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title="Object Repository"
-          description="Test element locators detected and managed by the agent"
-          action={
-            <Button onClick={() => setEditMode("new")} className="gap-2">
-              <Plus className="size-4" />
-              New Object
-            </Button>
-          }
-        />
-
-        <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60">
-          <Layers className="size-8 text-slate-300 mb-3" />
-          {objects.length === 0 ? (
-            <>
-              <p className="text-sm font-medium text-slate-400">No test objects yet</p>
-              <p className="text-xs text-slate-300 mt-1">Run a test case — objects are detected automatically</p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm font-medium text-slate-400">Select an object from the sidebar</p>
-              <p className="text-xs text-slate-300 mt-1">{objects.length} object{objects.length !== 1 ? "s" : ""} available</p>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Object selected — show detail
   return (
     <div className="space-y-6">
       <PageHeader
         title="Object Repository"
-        description="Test element locators detected and managed by the agent"
+        description="Test element locators organized by page, detected and managed by the agent"
         action={
           <Button onClick={() => setEditMode("new")} className="gap-2">
             <Plus className="size-4" />
@@ -423,17 +478,64 @@ export default function ObjectRepositoryPage() {
         }
       />
 
-      <ObjectDetail
-        obj={selectedObj}
-        projectId={projectId}
-        onEdit={() => setEditMode("edit")}
-        onDelete={setDeleteTarget}
-        onConfirm={confirm}
-        onObjectUpdated={() => {
-          reload();
-          onObjectsUpdated?.();
-        }}
-      />
+      {objects.length === 0 ? (
+        /* Empty state */
+        <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60">
+          <Layers className="size-8 text-slate-300 mb-3" />
+          <p className="text-sm font-medium text-slate-400">No test objects yet</p>
+          <p className="text-xs text-slate-300 mt-1">Run a test case — objects are detected automatically</p>
+        </div>
+      ) : (
+        /* 2-panel layout */
+        <div className="flex gap-4 min-h-[500px]">
+          {/* Left: folder tree */}
+          <aside className="w-64 shrink-0 rounded-xl border border-slate-200 bg-white p-2 self-start sticky top-4 max-h-[calc(100vh-140px)] overflow-y-auto">
+            <p className="px-2 pb-1.5 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Pages · {pageEntries.length}
+            </p>
+            <div className="space-y-0.5">
+              {pageEntries.map(([pageKey, objs]) => (
+                <PageFolder
+                  key={pageKey}
+                  pageKey={pageKey}
+                  objects={objs}
+                  selectedId={objectId}
+                  onSelect={handleSelectObject}
+                  expandedPages={expandedPages}
+                  togglePage={togglePage}
+                />
+              ))}
+            </div>
+          </aside>
+
+          {/* Right: detail panel */}
+          <main className="min-w-0 flex-1">
+            {selectedObj ? (
+              <div className="rounded-xl border border-slate-200 bg-white p-6">
+                <ObjectDetail
+                  obj={selectedObj}
+                  projectId={projectId}
+                  onEdit={() => setEditMode("edit")}
+                  onDelete={setDeleteTarget}
+                  onConfirm={confirm}
+                  onObjectUpdated={() => {
+                    reload();
+                    onObjectsUpdated?.();
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="flex h-full min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60">
+                <Box className="size-8 text-slate-300 mb-3" />
+                <p className="text-sm font-medium text-slate-400">Select an object</p>
+                <p className="text-xs text-slate-300 mt-1">
+                  {objects.length} object{objects.length !== 1 ? "s" : ""} across {pageEntries.length} page{pageEntries.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+            )}
+          </main>
+        </div>
+      )}
 
       <DeleteConfirm
         object={deleteTarget}

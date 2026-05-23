@@ -5,7 +5,13 @@
  * Project name, base URL, scan, and edit actions live in the sidebar context bar.
  */
 
-import { NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { useProject } from "@/features/projects/hooks/useProject";
 import { useTestCases } from "@/features/test-cases/hooks/useTestCases";
 import { useTestSheets } from "@/features/test-collection/hooks/useTestSheets";
@@ -31,6 +37,7 @@ import {
   FileText,
   FolderOpen,
   Folder,
+  Settings,
   Plus,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -247,7 +254,9 @@ function CollectionNode({
               <button
                 key={item.id}
                 type="button"
-                onClick={() => navigate(`/projects/${projectId}/test-cases/${testCaseId}`)}
+                onClick={() =>
+                  navigate(`/projects/${projectId}/test-cases/${testCaseId}`)
+                }
                 className={childItemClass(isActive)}
                 style={{ paddingLeft: `${(depth + 1) * 14 + 24}px` }}
               >
@@ -281,8 +290,10 @@ export default function ProjectDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const activeTestCaseId = location.pathname.match(/\/test-cases\/([^/]+)/)?.[1] ?? null;
-  const activeSuiteId = location.pathname.match(/\/suites\/([^/]+)/)?.[1] ?? null;
+  const activeTestCaseId =
+    location.pathname.match(/\/test-cases\/([^/]+)/)?.[1] ?? null;
+  const activeSuiteId =
+    location.pathname.match(/\/suites\/([^/]+)/)?.[1] ?? null;
   const activeDatasetId = new URLSearchParams(location.search).get("datasetId");
   const activeObjectId = new URLSearchParams(location.search).get("objectId");
 
@@ -306,6 +317,7 @@ export default function ProjectDetailPage() {
 
   const [sidebarObjects, setSidebarObjects] = useState([]);
   const [loadingObjects, setLoadingObjects] = useState(false);
+  const [expandedObjectPages, setExpandedObjectPages] = useState(new Set());
 
   const { data, loading, error } = useProject(
     reloadKey > 0 ? `${projectId}-${reloadKey}` : projectId,
@@ -360,10 +372,7 @@ export default function ProjectDetailPage() {
   }, [projectId]);
 
   const refetchTestCaseSidebar = useCallback(async () => {
-    await Promise.all([
-      refetchTestCases?.(),
-      refetchCollections(),
-    ]);
+    await Promise.all([refetchTestCases?.(), refetchCollections()]);
   }, [refetchTestCases, refetchCollections]);
 
   const refetchDatasets = useCallback(async () => {
@@ -389,8 +398,11 @@ export default function ProjectDetailPage() {
       setLoadingObjects(true);
 
       const data = await getTestObjects(projectId);
-
-      setSidebarObjects(data ?? []);
+      const list = data ?? [];
+      setSidebarObjects(list);
+      // Auto-expand all page groups
+      const pages = new Set(list.map((o) => o.pageKey || "(No Page)"));
+      setExpandedObjectPages(pages);
     } catch {
       setSidebarObjects([]);
     } finally {
@@ -414,7 +426,9 @@ export default function ProjectDetailPage() {
     setExpandedCollections((prev) => {
       const next = new Set(prev);
 
-      next.has(collectionId) ? next.delete(collectionId) : next.add(collectionId);
+      next.has(collectionId)
+        ? next.delete(collectionId)
+        : next.add(collectionId);
 
       return next;
     });
@@ -518,7 +532,9 @@ export default function ProjectDetailPage() {
           <div className="relative">
             <NavLink
               to="test-cases"
-              className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}
+              className={({ isActive }) =>
+                navClass(isActive, isSidebarCollapsed)
+              }
               onClick={() => setIsTestCasesOpen((prev) => !prev)}
             >
               <PlayCircle className="size-5 shrink-0" />
@@ -534,7 +550,9 @@ export default function ProjectDetailPage() {
                   setIsTestCasesOpen((prev) => !prev);
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-white/90 hover:bg-white/20"
-                title={isTestCasesOpen ? "Collapse test cases" : "Expand test cases"}
+                title={
+                  isTestCasesOpen ? "Collapse test cases" : "Expand test cases"
+                }
               >
                 {isTestCasesOpen ? (
                   <ChevronDown className="size-4" />
@@ -551,7 +569,8 @@ export default function ProjectDetailPage() {
                 <div className="px-2 py-2 text-xs text-muted-foreground">
                   Loading…
                 </div>
-              ) : collectionTree.length === 0 && uncategorizedTestCases.length === 0 ? (
+              ) : collectionTree.length === 0 &&
+                uncategorizedTestCases.length === 0 ? (
                 <div className="px-2 py-2 text-xs text-muted-foreground">
                   No test cases
                 </div>
@@ -577,7 +596,9 @@ export default function ProjectDetailPage() {
                       <button
                         key={tc.id}
                         type="button"
-                        onClick={() => navigate(`/projects/${projectId}/test-cases/${tc.id}`)}
+                        onClick={() =>
+                          navigate(`/projects/${projectId}/test-cases/${tc.id}`)
+                        }
                         className={childItemClass(isActive)}
                       >
                         <FileText className={childIconClass(isActive)} />
@@ -597,7 +618,9 @@ export default function ProjectDetailPage() {
           <div className="relative">
             <NavLink
               to="suites"
-              className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}
+              className={({ isActive }) =>
+                navClass(isActive, isSidebarCollapsed)
+              }
               onClick={() => setIsTestSuitesOpen((prev) => !prev)}
             >
               <FlaskConical className="size-5 shrink-0" />
@@ -613,7 +636,11 @@ export default function ProjectDetailPage() {
                   setIsTestSuitesOpen((prev) => !prev);
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-white/90 hover:bg-white/20"
-                title={isTestSuitesOpen ? "Collapse test suites" : "Expand test suites"}
+                title={
+                  isTestSuitesOpen
+                    ? "Collapse test suites"
+                    : "Expand test suites"
+                }
               >
                 {isTestSuitesOpen ? (
                   <ChevronDown className="size-4" />
@@ -642,7 +669,9 @@ export default function ProjectDetailPage() {
                     <button
                       key={sheet.id}
                       type="button"
-                      onClick={() => navigate(`/projects/${projectId}/suites/${sheet.id}`)}
+                      onClick={() =>
+                        navigate(`/projects/${projectId}/suites/${sheet.id}`)
+                      }
                       className={childItemClass(isActive)}
                     >
                       <FolderOpen className={childIconClass(isActive)} />
@@ -671,7 +700,9 @@ export default function ProjectDetailPage() {
           <div className="relative">
             <NavLink
               to="data"
-              className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}
+              className={({ isActive }) =>
+                navClass(isActive, isSidebarCollapsed)
+              }
               onClick={() => setIsDataOpen((prev) => !prev)}
             >
               <Database className="size-5 shrink-0" />
@@ -716,14 +747,16 @@ export default function ProjectDetailPage() {
                     <button
                       key={ds.id}
                       type="button"
-                      onClick={() => navigate(`/projects/${projectId}/data?datasetId=${ds.id}`)}
+                      onClick={() =>
+                        navigate(
+                          `/projects/${projectId}/data?datasetId=${ds.id}`,
+                        )
+                      }
                       className={childItemClass(isActive)}
                     >
                       <Database className={childIconClass(isActive)} />
 
-                      <span className="min-w-0 flex-1 truncate">
-                        {ds.name}
-                      </span>
+                      <span className="min-w-0 flex-1 truncate">{ds.name}</span>
 
                       <span
                         className={
@@ -745,7 +778,9 @@ export default function ProjectDetailPage() {
           <div className="relative">
             <NavLink
               to="objects"
-              className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}
+              className={({ isActive }) =>
+                navClass(isActive, isSidebarCollapsed)
+              }
               onClick={() => setIsObjectsOpen((prev) => !prev)}
             >
               <Layers className="size-5 shrink-0" />
@@ -783,32 +818,78 @@ export default function ProjectDetailPage() {
                   No objects
                 </div>
               ) : (
-                sidebarObjects.map((obj) => {
-                  const isActive =
-                    location.pathname.endsWith("/objects") &&
-                    String(activeObjectId) === String(obj.id);
+                (() => {
+                  const activeObjectId = new URLSearchParams(
+                    location.search,
+                  ).get("objectId");
+                  const grouped = sidebarObjects.reduce((acc, obj) => {
+                    const key = obj.pageKey || "(No Page)";
+                    if (!acc[key]) acc[key] = [];
+                    acc[key].push(obj);
+                    return acc;
+                  }, {});
 
-                  return (
-                    <button
-                      key={obj.id}
-                      type="button"
-                      onClick={() => navigate(`/projects/${projectId}/objects?objectId=${obj.id}`)}
-                      className={childItemClass(isActive)}
-                    >
-                      <Box className={childIconClass(isActive)} />
+                  return Object.entries(grouped).map(([pageKey, objs]) => {
+                    const isPageOpen = expandedObjectPages.has(pageKey);
+                    return (
+                      <div key={pageKey}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExpandedObjectPages((prev) => {
+                              const next = new Set(prev);
+                              next.has(pageKey)
+                                ? next.delete(pageKey)
+                                : next.add(pageKey);
+                              return next;
+                            });
+                          }}
+                          className="group flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors"
+                        >
+                          {isPageOpen ? (
+                            <ChevronDown className="size-3 shrink-0 text-slate-400" />
+                          ) : (
+                            <ChevronRight className="size-3 shrink-0 text-slate-400" />
+                          )}
+                          <FolderOpen className="size-3 shrink-0 text-slate-300 group-hover:text-slate-400" />
+                          <span className="flex-1 truncate font-medium">
+                            {pageKey === "(No Page)"
+                              ? "Uncategorized"
+                              : pageKey}
+                          </span>
+                          <span className="shrink-0 text-slate-400">
+                            {objs.length}
+                          </span>
+                        </button>
 
-                      <span className="min-w-0 flex-1 truncate font-mono">
-                        {obj.name}
-                      </span>
-
-                      {obj.pageKey && (
-                        <span className="max-w-[60px] shrink-0 truncate text-[10px] text-slate-400">
-                          {obj.pageKey}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })
+                        {isPageOpen &&
+                          objs.map((obj) => {
+                            const isActive =
+                              location.pathname.endsWith("/objects") &&
+                              String(activeObjectId) === String(obj.id);
+                            return (
+                              <button
+                                key={obj.id}
+                                type="button"
+                                onClick={() =>
+                                  navigate(
+                                    `/projects/${projectId}/objects?objectId=${obj.id}`,
+                                  )
+                                }
+                                className={childItemClass(isActive)}
+                                style={{ paddingLeft: "24px" }}
+                              >
+                                <Box className={childIconClass(isActive)} />
+                                <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
+                                  {obj.name}
+                                </span>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    );
+                  });
+                })()
               )}
             </div>
           )}
@@ -820,6 +901,14 @@ export default function ProjectDetailPage() {
           >
             <BarChart3 className="size-5 shrink-0" />
             {!isSidebarCollapsed && "Test Runs"}
+          </NavLink>
+
+          <NavLink
+            to="settings"
+            className={({ isActive }) => navClass(isActive, isSidebarCollapsed)}
+          >
+            <Settings className="size-5 shrink-0" />
+            {!isSidebarCollapsed && "Settings"}
           </NavLink>
         </nav>
 

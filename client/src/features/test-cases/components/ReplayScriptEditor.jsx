@@ -267,62 +267,6 @@ function getAssertDefinition(step) {
   };
 }
 
-function AssertInfoButton({ step }) {
-  const [open, setOpen] = useState(false);
-  const info = getAssertDefinition(step);
-
-  return (
-    <span className="relative inline-flex shrink-0">
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
-        className={`inline-flex size-5 items-center justify-center rounded-full border transition-colors ${
-          open
-            ? "border-amber-300 bg-amber-100 text-amber-700"
-            : "border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 hover:text-amber-700"
-        }`}
-        title="View assertion definition"
-        aria-label="View assertion definition"
-      >
-        <CircleAlert className="size-3.5" />
-      </button>
-
-      {open && (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-40 cursor-default"
-            aria-label="Close assertion definition"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false);
-            }}
-          />
-
-          <span className="absolute left-1/2 top-7 z-50 w-80 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-xl">
-            <span className="mb-1 block text-xs font-semibold text-slate-800">
-              {info.title}
-            </span>
-
-            <span className="block text-[11px] leading-relaxed text-slate-600">
-              {info.description}
-            </span>
-
-            {info.example && (
-              <span className="mt-2 block rounded-lg bg-slate-50 px-2 py-1.5 text-[11px] leading-relaxed text-slate-500">
-                {info.example}
-              </span>
-            )}
-          </span>
-        </>
-      )}
-    </span>
-  );
-}
-
 // ── Human-readable label ───────────────────────────────────────────────────────
 
 function labelFromSelector(selector) {
@@ -987,8 +931,6 @@ function GuidedStepRow({
               {step.actionName || "?"}
             </span>
           </span>
-
-          {isAssertion && <AssertInfoButton step={step} />}
         </div>
 
         <button
@@ -1086,6 +1028,19 @@ function GuidedStepRow({
           </DropdownMenu>
         </div>
       </div>
+
+      {isAssertion && (
+        <div className="pb-2 pl-10 pr-3">
+          <p className="text-[11px] leading-relaxed text-purple-400">
+            {getAssertDefinition(step).description}
+          </p>
+          {step.notes && (
+            <p className="mt-0.5 text-[10px] italic text-slate-400">
+              {step.notes}
+            </p>
+          )}
+        </div>
+      )}
 
       {expanded && (
         <div className="space-y-3 border-t border-slate-100 py-3 pl-10 pr-4">
@@ -1545,11 +1500,9 @@ function AdvancedMode({ steps, rawJson, jsonError, onJsonChange, scriptId, param
                   {step.actionName?.slice(0, 7) || "?"}
                 </span>
 
-                {isAssertion && <AssertInfoButton step={step} />}
-
                 <span
                   className="min-w-0 flex-1 truncate text-[10px] text-slate-400"
-                  title={stepLabel(step)}
+                  title={isAssertion ? `${stepLabel(step)} — ${getAssertDefinition(step).description}` : stepLabel(step)}
                 >
                   {stepLabel(step).slice(0, 18)}
                 </span>

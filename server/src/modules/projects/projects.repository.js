@@ -154,8 +154,13 @@ async function getProjectById(userId, projectId) {
       p.name,
       p.description,
       p.base_url,
-      p.user_id
+      p.config,
+      p.user_id,
+      p.created_at,
+      p.updated_at,
+      u.name AS owner_name
     FROM projects p
+    JOIN users u ON u.id = p.user_id
     WHERE p.id = $1 AND p.user_id = $2
   `;
 
@@ -249,7 +254,7 @@ async function getProjectById(userId, projectId) {
   };
 }
 
-async function updateProject(userId, projectId, { name, description, baseUrl }) {
+async function updateProject(userId, projectId, { name, description, baseUrl, config }) {
   const projectIdNum = parseInt(projectId, 10);
   if (isNaN(projectIdNum)) {
     throw new Error("Invalid project ID");
@@ -261,9 +266,10 @@ async function updateProject(userId, projectId, { name, description, baseUrl }) 
       name = COALESCE($3, name),
       description = COALESCE($4, description),
       base_url = COALESCE($5, base_url),
+      config = COALESCE($6, config),
       updated_at = NOW()
     WHERE id = $1 AND user_id = $2
-    RETURNING id, name, description, base_url, created_at, updated_at
+    RETURNING id, name, description, base_url, config, created_at, updated_at
   `;
 
   const result = await query(sql, [
@@ -272,6 +278,7 @@ async function updateProject(userId, projectId, { name, description, baseUrl }) 
     name,
     description,
     baseUrl,
+    config !== undefined ? JSON.stringify(config) : null,
   ]);
 
   if (!result.rows.length) {
