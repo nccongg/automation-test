@@ -4,6 +4,7 @@ import {
   CheckCircle, Save, RotateCcw, Info, ArrowRight,
 } from "lucide-react";
 import { generateDatasetWithAI, createDataset, updateDataset } from "../api/datasetsApi";
+import { FormInput, FormTextarea } from "@/shared/components/ui/FormField";
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
 
@@ -104,19 +105,19 @@ function EditableMappingPanel({ scriptVars, columns, mapping, onChange }) {
               <span className="font-mono text-[11px] text-violet-700 shrink-0 w-28 truncate" title={`{{${v}}}`}>
                 {`{{${v}}}`}
               </span>
-              <ArrowRight className="size-3 text-slate-300 shrink-0" />
+              <ArrowRight className="size-3 text-muted-foreground/30 shrink-0" />
               <select
                 value={col || "__none__"}
                 onChange={(e) => {
                   const val = e.target.value === "__none__" ? "" : e.target.value;
                   onChange({ ...mapping, [v]: val });
                 }}
-                className={`flex-1 min-w-0 rounded-lg border px-2 py-1 text-xs font-mono outline-none focus:ring-2 transition-colors ${
+                className={`flex-1 min-w-0 rounded border px-2 py-1 text-xs font-mono outline-none transition-colors ${
                   valid
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 focus:ring-emerald-200"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 focus:border-emerald-400"
                     : col
-                    ? "border-amber-200 bg-amber-50 text-amber-700 focus:ring-amber-200"
-                    : "border-slate-200 bg-white text-slate-500 focus:ring-violet-200"
+                    ? "border-amber-200 bg-amber-50 text-amber-700 focus:border-amber-400"
+                    : "border-input bg-muted/50 text-muted-foreground focus:border-success"
                 }`}
               >
                 <option value="__none__">— not mapped —</option>
@@ -129,7 +130,7 @@ function EditableMappingPanel({ scriptVars, columns, mapping, onChange }) {
                   ? <CheckCircle className="size-3.5 text-emerald-500" />
                   : col
                   ? <AlertTriangle className="size-3.5 text-amber-400" />
-                  : <span className="text-[10px] text-slate-300">—</span>
+                  : <span className="text-[10px] text-muted-foreground/30">—</span>
                 }
               </span>
             </div>
@@ -146,16 +147,16 @@ function RowsPreview({ columns, rows }) {
   const [expanded, setExpanded] = useState(true);
 
   return (
-    <div className="rounded-lg border border-slate-200 overflow-hidden">
+    <div className="rounded-lg border border-border overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded((o) => !o)}
-        className="flex w-full items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-100"
+        className="flex w-full items-center gap-2 px-3 py-2 bg-muted/30 border-b border-border"
       >
         {expanded
-          ? <ChevronDown className="size-3.5 text-slate-400" />
-          : <ChevronRight className="size-3.5 text-slate-400" />}
-        <span className="text-xs font-semibold text-slate-600">
+          ? <ChevronDown className="size-3.5 text-muted-foreground" />
+          : <ChevronRight className="size-3.5 text-muted-foreground" />}
+        <span className="text-xs font-semibold text-foreground">
           Preview — {rows.length} rows × {columns.length} columns
         </span>
       </button>
@@ -164,23 +165,23 @@ function RowsPreview({ columns, rows }) {
         <div className="overflow-x-auto max-h-52">
           <table className="w-full text-[11px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-300 w-7">#</th>
+              <tr className="bg-muted/40">
+                <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 w-7">#</th>
                 {columns.map((c) => (
-                  <th key={c} className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-500 whitespace-nowrap">
+                  <th key={c} className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
                     {c}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody>
               {rows.map((row, i) => (
-                <tr key={i} className="hover:bg-slate-50/60">
-                  <td className="px-2 py-1.5 text-slate-300 font-mono">{i + 1}</td>
+                <tr key={i} className={`transition-colors ${i % 2 === 1 ? "bg-muted/50 hover:bg-muted/80" : "bg-card hover:bg-muted/40"}`}>
+                  <td className="px-2 py-2.5 text-muted-foreground/30 font-mono tabular-nums">{i + 1}</td>
                   {columns.map((c) => (
                     <td
                       key={c}
-                      className="px-2 py-1.5 text-slate-600 font-mono max-w-[160px] truncate"
+                      className="px-2 py-2.5 text-foreground font-mono max-w-[160px] truncate"
                       title={String(row[c] ?? "")}
                     >
                       {String(row[c] ?? "")}
@@ -294,12 +295,120 @@ export default function AIDatasetGenerator({
     }
   }
 
+  const content = (
+    <div className="space-y-3">
+      {/* Prompt + row count */}
+      <div className="space-y-2">
+        <FormTextarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleGenerate(); }}
+          placeholder={`Describe data to generate, e.g.\n"5 login scenarios: valid user, wrong password, empty fields, SQL injection, very long email"`}
+          rows={3}
+          disabled={generating || saving}
+          className="disabled:opacity-50"
+        />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] text-muted-foreground shrink-0">Rows</label>
+            <FormInput
+              type="number"
+              min={1}
+              max={50}
+              value={rowCount}
+              onChange={(e) => setRowCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 5)))}
+              disabled={generating || saving}
+              className="w-16 text-center disabled:opacity-50"
+            />
+          </div>
+          <button
+            onClick={handleGenerate}
+            disabled={!prompt.trim() || generating || saving}
+            className="flex items-center gap-1.5 rounded-md bg-[#0048D9] px-4 py-1.5 text-xs font-medium text-white hover:bg-[#002266] disabled:opacity-50 disabled:cursor-not-allowed transition-colors h-8"
+          >
+            {generating ? (
+              <><span className="size-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />Generating…</>
+            ) : (
+              <><Sparkles className="size-3" />Generate</>
+            )}
+          </button>
+          {result && (
+            <button
+              type="button"
+              onClick={() => { setResult(null); setEditableMapping({}); }}
+              className="flex items-center gap-1 rounded-md border border-[#0048D9] bg-background px-3 py-1.5 text-[11px] font-medium text-[#0048D9] hover:bg-[#E7F2FD] transition-colors ml-auto h-8"
+            >
+              <RotateCcw className="size-3" /> Reset
+            </button>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 rounded border border-destructive/20 bg-destructive/5 px-3 py-2">
+          <AlertTriangle className="size-3.5 text-destructive shrink-0" />
+          <p className="text-xs text-destructive">{error}</p>
+        </div>
+      )}
+
+      {result && (
+        <div className="space-y-3">
+          <AnalysisPanel analysis={result.analysis} />
+
+          <EditableMappingPanel
+            scriptVars={scriptVars.length > 0 ? scriptVars : Object.keys(result.variableMapping || {})}
+            columns={result.columns}
+            mapping={editableMapping}
+            onChange={setEditableMapping}
+          />
+
+          <RowsPreview columns={result.columns} rows={result.rows} />
+
+          {/* Save controls */}
+          <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+            {existingDatasetId && (
+              <div className="flex items-center rounded-lg border border-border bg-muted/30 p-0.5 gap-0.5">
+                {["new", "update"].map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setSaveMode(mode)}
+                    className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      saveMode === mode ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {mode === "new" ? "New dataset" : `Update "${existingDatasetName}"`}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-1.5 rounded-md bg-[linear-gradient(180deg,#B4F5DC_0%,#7CECC1_100%)] border border-white/80 px-4 py-1.5 text-xs font-medium text-[#017C28] hover:brightness-95 disabled:opacity-50 transition-all h-8"
+            >
+              {saving ? (
+                <><span className="size-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />Saving…</>
+              ) : (
+                <><Save className="size-3" />Save &amp; apply mapping</>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (alwaysOpen) {
+    return content;
+  }
+
   return (
-    <div className="rounded-xl border border-violet-200 bg-violet-50/20 overflow-hidden">
+    <div className="rounded-xl overflow-hidden bg-card shadow-[0_4px_14px_rgba(0,0,0,0.2)] dark:shadow-[0_4px_14px_rgba(0,0,0,0.35)]">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 px-3 py-2.5 hover:bg-violet-50/40 transition-colors"
+        className="flex w-full items-center gap-2 px-3 py-2.5 hover:bg-muted/30 transition-colors"
       >
         <Sparkles className="size-3.5 text-violet-500 shrink-0" />
         <span className="text-xs font-semibold text-violet-700">Generate with AI</span>
@@ -308,112 +417,14 @@ export default function AIDatasetGenerator({
             · {scriptVars.length} var{scriptVars.length > 1 ? "s" : ""} detected
           </span>
         )}
-        {open
+        {_open
           ? <ChevronDown className="size-3.5 text-violet-400 ml-auto" />
           : <ChevronRight className="size-3.5 text-violet-400 ml-auto" />}
       </button>
 
-      {open && (
-        <div className="border-t border-violet-100 px-3 pb-3 pt-2.5 space-y-3">
-          {/* Prompt + row count */}
-          <div className="space-y-2">
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleGenerate(); }}
-              placeholder={`Describe data to generate, e.g.\n"5 login scenarios: valid user, wrong password, empty fields, SQL injection, very long email"`}
-              rows={3}
-              disabled={generating || saving}
-              className="w-full resize-none rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50"
-            />
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <label className="text-[11px] text-slate-500 shrink-0">Rows</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={rowCount}
-                  onChange={(e) => setRowCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 5)))}
-                  disabled={generating || saving}
-                  className="w-16 rounded-lg border border-violet-200 bg-white px-2 py-1.5 text-sm text-slate-700 text-center focus:outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50"
-                />
-              </div>
-              <button
-                onClick={handleGenerate}
-                disabled={!prompt.trim() || generating || saving}
-                className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {generating ? (
-                  <><span className="size-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />Generating…</>
-                ) : (
-                  <><Sparkles className="size-3" />Generate</>
-                )}
-              </button>
-              {result && (
-                <button
-                  type="button"
-                  onClick={() => { setResult(null); setEditableMapping({}); }}
-                  className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-600 transition-colors ml-auto"
-                >
-                  <RotateCcw className="size-3" /> Reset
-                </button>
-              )}
-            </div>
-          </div>
-
-          {error && (
-            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-              <AlertTriangle className="size-3.5 text-red-500 shrink-0" />
-              <p className="text-xs text-red-600">{error}</p>
-            </div>
-          )}
-
-          {result && (
-            <div className="space-y-3">
-              <AnalysisPanel analysis={result.analysis} />
-
-              <EditableMappingPanel
-                scriptVars={scriptVars.length > 0 ? scriptVars : Object.keys(result.variableMapping || {})}
-                columns={result.columns}
-                mapping={editableMapping}
-                onChange={setEditableMapping}
-              />
-
-              <RowsPreview columns={result.columns} rows={result.rows} />
-
-              {/* Save controls */}
-              <div className="flex items-center gap-2 pt-0.5 flex-wrap">
-                {existingDatasetId && (
-                  <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 gap-0.5">
-                    {["new", "update"].map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => setSaveMode(mode)}
-                        className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                          saveMode === mode ? "bg-slate-800 text-white" : "text-slate-500 hover:text-slate-700"
-                        }`}
-                      >
-                        {mode === "new" ? "New dataset" : `Update "${existingDatasetName}"`}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                >
-                  {saving ? (
-                    <><span className="size-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />Saving…</>
-                  ) : (
-                    <><Save className="size-3" />Save &amp; apply mapping</>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
+      {_open && (
+        <div className="border-t border-border px-3 pb-3 pt-2.5">
+          {content}
         </div>
       )}
     </div>

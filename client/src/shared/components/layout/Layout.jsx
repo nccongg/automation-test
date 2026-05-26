@@ -10,25 +10,73 @@ import {
   LayoutDashboard,
   Settings as SettingsIcon,
   SquareKanban,
-  TestTube2,
-  FileText,
-  PlayCircle,
-  ChevronLeft,
-  ChevronRight,
   Menu,
   X,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useTheme } from "@/features/theme/ThemeContext";
 import { useState, useEffect } from "react";
 
 const navItems = [
   { to: "/", label: "Dashboard", Icon: LayoutDashboard },
   { to: "/projects", label: "Projects", Icon: SquareKanban },
-  // { to: "/test-cases", label: "Test Cases", Icon: TestTube2 },
-  // { to: "/results", label: "Results", Icon: FileText },
-  // { to: "/test-runner", label: "Test Runner", Icon: PlayCircle },
   { to: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
+
+const THEME_CYCLE = ["light", "dark", "system"];
+const THEME_ICONS = { light: Sun, dark: Moon, system: Monitor };
+const THEME_LABELS = { light: "Light", dark: "Dark", system: "System" };
+
+function ThemeToggle({ collapsed }) {
+  const { theme, setTheme } = useTheme();
+  const Icon = THEME_ICONS[theme] || Monitor;
+
+  function cycleTheme() {
+    const idx = THEME_CYCLE.indexOf(theme);
+    setTheme(THEME_CYCLE[(idx + 1) % THEME_CYCLE.length]);
+  }
+
+  if (collapsed) {
+    return (
+      <button
+        onClick={cycleTheme}
+        title={`Theme: ${THEME_LABELS[theme]}`}
+        className="mx-auto flex size-9 items-center justify-center rounded-xl text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+      >
+        <Icon className="size-4" />
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-sidebar-border px-3 py-2 mb-2">
+      <span className="text-xs text-sidebar-foreground/60 font-medium">Theme</span>
+      <div className="flex items-center gap-0.5">
+        {THEME_CYCLE.map((t) => {
+          const TIcon = THEME_ICONS[t];
+          return (
+            <button
+              key={t}
+              onClick={() => setTheme(t)}
+              title={THEME_LABELS[t]}
+              className={[
+                "flex size-7 items-center justify-center rounded-lg transition-colors text-xs",
+                theme === t
+                  ? "bg-[var(--brand-primary)] text-white"
+                  : "text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+              ].join(" ")}
+            >
+              <TIcon className="size-3.5" />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -56,7 +104,7 @@ export default function Layout() {
   const showExpanded = isHovering || !isSidebarCollapsed;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-full overflow-hidden bg-background">
       {/* Mobile Sidebar Overlay */}
       {isMobileSidebarOpen && (
         <div
@@ -113,7 +161,8 @@ export default function Layout() {
         </nav>
 
         {/* Mobile User Profile */}
-        <div className="mt-auto px-3 pb-6">
+        <div className="mt-auto px-3 pb-6 flex flex-col gap-2">
+          <ThemeToggle collapsed={false} />
           <div className="flex items-center gap-3 rounded-2xl border border-sidebar-border bg-background/30 px-3 py-2">
             <div className="grid size-8 place-items-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground">
               <span className="text-xs font-semibold">
@@ -196,8 +245,13 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* User Profile */}
-        <div className="mt-auto px-3 pb-6">
+        {/* User Profile + Theme */}
+        <div className="mt-auto px-3 pb-6 flex flex-col gap-2">
+          {showExpanded ? (
+            <ThemeToggle collapsed={false} />
+          ) : (
+            <ThemeToggle collapsed={true} />
+          )}
           <div
             className={`flex items-center gap-3 rounded-2xl border border-sidebar-border bg-background/30 px-3 py-2 ${
               !showExpanded ? "justify-center" : ""
@@ -232,7 +286,7 @@ export default function Layout() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col min-h-0">
         {/* Mobile Header */}
         <div className="flex items-center justify-between border-b bg-background px-4 py-3 md:hidden">
           <button
@@ -252,7 +306,7 @@ export default function Layout() {
           <div className="w-9" /> {/* Spacer for centering */}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-2 sm:px-6 sm:py-3 md:px-8 md:py-4">
           <Outlet />
         </div>
       </div>

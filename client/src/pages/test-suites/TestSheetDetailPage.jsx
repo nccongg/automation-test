@@ -231,7 +231,7 @@ function AddCasesDialog({ open, onClose, onAdded, projectId, existingIds }) {
                     type="checkbox"
                     checked={selected.has(id)}
                     onChange={() => toggle(id)}
-                    className="mt-0.5 accent-indigo-600"
+                    className="mt-0.5 accent-brand-600"
                   />
 
                   <div className="min-w-0">
@@ -277,7 +277,7 @@ function DatasetPreviewDialog({ open, onClose, dataset }) {
       <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Table className="size-4 text-indigo-600" />
+            <Table className="size-4 text-brand-600" />
             Dataset Preview
           </DialogTitle>
         </DialogHeader>
@@ -755,13 +755,13 @@ export default function TestSuiteDetailPage() {
                     if (e.key === "Escape") setEditingTitle(false);
                   }}
                   onBlur={saveTitle}
-                  className="w-full min-w-0 border-b-2 border-indigo-500 bg-transparent text-2xl font-bold tracking-tight outline-none"
+                  className="w-full min-w-0 border-b-2 border-brand-500 bg-transparent text-2xl font-bold tracking-tight outline-none"
                   disabled={saving}
                 />
 
                 <button
                   onClick={saveTitle}
-                  className="shrink-0 text-indigo-600 hover:text-indigo-800"
+                  className="shrink-0 text-brand-600 hover:text-brand-800"
                 >
                   <Check className="size-4" />
                 </button>
@@ -798,13 +798,13 @@ export default function TestSuiteDetailPage() {
                   }}
                   onBlur={saveDesc}
                   placeholder="Add a description..."
-                  className="w-full min-w-0 border-b border-indigo-400 bg-transparent text-sm text-muted-foreground outline-none"
+                  className="w-full min-w-0 border-b border-brand-400 bg-transparent text-sm text-muted-foreground outline-none"
                   disabled={saving}
                 />
 
                 <button
                   onClick={saveDesc}
-                  className="shrink-0 text-indigo-600 hover:text-indigo-800"
+                  className="shrink-0 text-brand-600 hover:text-brand-800"
                 >
                   <Check className="size-3.5" />
                 </button>
@@ -856,7 +856,7 @@ export default function TestSuiteDetailPage() {
       <section className="rounded-xl border bg-white">
         <div className="flex items-start justify-between gap-4 border-b px-5 py-4">
           <div className="flex items-start gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
               <Settings2 className="size-4" />
             </div>
 
@@ -939,7 +939,7 @@ export default function TestSuiteDetailPage() {
                             )
                           }
                           title="Open test case"
-                          className="block max-w-full truncate text-left font-medium text-slate-900 transition-colors hover:text-indigo-600 hover:underline"
+                          className="block max-w-full truncate text-left font-medium text-slate-900 transition-colors hover:text-brand-600 hover:underline"
                         >
                           {row.title}
                         </button>
@@ -983,7 +983,7 @@ export default function TestSuiteDetailPage() {
                           setPreviewOpen(true);
                         }}
                         disabled={!selectedDataset}
-                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-indigo-600 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-brand-600 transition hover:bg-brand-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
                         title={
                           selectedDataset
                             ? "Preview selected dataset"
@@ -1005,7 +1005,7 @@ export default function TestSuiteDetailPage() {
                         setRunConfigWarning("");
                       }}
                       disabled={!hasDatasets}
-                      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-400"
+                      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400"
                     >
                       <option value="">
                         {hasDatasets ? "Select data" : "Run without data"}
@@ -1038,7 +1038,7 @@ export default function TestSuiteDetailPage() {
                         setRunConfigWarning("");
                       }}
                       disabled={scriptsLoading || !hasScripts}
-                      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 disabled:bg-slate-50 disabled:text-slate-400"
+                      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400"
                     >
                       <option value="">
                         {scriptsLoading
@@ -1119,7 +1119,7 @@ export default function TestSuiteDetailPage() {
 
             <button
               onClick={() => navigate(`/projects/${projectId}/test-runs`)}
-              className="flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+              className="flex items-center gap-1 text-xs text-brand-600 hover:underline"
             >
               <History className="size-3" />
               View all

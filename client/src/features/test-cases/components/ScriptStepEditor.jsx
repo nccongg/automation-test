@@ -1,13 +1,26 @@
 import { useState, useEffect, useRef } from "react";
-import { Link2, X, ChevronDown, Check, ShieldCheck, Plus, Wand2, Link, Eye, EyeOff, Type, Hash } from "lucide-react";
+import {
+  Link2,
+  X,
+  ChevronDown,
+  Check,
+  ShieldCheck,
+  Plus,
+  Wand2,
+  Link,
+  Eye,
+  EyeOff,
+  Type,
+  Hash,
+} from "lucide-react";
 
 const ANCHOR_TYPE_META = {
-  url_contains:       { icon: Link,       label: "URL contains" },
-  url_changed:        { icon: Link,       label: "URL changed" },
-  text_visible:       { icon: Eye,        label: "Text visible" },
-  text_not_visible:   { icon: EyeOff,     label: "Text hidden" },
-  no_error_message:   { icon: ShieldCheck, label: "No errors" },
-  field_value_equals: { icon: Type,       label: "Field value" },
+  url_contains: { icon: Link, label: "URL contains" },
+  url_changed: { icon: Link, label: "URL changed" },
+  text_visible: { icon: Eye, label: "Text visible" },
+  text_not_visible: { icon: EyeOff, label: "Text hidden" },
+  no_error_message: { icon: ShieldCheck, label: "No errors" },
+  field_value_equals: { icon: Type, label: "Field value" },
 };
 
 function StepAnchors({ anchors }) {
@@ -15,7 +28,10 @@ function StepAnchors({ anchors }) {
   return (
     <div className="flex flex-wrap gap-1.5 rounded-lg border border-violet-100 bg-violet-50/60 px-2.5 py-2">
       {anchors.map((anchor, i) => {
-        const meta = ANCHOR_TYPE_META[anchor.type] ?? { icon: Hash, label: anchor.type };
+        const meta = ANCHOR_TYPE_META[anchor.type] ?? {
+          icon: Hash,
+          label: anchor.type,
+        };
         const Icon = meta.icon;
         return (
           <span
@@ -32,9 +48,7 @@ function StepAnchors({ anchors }) {
             {anchor.value && (
               <span className="font-mono opacity-75">"{anchor.value}"</span>
             )}
-            {!anchor.required && (
-              <span className="opacity-50">?</span>
-            )}
+            {!anchor.required && <span className="opacity-50">?</span>}
           </span>
         );
       })}
@@ -43,58 +57,120 @@ function StepAnchors({ anchors }) {
 }
 
 const ACTION_COLORS = {
-  navigate:        "border-blue-200 bg-blue-50 text-blue-700",
-  fill:            "border-amber-200 bg-amber-50 text-amber-700",
-  click:           "border-emerald-200 bg-emerald-50 text-emerald-700",
-  select:          "border-violet-200 bg-violet-50 text-violet-700",
-  check:           "border-teal-200 bg-teal-50 text-teal-700",
-  uncheck:         "border-teal-200 bg-teal-50 text-teal-700",
-  wait:            "border-slate-200 bg-slate-100 text-slate-500",
-  assert:          "border-purple-200 bg-purple-50 text-purple-700",
-  scroll:          "border-sky-200 bg-sky-50 text-sky-700",
-  hover:           "border-orange-200 bg-orange-50 text-orange-700",
-  press_key:       "border-pink-200 bg-pink-50 text-pink-700",
-  extract_content: "border-lime-200 bg-lime-50 text-lime-700",
-  screenshot:      "border-indigo-200 bg-indigo-50 text-indigo-700",
+  navigate: "border-blue-300 bg-blue-100 text-blue-700 dark:border-blue-700/50 dark:bg-blue-900/30 dark:text-blue-300",
+  fill: "border-amber-300 bg-amber-100 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/30 dark:text-amber-300",
+  click: "border-emerald-300 bg-emerald-100 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/30 dark:text-emerald-300",
+  select: "border-violet-300 bg-violet-100 text-violet-700 dark:border-violet-700/50 dark:bg-violet-900/30 dark:text-violet-300",
+  check: "border-teal-300 bg-teal-100 text-teal-700 dark:border-teal-700/50 dark:bg-teal-900/30 dark:text-teal-300",
+  uncheck: "border-teal-300 bg-teal-100 text-teal-700 dark:border-teal-700/50 dark:bg-teal-900/30 dark:text-teal-300",
+  wait: "border-slate-300 bg-slate-100 text-slate-500 dark:border-slate-600/50 dark:text-slate-400",
+  assert: "border-purple-300 bg-purple-100 text-purple-700 dark:border-purple-700/50 dark:bg-purple-900/30 dark:text-purple-300",
+  scroll: "border-sky-300 bg-sky-100 text-sky-700 dark:border-sky-700/50 dark:bg-sky-900/30 dark:text-sky-300",
+  hover: "border-orange-300 bg-orange-100 text-orange-700 dark:border-orange-700/50 dark:bg-orange-900/30 dark:text-orange-300",
+  press_key: "border-pink-300 bg-pink-100 text-pink-700 dark:border-pink-700/50 dark:bg-pink-900/30 dark:text-pink-300",
+  extract_content: "border-lime-300 bg-lime-100 text-lime-700 dark:border-lime-700/50 dark:bg-lime-900/30 dark:text-lime-300",
+  screenshot: "border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-700/50 dark:bg-brand-900/30 dark:text-brand-300",
 };
 
 const USER_INPUT_KEYS = new Set([
-  "text", "url", "value", "content", "key", "keys", "query", "option", "file", "contains",
+  "text",
+  "url",
+  "value",
+  "content",
+  "key",
+  "keys",
+  "query",
+  "option",
+  "file",
+  "contains",
 ]);
 
 const ASSERTION_TYPES = [
-  { value: "assert_text",         label: "Text equals",     fields: ["selector", "text"],  needsExpected: true },
-  { value: "assert_url_contains", label: "URL contains",    fields: ["contains"],           needsExpected: true },
-  { value: "assert_url",          label: "URL equals",      fields: ["url"],                needsExpected: true },
-  { value: "assert_visible",      label: "Element visible", fields: ["selector"],           needsExpected: false },
-  { value: "assert_value",        label: "Input value",     fields: ["selector", "value"],  needsExpected: true },
+  {
+    value: "assert_text",
+    label: "Text equals",
+    fields: ["selector", "text"],
+    needsExpected: true,
+    description: "Checks that the text content of an element matches the expected value.",
+    example: "Example: after login, the #username element displays the correct user name.",
+  },
+  {
+    value: "assert_url_contains",
+    label: "URL contains",
+    fields: ["contains"],
+    needsExpected: true,
+    description: "Checks that the current URL contains the specified text fragment.",
+    example: "Example: after a successful login, the URL should contain /dashboard or /home.",
+  },
+  {
+    value: "assert_url",
+    label: "URL equals",
+    fields: ["url"],
+    needsExpected: true,
+    description: "Checks that the current URL exactly matches the expected value.",
+    example: "Example: after submitting a form, the URL should be https://example.com/success.",
+  },
+  {
+    value: "assert_visible",
+    label: "Element visible",
+    fields: ["selector"],
+    needsExpected: false,
+    description: "Checks that a specific element is visible on the screen.",
+    example: "Example: after login, the Logout button or user avatar should appear.",
+  },
+  {
+    value: "assert_value",
+    label: "Input value",
+    fields: ["selector", "value"],
+    needsExpected: true,
+    description: "Checks that the value of an input field matches the expected value.",
+    example: "Example: the email field should contain the email address that was entered.",
+  },
 ];
 
 function actionColorClass(name) {
   if (!name) return "border-slate-200 bg-slate-100 text-slate-600";
   if (ACTION_COLORS[name]) return ACTION_COLORS[name];
-  if (name.startsWith("assert_") || name.startsWith("verify_")) return ACTION_COLORS.assert;
+  if (name.startsWith("assert_") || name.startsWith("verify_"))
+    return ACTION_COLORS.assert;
   return "border-slate-200 bg-slate-100 text-slate-600";
 }
 
 function extractTemplateVars(val) {
   if (typeof val !== "string") return [];
-  return [...new Set((val.match(/\{\{(\w+)\}\}/g) || []).map((m) => m.slice(2, -2)))];
+  return [
+    ...new Set((val.match(/\{\{(\w+)\}\}/g) || []).map((m) => m.slice(2, -2))),
+  ];
 }
 
 function stepDescription(step) {
-  return step.notes || step.actionInput?.axName || step.actionInput?.placeholder || step.actionInput?.title || null;
+  return (
+    step.notes ||
+    step.actionInput?.axName ||
+    step.actionInput?.placeholder ||
+    step.actionInput?.title ||
+    null
+  );
 }
 
 // Column picker dropdown (shared between template bind and hardcoded parameterize)
-function ColDropdown({ icon, label, columns, columnValues, onPick, triggerClass }) {
+function ColDropdown({
+  icon,
+  label,
+  columns,
+  columnValues,
+  onPick,
+  triggerClass,
+}) {
   const Icon = icon;
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
   useEffect(() => {
     if (!open) return;
-    function h(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    function h(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, [open]);
@@ -114,17 +190,24 @@ function ColDropdown({ icon, label, columns, columnValues, onPick, triggerClass 
       {open && (
         <div className="absolute right-0 top-full z-30 mt-1 min-w-[140px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
           <div className="border-b border-slate-100 px-2.5 py-1.5">
-            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              {label}
+            </p>
           </div>
           <div className="max-h-44 overflow-y-auto py-0.5">
             {columns.map((col) => (
               <button
                 key={col}
                 type="button"
-                onClick={() => { onPick(col); setOpen(false); }}
-                className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left hover:bg-slate-50"
+                onClick={() => {
+                  onPick(col);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-surface-2"
               >
-                <span className="text-[11px] font-semibold text-violet-600">{col}</span>
+                <span className="text-[11px] font-semibold text-violet-600 dark:text-violet-400">
+                  {col}
+                </span>
                 {columnValues?.[col] !== undefined && (
                   <span className="max-w-[70px] truncate text-[10px] font-mono text-slate-400">
                     {String(columnValues[col]) || "—"}
@@ -140,7 +223,22 @@ function ColDropdown({ icon, label, columns, columnValues, onPick, triggerClass 
 }
 
 // Unified field row: handles both template {{var}} fields and hardcoded value fields
-function FieldRow({ fieldKey, pkey, isTemplate, rawValue, paramValue, onChangeValue, readOnly, availableColumns, columnValues, binding, onBind, onUnbind, onParameterize, isRedacted }) {
+function FieldRow({
+  fieldKey,
+  pkey,
+  isTemplate,
+  rawValue,
+  paramValue,
+  onChangeValue,
+  readOnly,
+  availableColumns,
+  columnValues,
+  binding,
+  onBind,
+  onUnbind,
+  onParameterize,
+  isRedacted,
+}) {
   const [showValue, setShowValue] = useState(false);
   const hasColumns = availableColumns?.length > 0;
 
@@ -154,7 +252,11 @@ function FieldRow({ fieldKey, pkey, isTemplate, rawValue, paramValue, onChangeVa
       {/* Value area */}
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
         {readOnly ? (
-          <span className="text-xs text-slate-600">{rawValue || paramValue || <span className="italic text-slate-300">—</span>}</span>
+          <span className="text-xs text-slate-600">
+            {rawValue || paramValue || (
+              <span className="italic text-slate-300">—</span>
+            )}
+          </span>
         ) : isRedacted ? (
           <>
             <span className="shrink-0 rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-500">
@@ -183,19 +285,22 @@ function FieldRow({ fieldKey, pkey, isTemplate, rawValue, paramValue, onChangeVa
         ) : binding ? (
           // Bound to a dataset column
           <>
-            <span className="flex shrink-0 items-center gap-1 rounded-full border border-violet-200 bg-violet-50 py-0.5 pl-2 pr-1 text-[11px] font-semibold text-violet-700">
-              <Link2 className="size-2.5 text-violet-400" />
+            <span className="flex shrink-0 items-center gap-1 rounded-full border border-violet-200 dark:border-violet-700/40 bg-violet-50 dark:bg-violet-900/20 py-0.5 pl-2 pr-1 text-[11px] font-semibold text-violet-700 dark:text-violet-300">
+              <Link2 className="size-2.5 text-violet-400 dark:text-violet-500" />
               {binding}
               <button
                 type="button"
                 onClick={onUnbind}
-                className="ml-0.5 rounded-full p-0.5 text-violet-300 hover:bg-violet-100 hover:text-violet-600 transition-colors"
+                className="ml-0.5 rounded-full p-0.5 text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 hover:text-violet-600 dark:hover:text-violet-300 transition-colors"
               >
                 <X className="size-2.5" />
               </button>
             </span>
             {columnValues?.[binding] !== undefined && (
-              <span className="min-w-0 flex-1 truncate text-[10px] font-mono text-slate-400" title={String(columnValues[binding])}>
+              <span
+                className="min-w-0 flex-1 truncate text-[10px] font-mono text-slate-400"
+                title={String(columnValues[binding])}
+              >
                 = {String(columnValues[binding]) || "—"}
               </span>
             )}
@@ -220,7 +325,7 @@ function FieldRow({ fieldKey, pkey, isTemplate, rawValue, paramValue, onChangeVa
                 columns={availableColumns}
                 columnValues={columnValues}
                 onPick={onBind}
-                triggerClass="border-violet-200 bg-violet-50 text-violet-500 hover:bg-violet-100"
+                triggerClass="border-violet-200 dark:border-violet-700/40 bg-violet-50 dark:bg-violet-900/20 text-violet-500 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/40"
               />
             )}
           </>
@@ -240,7 +345,7 @@ function FieldRow({ fieldKey, pkey, isTemplate, rawValue, paramValue, onChangeVa
                 columns={availableColumns}
                 columnValues={columnValues}
                 onPick={onParameterize}
-                triggerClass="border-slate-200 bg-slate-50 text-slate-400 hover:border-amber-200 hover:bg-amber-50 hover:text-amber-600"
+                triggerClass="border-slate-200 bg-slate-50 text-slate-400 hover:border-amber-200 dark:hover:border-amber-700/40 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-600 dark:hover:text-amber-400"
               />
             )}
           </>
@@ -261,7 +366,9 @@ function AddAssertionPanel({ nextStepNo, availableColumns, onAdd, disabled }) {
   const typeConfig = ASSERTION_TYPES.find((t) => t.value === type);
   const needsSelector = typeConfig?.fields.includes("selector");
   const expectedField = typeConfig?.fields.find((f) => f !== "selector");
-  const canAdd = typeConfig?.needsExpected ? expected.trim() !== "" : selector.trim() !== "";
+  const canAdd = typeConfig?.needsExpected
+    ? expected.trim() !== ""
+    : selector.trim() !== "";
 
   useEffect(() => {
     if (!open) return;
@@ -274,9 +381,16 @@ function AddAssertionPanel({ nextStepNo, availableColumns, onAdd, disabled }) {
 
   function handleAdd() {
     const actionInput = {};
-    if (needsSelector && selector.trim()) actionInput.selector = selector.trim();
-    if (expectedField && expected.trim()) actionInput[expectedField] = expected.trim();
-    onAdd({ actionName: type, actionInput, continueOnError, captureScreenshot: false });
+    if (needsSelector && selector.trim())
+      actionInput.selector = selector.trim();
+    if (expectedField && expected.trim())
+      actionInput[expectedField] = expected.trim();
+    onAdd({
+      actionName: type,
+      actionInput,
+      continueOnError,
+      captureScreenshot: false,
+    });
     setOpen(false);
     setSelector("");
     setExpected("");
@@ -289,7 +403,7 @@ function AddAssertionPanel({ nextStepNo, availableColumns, onAdd, disabled }) {
           type="button"
           disabled={disabled}
           onClick={() => setOpen(true)}
-          className="flex items-center gap-1.5 rounded border border-dashed border-purple-200 px-3 py-1.5 text-xs font-medium text-purple-400 hover:border-purple-300 hover:bg-purple-50 hover:text-purple-600 transition-colors disabled:opacity-40"
+          className="flex items-center gap-1.5 rounded border border-dashed border-purple-200 dark:border-purple-700/40 px-3 py-1.5 text-xs font-medium text-purple-400 dark:text-purple-400/80 hover:border-purple-300 dark:hover:border-purple-600/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-300 transition-colors disabled:opacity-40"
         >
           <Plus className="size-3" />
           Add assertion
@@ -301,7 +415,11 @@ function AddAssertionPanel({ nextStepNo, availableColumns, onAdd, disabled }) {
             <p className="text-[10px] font-bold uppercase tracking-widest text-purple-500">
               Assertion — Step {nextStepNo}
             </p>
-            <button type="button" onClick={() => setOpen(false)} className="ml-auto text-slate-300 hover:text-slate-500">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="ml-auto text-slate-300 hover:text-slate-500"
+            >
               <X className="size-3.5" />
             </button>
           </div>
@@ -314,14 +432,27 @@ function AddAssertionPanel({ nextStepNo, availableColumns, onAdd, disabled }) {
                 onClick={() => setType(t.value)}
                 className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold transition-colors ${
                   type === t.value
-                    ? "border-purple-300 bg-purple-100 text-purple-700"
-                    : "border-slate-200 bg-white text-slate-400 hover:border-purple-200 hover:text-purple-500"
+                    ? "border-purple-300 bg-purple-100 text-purple-700 dark:border-purple-600/50 dark:bg-purple-900/30 dark:text-purple-300"
+                    : "border-slate-200 bg-white text-slate-400 hover:border-purple-200 dark:hover:border-purple-700/40 hover:text-purple-500 dark:hover:text-purple-400"
                 }`}
               >
                 {t.label}
               </button>
             ))}
           </div>
+
+          {typeConfig?.description && (
+            <div className="rounded-lg border border-purple-200 dark:border-purple-700/40 bg-purple-50 dark:bg-purple-900/15 px-3 py-2 space-y-0.5">
+              <p className="text-[11px] leading-relaxed text-purple-700 dark:text-purple-300">
+                {typeConfig.description}
+              </p>
+              {typeConfig.example && (
+                <p className="text-[10px] text-purple-400 dark:text-purple-400/80 italic">
+                  {typeConfig.example}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="grid gap-2 sm:grid-cols-2">
             {needsSelector && (
@@ -348,17 +479,28 @@ function AddAssertionPanel({ nextStepNo, availableColumns, onAdd, disabled }) {
                     type="text"
                     value={expected}
                     onChange={(e) => setExpected(e.target.value)}
-                    placeholder={availableColumns.length > 0 ? "value or {{col}}" : "expected value"}
+                    placeholder={
+                      availableColumns.length > 0
+                        ? "value or {{col}}"
+                        : "expected value"
+                    }
                     className="min-w-0 flex-1 rounded border border-slate-200 px-2.5 py-1.5 text-xs outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-100"
                   />
                   {availableColumns.length > 0 && (
                     <select
                       value=""
-                      onChange={(e) => { if (e.target.value) setExpected(`{{${e.target.value}}}`); }}
+                      onChange={(e) => {
+                        if (e.target.value)
+                          setExpected(`{{${e.target.value}}}`);
+                      }}
                       className="rounded border border-purple-200 bg-purple-50 px-1.5 text-xs text-purple-600 outline-none focus:ring-1 focus:ring-purple-100"
                     >
                       <option value="">col</option>
-                      {availableColumns.map((c) => <option key={c} value={c}>{c}</option>)}
+                      {availableColumns.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
                     </select>
                   )}
                 </div>
@@ -441,7 +583,9 @@ export default function ScriptStepEditor({
     // Must update params[pkey] (the template var name), NOT params[col] (the column name).
     // The worker resolves {{pkey}} from params[pkey] in a single pass — a nested "{{col}}"
     // string would NOT be resolved further.
-    entries.forEach(([pkey, col]) => { updates[pkey] = columnValues?.[col] ?? ""; });
+    entries.forEach(([pkey, col]) => {
+      updates[pkey] = columnValues?.[col] ?? "";
+    });
     onChangeRef.current({ ...paramsRef.current, ...updates });
   }, [columnValues]);
 
@@ -465,13 +609,17 @@ export default function ScriptStepEditor({
   if (!steps.length) {
     return (
       <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 py-8 text-center">
-        <p className="text-sm text-slate-400">No steps recorded in this script.</p>
+        <p className="text-sm text-slate-400">
+          No steps recorded in this script.
+        </p>
       </div>
     );
   }
 
   const assertionCount = steps.filter(
-    (s) => s.actionName?.startsWith("assert_") || s.actionName?.startsWith("verify_"),
+    (s) =>
+      s.actionName?.startsWith("assert_") ||
+      s.actionName?.startsWith("verify_"),
   ).length;
 
   const anchorCount = steps.reduce((n, s) => n + (s.anchors?.length ?? 0), 0);
@@ -479,7 +627,7 @@ export default function ScriptStepEditor({
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-4 py-2">
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
           {steps.length} step{steps.length !== 1 ? "s" : ""}
         </span>
@@ -498,7 +646,8 @@ export default function ScriptStepEditor({
           )}
           {availableColumns.length > 0 && (
             <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[9px] font-bold text-violet-600">
-              {availableColumns.length} col{availableColumns.length > 1 ? "s" : ""}
+              {availableColumns.length} col
+              {availableColumns.length > 1 ? "s" : ""}
             </span>
           )}
         </div>
@@ -516,17 +665,36 @@ export default function ScriptStepEditor({
             const vars = extractTemplateVars(String(val));
             if (vars.length > 0) {
               vars.forEach((varName) =>
-                fields.push({ key, pkey: varName, isTemplate: true, rawValue: String(val) }),
+                fields.push({
+                  key,
+                  pkey: varName,
+                  isTemplate: true,
+                  rawValue: String(val),
+                }),
               );
-            } else if (String(val) === "[REDACTED]" && USER_INPUT_KEYS.has(key)) {
-              fields.push({ key, pkey: `__r${sno}_${key}`, isTemplate: false, rawValue: "[REDACTED]", isRedacted: true });
+            } else if (
+              String(val) === "[REDACTED]" &&
+              USER_INPUT_KEYS.has(key)
+            ) {
+              fields.push({
+                key,
+                pkey: `__r${sno}_${key}`,
+                isTemplate: false,
+                rawValue: "[REDACTED]",
+                isRedacted: true,
+              });
             } else if (USER_INPUT_KEYS.has(key)) {
-              fields.push({ key, pkey: key, isTemplate: false, rawValue: String(val) });
+              fields.push({
+                key,
+                pkey: key,
+                isTemplate: false,
+                rawValue: String(val),
+              });
             }
           });
 
           return (
-            <div key={i} className="flex hover:bg-slate-50/40 transition-colors">
+            <div key={i} className="flex transition-colors">
               {/* Step number */}
               <div className="flex w-10 shrink-0 items-start justify-center pt-3">
                 <span className="flex size-5 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-500">
@@ -538,16 +706,24 @@ export default function ScriptStepEditor({
               <div className="flex min-w-0 flex-1 flex-col gap-2 border-l border-slate-100 py-2.5 pl-3 pr-4">
                 {/* Action + description */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={`shrink-0 rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${actionColorClass(step.actionName)}`}>
+                  <span
+                    className={`shrink-0 rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${actionColorClass(step.actionName)}`}
+                  >
                     {step.actionName}
                   </span>
                   {desc && (
-                    <span className="min-w-0 truncate text-[11px] text-slate-400" title={desc}>
+                    <span
+                      className="min-w-0 truncate text-[11px] text-slate-400"
+                      title={desc}
+                    >
                       {desc}
                     </span>
                   )}
                   {step.expectedUrl && (
-                    <span className="min-w-0 truncate text-[10px] font-mono text-slate-300" title={step.expectedUrl}>
+                    <span
+                      className="min-w-0 truncate text-[10px] font-mono text-slate-300"
+                      title={step.expectedUrl}
+                    >
                       → {step.expectedUrl}
                     </span>
                   )}
@@ -555,30 +731,36 @@ export default function ScriptStepEditor({
 
                 {/* Input fields */}
                 {fields.length > 0 && (
-                  <div className="space-y-1.5 rounded bg-slate-50/70 px-2.5 py-2">
-                    {fields.map(({ key, pkey, isTemplate, rawValue, isRedacted }) => (
-                      <FieldRow
-                        key={`${sno}-${pkey}`}
-                        fieldKey={key}
-                        pkey={pkey}
-                        isTemplate={isTemplate}
-                        rawValue={rawValue}
-                        paramValue={params[pkey] ?? ""}
-                        onChangeValue={(v) => setParam(pkey, v)}
-                        readOnly={readOnly}
-                        availableColumns={availableColumns}
-                        columnValues={columnValues}
-                        binding={isTemplate ? bindings[pkey] : null}
-                        onBind={(col) => bindParam(pkey, col)}
-                        onUnbind={() => unbindParam(pkey)}
-                        onParameterize={
-                          !readOnly && !isTemplate && !isRedacted && onParameterize && !parameterizeDisabled
-                            ? (col) => onParameterize(sno, key, col)
-                            : null
-                        }
-                        isRedacted={isRedacted ?? false}
-                      />
-                    ))}
+                  <div className="space-y-1.5 rounded px-2.5 py-2">
+                    {fields.map(
+                      ({ key, pkey, isTemplate, rawValue, isRedacted }) => (
+                        <FieldRow
+                          key={`${sno}-${pkey}`}
+                          fieldKey={key}
+                          pkey={pkey}
+                          isTemplate={isTemplate}
+                          rawValue={rawValue}
+                          paramValue={params[pkey] ?? ""}
+                          onChangeValue={(v) => setParam(pkey, v)}
+                          readOnly={readOnly}
+                          availableColumns={availableColumns}
+                          columnValues={columnValues}
+                          binding={isTemplate ? bindings[pkey] : null}
+                          onBind={(col) => bindParam(pkey, col)}
+                          onUnbind={() => unbindParam(pkey)}
+                          onParameterize={
+                            !readOnly &&
+                            !isTemplate &&
+                            !isRedacted &&
+                            onParameterize &&
+                            !parameterizeDisabled
+                              ? (col) => onParameterize(sno, key, col)
+                              : null
+                          }
+                          isRedacted={isRedacted ?? false}
+                        />
+                      ),
+                    )}
                   </div>
                 )}
 

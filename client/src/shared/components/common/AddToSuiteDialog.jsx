@@ -80,7 +80,7 @@ export default function AddToSuiteDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <ListTodo className="size-4 text-indigo-600" />
+            <ListTodo className="size-4 text-brand-600" />
             Add to Test Suite
           </DialogTitle>
           {testCaseTitle && (
@@ -121,14 +121,14 @@ export default function AddToSuiteDialog({
                       setCreating(false);
                     }}
                     className={`flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-slate-50 ${
-                      selectedId === s.id ? "bg-indigo-50" : ""
+                      selectedId === s.id ? "bg-brand-50" : ""
                     }`}
                   >
                     {/* Radio dot */}
                     <div
                       className={`size-4 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
                         selectedId === s.id
-                          ? "border-indigo-600 bg-indigo-600"
+                          ? "border-brand-600 bg-brand-600"
                           : "border-slate-300"
                       }`}
                     >
@@ -162,14 +162,14 @@ export default function AddToSuiteDialog({
                   setCreating(true);
                   setSelectedId(null);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-indigo-400 hover:text-indigo-600"
+                className="flex w-full items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-brand-400 hover:text-brand-600"
               >
                 <Plus className="size-4" />
                 Create new suite
               </button>
             ) : (
-              <div className="space-y-2 rounded-lg border border-indigo-200 bg-indigo-50/50 p-3">
-                <Label className="text-xs font-semibold text-indigo-700">
+              <div className="space-y-2 rounded-lg border border-brand-200 bg-brand-50/50 p-3">
+                <Label className="text-xs font-semibold text-brand-700">
                   New Suite Name
                 </Label>
                 <Input

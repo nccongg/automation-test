@@ -86,7 +86,7 @@ function AddCasesDialog({ open, onClose, onAdded, projectId, existingIds }) {
           <DialogTitle>Add Test Cases to Collection</DialogTitle>
         </DialogHeader>
         <input
-          className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 mt-2"
+          className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-300 mt-2"
           placeholder="Search by title or goal..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -108,7 +108,7 @@ function AddCasesDialog({ open, onClose, onAdded, projectId, existingIds }) {
                     type="checkbox"
                     checked={selected.has(id)}
                     onChange={() => toggle(id)}
-                    className="mt-0.5 accent-indigo-600"
+                    className="mt-0.5 accent-brand-600"
                   />
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{tc.title}</p>
@@ -246,10 +246,10 @@ export default function TestCollectionDetailPage() {
                   if (e.key === "Escape") setEditingTitle(false);
                 }}
                 onBlur={saveTitle}
-                className="text-2xl font-bold tracking-tight border-b-2 border-indigo-500 bg-transparent outline-none w-full min-w-0"
+                className="text-2xl font-bold tracking-tight border-b-2 border-brand-500 bg-transparent outline-none w-full min-w-0"
                 disabled={saving}
               />
-              <button onClick={saveTitle} className="shrink-0 text-indigo-600 hover:text-indigo-800">
+              <button onClick={saveTitle} className="shrink-0 text-brand-600 hover:text-brand-800">
                 <Check className="size-4" />
               </button>
               <button onClick={() => setEditingTitle(false)} className="shrink-0 text-slate-400 hover:text-slate-600">
@@ -311,7 +311,7 @@ export default function TestCollectionDetailPage() {
                   onClick={() => navigate(`/projects/${projectId}/test-cases/${item.testCaseId}`)}
                 >
                   <div className="flex items-center gap-2">
-                    <p className="font-medium truncate hover:text-indigo-600 transition-colors">
+                    <p className="font-medium truncate hover:text-brand-600 transition-colors">
                       {item.title}
                     </p>
                     <ExternalLink className="size-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />

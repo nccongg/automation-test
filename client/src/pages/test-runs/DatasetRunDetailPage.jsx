@@ -35,14 +35,14 @@ function formatDateTime(dateString) {
 /* ─── Failure taxonomy ────────────────────────────────────────────────── */
 
 const FAILURE_REASON_META = {
-  assertion_mismatch:  { label: "Assertion",       color: "bg-red-100 text-red-700" },
-  element_not_found:   { label: "Not found",        color: "bg-orange-100 text-orange-700" },
-  element_not_visible: { label: "Not visible",      color: "bg-orange-100 text-orange-700" },
-  timeout:             { label: "Timeout",           color: "bg-yellow-100 text-yellow-700" },
-  navigation_failed:   { label: "Nav failed",        color: "bg-red-100 text-red-700" },
-  value_not_set:       { label: "Value not set",     color: "bg-amber-100 text-amber-700" },
-  selector_invalid:    { label: "Bad selector",      color: "bg-purple-100 text-purple-700" },
-  unexpected_error:    { label: "Error",             color: "bg-slate-100 text-slate-600" },
+  assertion_mismatch:  { label: "Assertion",       color: "bg-red-500/15 text-red-400" },
+  element_not_found:   { label: "Not found",        color: "bg-orange-500/15 text-orange-400" },
+  element_not_visible: { label: "Not visible",      color: "bg-orange-500/15 text-orange-400" },
+  timeout:             { label: "Timeout",           color: "bg-yellow-500/15 text-yellow-500" },
+  navigation_failed:   { label: "Nav failed",        color: "bg-red-500/15 text-red-400" },
+  value_not_set:       { label: "Value not set",     color: "bg-amber-500/15 text-amber-500" },
+  selector_invalid:    { label: "Bad selector",      color: "bg-purple-500/15 text-purple-400" },
+  unexpected_error:    { label: "Error",             color: "bg-muted text-muted-foreground" },
 };
 
 function FailureReasonBadge({ reason }) {
@@ -60,30 +60,30 @@ function FailureReasonBadge({ reason }) {
 function VerdictBadge({ verdict, status }) {
   if (verdict === "pass")
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-500">
         <CheckCircle2 className="h-3 w-3" /> PASS
       </span>
     );
   if (verdict === "pass_with_warning")
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-500">
         <ShieldAlert className="h-3 w-3" /> PASS*
       </span>
     );
   if (verdict === "fail")
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-semibold text-red-400">
         <XCircle className="h-3 w-3" /> FAIL
       </span>
     );
   if (verdict === "error")
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-700">
+      <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/15 px-2 py-0.5 text-xs font-semibold text-orange-400">
         <AlertTriangle className="h-3 w-3" /> ERROR
       </span>
     );
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-600">
+    <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-semibold text-blue-400">
       <Clock className="h-3 w-3" />
       {status === "running" ? "Running" : "Queued"}
     </span>
@@ -92,10 +92,10 @@ function VerdictBadge({ verdict, status }) {
 
 function SummaryCard({ label, value, color }) {
   const colorMap = {
-    slate: "bg-slate-50 text-slate-700",
-    emerald: "bg-emerald-50 text-emerald-700",
-    red: "bg-red-50 text-red-700",
-    blue: "bg-blue-50 text-blue-600",
+    slate: "bg-muted text-foreground",
+    emerald: "bg-emerald-500/10 text-emerald-500",
+    red: "bg-red-500/10 text-red-400",
+    blue: "bg-blue-500/10 text-blue-400",
   };
   return (
     <div className={`rounded-xl p-4 ${colorMap[color]}`}>
@@ -109,13 +109,13 @@ function ProgressBar({ completed, total }) {
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
   return (
     <div className="flex items-center gap-3">
-      <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full rounded-full bg-indigo-500 transition-all duration-500"
+          className="h-full rounded-full bg-brand-500 transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-xs font-medium text-slate-500 tabular-nums">
+      <span className="text-xs font-medium text-muted-foreground tabular-nums">
         {completed}/{total}
       </span>
     </div>
@@ -197,11 +197,11 @@ export default function DatasetRunDetailPage() {
 
   if (error || !data) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 text-slate-500">
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-muted-foreground">
         <p>{error || "Not found"}</p>
         <button
           onClick={() => navigate(-1)}
-          className="text-sm text-indigo-600 hover:underline"
+          className="text-sm text-brand-400 hover:underline"
         >
           Go back
         </button>
@@ -222,22 +222,22 @@ export default function DatasetRunDetailPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-6">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-xs text-slate-400">
+      <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <button
           onClick={() => navigate(`/projects/${projectId}/test-cases/${batch.test_case_id}`)}
-          className="hover:text-indigo-600 transition-colors font-medium truncate max-w-[180px]"
+          className="hover:text-brand-400 transition-colors font-medium truncate max-w-[180px]"
         >
           {batch.test_case_title ?? `Test Case #${batch.test_case_id}`}
         </button>
         <ChevronRight className="h-3 w-3 shrink-0" />
         <button
           onClick={() => navigate(`/projects/${projectId}/test-cases/${batch.test_case_id}`)}
-          className="hover:text-slate-600 transition-colors"
+          className="hover:text-foreground transition-colors"
         >
           Dataset Runs
         </button>
         <ChevronRight className="h-3 w-3 shrink-0" />
-        <span className="text-slate-600 font-medium">Batch #{batch.id}</span>
+        <span className="text-foreground font-medium">Batch #{batch.id}</span>
       </nav>
 
       {/* Header */}
@@ -245,19 +245,19 @@ export default function DatasetRunDetailPage() {
         <div className="flex items-center gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <Database className="h-4 w-4 text-indigo-500" />
-              <h1 className="text-lg font-semibold text-slate-800">
+              <Database className="h-4 w-4 text-brand-400" />
+              <h1 className="text-lg font-semibold text-foreground">
                 Dataset Replay #{batch.id}
               </h1>
               {isRunning && (
-                <span className="animate-pulse rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-600">
+                <span className="animate-pulse rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-400">
                   Running
                 </span>
               )}
             </div>
-            <p className="mt-0.5 text-sm text-slate-500">
+            <p className="mt-0.5 text-sm text-muted-foreground">
               {batch.dataset_name && <span>{batch.dataset_name}</span>}
-              <span className="ml-2 text-slate-400">{formatDateTime(batch.created_at)}</span>
+              <span className="ml-2 text-muted-foreground/60">{formatDateTime(batch.created_at)}</span>
             </p>
           </div>
         </div>
@@ -266,7 +266,7 @@ export default function DatasetRunDetailPage() {
           <button
             disabled={rerunBusy}
             onClick={handleRerunFailed}
-            className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/15 disabled:opacity-50"
           >
             <RotateCcw className="h-4 w-4" />
             Rerun {failedCount} failed
@@ -288,18 +288,18 @@ export default function DatasetRunDetailPage() {
 
       {/* Progress bar (visible while running) */}
       {isRunning && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="mb-2 text-sm font-medium text-slate-600">Progress</p>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="mb-2 text-sm font-medium text-muted-foreground">Progress</p>
           <ProgressBar completed={batch.completed_rows} total={batch.total_rows} />
         </div>
       )}
 
       {/* Result table */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-xl bg-card">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr className="bg-muted/40 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-3 text-left">Row</th>
                 {columnKeys.map((col) => (
                   <th key={col} className="px-4 py-3 text-left">
@@ -312,23 +312,29 @@ export default function DatasetRunDetailPage() {
                 <th className="px-4 py-3 text-left"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody>
               {runs.map((run, idx) => (
                 <tr
                   key={run.run_id}
-                  className={`transition-colors hover:bg-slate-50 ${
-                    run.verdict === "fail" ? "bg-red-50/30" : run.verdict === "pass_with_warning" ? "bg-amber-50/20" : ""
+                  className={`transition-colors ${
+                    run.verdict === "fail"
+                      ? "bg-red-500/8 hover:bg-red-500/12"
+                      : run.verdict === "pass_with_warning"
+                      ? "bg-amber-500/8 hover:bg-amber-500/12"
+                      : idx % 2 === 1
+                      ? "bg-[#EDEEF2] hover:bg-[#e2e4ea]"
+                      : "bg-white hover:bg-[#EDEEF2]"
                   }`}
                 >
-                  <td className="px-4 py-3 font-mono text-xs text-slate-500">
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                     {run.row_index != null ? run.row_index + 1 : idx + 1}
                   </td>
 
                   {columnKeys.map((col) => (
-                    <td key={col} className="max-w-[200px] truncate px-4 py-3 text-slate-700">
+                    <td key={col} className="max-w-[200px] truncate px-4 py-3 text-foreground">
                       {run.dataset_snapshot?.[col] != null
                         ? String(run.dataset_snapshot[col])
-                        : <span className="text-slate-300">—</span>}
+                        : <span className="text-muted-foreground/30">—</span>}
                     </td>
                   ))}
 
@@ -336,15 +342,15 @@ export default function DatasetRunDetailPage() {
                     <VerdictBadge verdict={run.verdict} status={run.status} />
                   </td>
 
-                  <td className="px-4 py-3 tabular-nums text-slate-500">
+                  <td className="px-4 py-3 tabular-nums text-muted-foreground">
                     {formatDuration(run.started_at, run.finished_at)}
                   </td>
 
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">
                       {run.failed_step
-                        ? <span className="truncate text-xs text-red-600 max-w-[180px]">{run.failed_step}</span>
-                        : <span className="text-slate-300">—</span>}
+                        ? <span className="truncate text-xs text-red-400 max-w-[180px]">{run.failed_step}</span>
+                        : <span className="text-muted-foreground/30">—</span>}
                       <FailureReasonBadge reason={run.failure_reason} />
                     </div>
                   </td>
@@ -355,7 +361,7 @@ export default function DatasetRunDetailPage() {
                         onClick={() =>
                           navigate(`/projects/${projectId}/test-runs/${run.run_id}`)
                         }
-                        className="rounded px-2 py-1 text-xs text-indigo-600 hover:bg-indigo-50"
+                        className="rounded px-2 py-1 text-xs text-brand-400 hover:bg-brand-500/8"
                       >
                         Detail
                       </button>
@@ -368,7 +374,7 @@ export default function DatasetRunDetailPage() {
                 <tr>
                   <td
                     colSpan={columnKeys.length + 5}
-                    className="px-4 py-10 text-center text-sm text-slate-400"
+                    className="px-4 py-10 text-center text-sm text-muted-foreground"
                   >
                     No runs yet
                   </td>

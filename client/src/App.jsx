@@ -27,6 +27,7 @@ import TestSuitesPage from "@/pages/test-suites/TestCollectionPage";
 import TestSuiteDetailPage from "@/pages/test-suites/TestSheetDetailPage";
 import TestCollectionDetailPage from "@/pages/collections/TestCollectionDetailPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
+import ProjectSettingsPage from "@/pages/projects/ProjectSettingsPage";
 import DataPage from "@/pages/data/DataPage";
 import ObjectRepositoryPage from "@/pages/object-repository/ObjectRepositoryPage";
 
@@ -71,7 +72,7 @@ export default function App() {
               <Route path="collections/:collectionId" element={<TestCollectionDetailPage />} />
               <Route path="data" element={<DataPage />} />
               <Route path="objects" element={<ObjectRepositoryPage />} />
-              <Route path="settings" element={<SettingsPage />} />
+              <Route path="settings" element={<ProjectSettingsPage />} />
             </Route>
             <Route path="settings" element={<SettingsPage />} />
           </Route>
