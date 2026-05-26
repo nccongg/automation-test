@@ -9,14 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { parseAgentError } from "@/shared/utils/parseAgentError";
 
 const FAILURE_REASON_META = {
-  assertion_mismatch:  { label: "Assertion mismatch", color: "bg-red-100 text-red-700" },
-  element_not_found:   { label: "Element not found",  color: "bg-orange-100 text-orange-700" },
-  element_not_visible: { label: "Not visible",        color: "bg-orange-100 text-orange-700" },
-  timeout:             { label: "Timeout",             color: "bg-yellow-100 text-yellow-700" },
-  navigation_failed:   { label: "Navigation failed",  color: "bg-red-100 text-red-700" },
-  value_not_set:       { label: "Value not set",       color: "bg-amber-100 text-amber-700" },
-  selector_invalid:    { label: "Invalid selector",   color: "bg-purple-100 text-purple-700" },
-  unexpected_error:    { label: "Unexpected error",   color: "bg-slate-100 text-slate-600" },
+  assertion_mismatch:  { label: "Assertion mismatch", color: "bg-red-500/15 text-red-400" },
+  element_not_found:   { label: "Element not found",  color: "bg-orange-500/15 text-orange-400" },
+  element_not_visible: { label: "Not visible",        color: "bg-orange-500/15 text-orange-400" },
+  timeout:             { label: "Timeout",             color: "bg-yellow-500/15 text-yellow-500" },
+  navigation_failed:   { label: "Navigation failed",  color: "bg-red-500/15 text-red-400" },
+  value_not_set:       { label: "Value not set",       color: "bg-amber-500/15 text-amber-500" },
+  selector_invalid:    { label: "Invalid selector",   color: "bg-purple-500/15 text-purple-400" },
+  unexpected_error:    { label: "Unexpected error",   color: "bg-muted text-muted-foreground" },
 };
 
 function FailureReasonBadge({ reason }) {
@@ -32,26 +32,26 @@ function FailureReasonBadge({ reason }) {
 function getStepStyle(status) {
   const s = (status || "").toLowerCase();
   if (s === "passed" || s === "success" || s === "completed")
-    return { node: "bg-emerald-500 ring-emerald-200", tag: "bg-emerald-100 text-emerald-700" };
+    return { node: "bg-emerald-500 ring-emerald-500/20", tag: "bg-emerald-500/15 text-emerald-500" };
   if (s === "failed" || s === "error")
-    return { node: "bg-red-500 ring-red-200", tag: "bg-red-100 text-red-700" };
+    return { node: "bg-red-500 ring-red-500/20", tag: "bg-red-500/15 text-red-400" };
   if (s === "running")
-    return { node: "bg-blue-500 ring-blue-200", tag: "bg-blue-100 text-blue-700" };
-  return { node: "bg-slate-300 ring-slate-100", tag: "bg-slate-100 text-slate-500" };
+    return { node: "bg-blue-500 ring-blue-500/20", tag: "bg-blue-500/15 text-blue-400" };
+  return { node: "bg-muted-foreground/40 ring-border", tag: "bg-muted text-muted-foreground" };
 }
 
 const ERROR_CATEGORY_STYLE = {
-  "Invalid API Key":       "bg-red-50 border-red-200 text-red-700",
-  "Rate Limit Exceeded":   "bg-orange-50 border-orange-200 text-orange-700",
-  "Authentication Failed": "bg-red-50 border-red-200 text-red-700",
-  "Permission Denied":     "bg-yellow-50 border-yellow-200 text-yellow-700",
-  "Not Found":             "bg-slate-50 border-slate-200 text-slate-600",
-  "Invalid Request":       "bg-orange-50 border-orange-200 text-orange-700",
-  "Server Error":          "bg-red-50 border-red-200 text-red-700",
-  "Timeout":               "bg-yellow-50 border-yellow-200 text-yellow-700",
-  "Connection Error":      "bg-yellow-50 border-yellow-200 text-yellow-700",
-  "Element Not Found":     "bg-orange-50 border-orange-200 text-orange-700",
-  "Navigation Failed":     "bg-orange-50 border-orange-200 text-orange-700",
+  "Invalid API Key":       "bg-red-500/10 border-red-500/20 text-red-400",
+  "Rate Limit Exceeded":   "bg-orange-500/10 border-orange-500/20 text-orange-400",
+  "Authentication Failed": "bg-red-500/10 border-red-500/20 text-red-400",
+  "Permission Denied":     "bg-yellow-500/10 border-yellow-500/20 text-yellow-500",
+  "Not Found":             "bg-muted border-border text-muted-foreground",
+  "Invalid Request":       "bg-orange-500/10 border-orange-500/20 text-orange-400",
+  "Server Error":          "bg-red-500/10 border-red-500/20 text-red-400",
+  "Timeout":               "bg-yellow-500/10 border-yellow-500/20 text-yellow-500",
+  "Connection Error":      "bg-yellow-500/10 border-yellow-500/20 text-yellow-500",
+  "Element Not Found":     "bg-orange-500/10 border-orange-500/20 text-orange-400",
+  "Navigation Failed":     "bg-orange-500/10 border-orange-500/20 text-orange-400",
 };
 
 const ANCHOR_TYPE_META = {
@@ -72,13 +72,13 @@ function AnchorResultsPanel({ anchorResults }) {
   return (
     <div className={`mt-3 rounded-lg border px-3 py-2.5 ${
       hasFailed
-        ? "bg-red-50 border-red-100"
+        ? "bg-red-500/8 border-red-500/15"
         : hasWarning
-          ? "bg-amber-50 border-amber-100"
-          : "bg-emerald-50 border-emerald-100"
+          ? "bg-amber-500/8 border-amber-500/15"
+          : "bg-emerald-500/8 border-emerald-500/15"
     }`}>
       <p className={`mb-2 text-[10px] font-semibold uppercase tracking-wide ${
-        hasFailed ? "text-red-500" : hasWarning ? "text-amber-500" : "text-emerald-600"
+        hasFailed ? "text-red-400" : hasWarning ? "text-amber-500" : "text-emerald-500"
       }`}>
         State Anchors
       </p>
@@ -90,30 +90,30 @@ function AnchorResultsPanel({ anchorResults }) {
             <div key={i} className="flex items-start gap-2">
               <span className={`mt-0.5 flex-shrink-0 rounded-full p-0.5 ${
                 anchor.passed
-                  ? "bg-emerald-100 text-emerald-600"
+                  ? "bg-emerald-500/15 text-emerald-500"
                   : anchor.required
-                    ? "bg-red-100 text-red-600"
-                    : "bg-amber-100 text-amber-600"
+                    ? "bg-red-500/15 text-red-400"
+                    : "bg-amber-500/15 text-amber-500"
               }`}>
                 {anchor.passed
                   ? <CheckCircle2 size={11} />
                   : <XCircle size={11} />}
               </span>
               <div className="min-w-0 flex-1">
-                <span className="text-[10px] font-medium text-slate-500">
+                <span className="text-[10px] font-medium text-muted-foreground">
                   <Icon size={9} className="mr-0.5 inline-block" />
                   {meta.label}
                   {!anchor.required && (
-                    <span className="ml-1 text-slate-400">(optional)</span>
+                    <span className="ml-1 text-muted-foreground/60">(optional)</span>
                   )}
                 </span>
                 {anchor.value && (
-                  <span className="ml-1.5 text-[10px] font-mono text-slate-700">
+                  <span className="ml-1.5 text-[10px] font-mono text-foreground">
                     "{anchor.value}"
                   </span>
                 )}
                 {!anchor.passed && anchor.message && (
-                  <p className="mt-0.5 text-[10px] text-red-500">{anchor.message}</p>
+                  <p className="mt-0.5 text-[10px] text-red-400">{anchor.message}</p>
                 )}
               </div>
             </div>
@@ -127,18 +127,17 @@ function AnchorResultsPanel({ anchorResults }) {
 function StepErrorMessage({ raw }) {
   const parsed = parseAgentError(raw);
   if (parsed) {
-    const style = ERROR_CATEGORY_STYLE[parsed.category] ?? "bg-slate-50 border-slate-200 text-slate-600";
+    const style = ERROR_CATEGORY_STYLE[parsed.category] ?? "bg-muted border-border text-muted-foreground";
     return (
       <div className={`flex flex-col gap-1 rounded-lg border px-3 py-2 text-xs ${style}`}>
         <span className="font-semibold">{parsed.category}</span>
-        <span className="text-slate-600">{parsed.brief}</span>
+        <span className="text-muted-foreground">{parsed.brief}</span>
       </div>
     );
   }
-  // Fallback: raw message, but cap it sensibly
   return (
-    <p className="text-xs text-slate-500 break-all">
-      <span className="text-slate-400">Message: </span>{raw}
+    <p className="text-xs text-muted-foreground break-all">
+      <span className="text-muted-foreground/60">Message: </span>{raw}
     </p>
   );
 }
@@ -149,16 +148,16 @@ function StepItem({ step, stepIndex, isLast }) {
   return (
     <div className="relative flex gap-3">
       {!isLast && (
-        <div className="absolute left-[13px] top-7 h-full w-0.5 bg-slate-100" />
+        <div className="absolute left-[13px] top-7 h-full w-0.5 bg-border" />
       )}
       <div className="relative z-10 mt-0.5 flex-shrink-0">
         <div className={`h-7 w-7 rounded-full ring-4 ${style.node} flex items-center justify-center`}>
           <span className="text-[10px] font-bold text-white">{step.stepNo ?? stepIndex + 1}</span>
         </div>
       </div>
-      <div className="mb-4 flex-1 rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+      <div className="mb-4 flex-1 rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <p className="text-sm font-semibold text-slate-700">{step.title}</p>
+          <p className="text-sm font-semibold text-foreground">{step.title}</p>
           <div className="flex items-center gap-1.5">
             {step.failureReason && <FailureReasonBadge reason={step.failureReason} />}
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${style.tag}`}>
@@ -167,14 +166,14 @@ function StepItem({ step, stepIndex, isLast }) {
           </div>
         </div>
         {(step.action || step.message || step.currentUrl) && (
-          <div className="mt-2 space-y-1.5 text-sm text-slate-600">
+          <div className="mt-2 space-y-1.5 text-sm text-muted-foreground">
             {step.action && (
-              <p><span className="text-slate-400">Action: </span>{step.action}</p>
+              <p><span className="text-muted-foreground/60">Action: </span>{step.action}</p>
             )}
             {step.message && <StepErrorMessage raw={step.message} />}
             {step.currentUrl && (
               <p>
-                <span className="text-slate-400">URL: </span>
+                <span className="text-muted-foreground/60">URL: </span>
                 <a
                   href={step.currentUrl}
                   target="_blank"
@@ -188,13 +187,13 @@ function StepItem({ step, stepIndex, isLast }) {
           </div>
         )}
         {step.thoughtText && (
-          <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-500 leading-relaxed whitespace-pre-wrap">
-            <span className="font-medium text-slate-400">Thought: </span>
+          <div className="mt-3 rounded-lg bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+            <span className="font-medium text-muted-foreground/60">Thought: </span>
             {step.thoughtText}
           </div>
         )}
         {step.extractedContent && (
-          <div className="mt-2 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2.5 text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">
+          <div className="mt-2 rounded-lg bg-amber-500/8 border border-amber-500/15 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
             <span className="font-medium text-amber-500">Extracted: </span>
             {step.extractedContent}
           </div>
@@ -207,10 +206,10 @@ function StepItem({ step, stepIndex, isLast }) {
 }
 
 const VERDICT_BADGE = {
-  pass:              "bg-emerald-100 text-emerald-700 border-emerald-200",
-  pass_with_warning: "bg-amber-100 text-amber-700 border-amber-200",
-  fail:              "bg-red-100 text-red-700 border-red-200",
-  error:             "bg-orange-100 text-orange-700 border-orange-200",
+  pass:              "bg-emerald-500/15 text-emerald-500 border-emerald-500/20",
+  pass_with_warning: "bg-amber-500/15 text-amber-500 border-amber-500/20",
+  fail:              "bg-red-500/15 text-red-400 border-red-500/20",
+  error:             "bg-orange-500/15 text-orange-400 border-orange-500/20",
 };
 
 const VERDICT_LABEL = {
@@ -246,21 +245,21 @@ function AiAnalysisSection({ runId, isLive }) {
   }
 
   return (
-    <section className="rounded-xl border bg-white shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+    <section className="rounded-xl border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
         <div className="flex items-center gap-2">
-          <Sparkles className="size-4 text-violet-500" />
-          <h2 className="text-sm font-semibold text-slate-700">AI Analysis</h2>
+          <Sparkles className="size-4 text-brand-400" />
+          <h2 className="text-sm font-semibold text-foreground">AI Analysis</h2>
         </div>
         {!analysis && (
           <button
             onClick={handleAnalyze}
             disabled={analyzing || isLive}
-            className="flex items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 rounded-lg bg-brand-500/8 px-3 py-1.5 text-xs font-medium text-brand-400 hover:bg-brand-500/15 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {analyzing ? (
               <>
-                <span className="size-3 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
+                <span className="size-3 rounded-full border-2 border-brand-400 border-t-transparent animate-spin" />
                 Analyzing…
               </>
             ) : (
@@ -274,7 +273,7 @@ function AiAnalysisSection({ runId, isLive }) {
         {analysis && (
           <button
             onClick={() => { setAnalysis(null); setAnalysisError(""); }}
-            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             Regenerate
           </button>
@@ -291,26 +290,26 @@ function AiAnalysisSection({ runId, isLive }) {
         )}
 
         {analysisError && (
-          <p className="text-sm text-red-500">{analysisError}</p>
+          <p className="text-sm text-red-400">{analysisError}</p>
         )}
 
         {analysis && (
           <div className="space-y-4">
-            <div className="rounded-lg bg-violet-50 border border-violet-100 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-violet-400 mb-1.5">Conclusion</p>
-              <p className="text-sm text-slate-700 leading-relaxed">{analysis.conclusion}</p>
+            <div className="rounded-lg bg-brand-500/8 border border-brand-500/15 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand-400 mb-1.5">Conclusion</p>
+              <p className="text-sm text-foreground leading-relaxed">{analysis.conclusion}</p>
             </div>
 
             {analysis.suggestions?.length > 0 && (
               <div>
                 <div className="flex items-center gap-1.5 mb-2">
                   <Lightbulb className="size-3.5 text-amber-500" />
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Suggestions</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Suggestions</p>
                 </div>
                 <ul className="space-y-2">
                   {analysis.suggestions.map((s, i) => (
-                    <li key={i} className="flex items-start gap-2.5 text-sm text-slate-600">
-                      <span className="mt-0.5 flex-shrink-0 size-5 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-[10px] font-bold text-amber-600">
+                    <li key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                      <span className="mt-0.5 flex-shrink-0 size-5 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-[10px] font-bold text-amber-500">
                         {i + 1}
                       </span>
                       {s}
@@ -394,15 +393,15 @@ export default function TestRunDetailPage() {
       </button>
 
       {/* Header */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <div className="rounded-xl border bg-card p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            {VERDICT_ICON[verdict] ?? <div className="size-5 rounded-full border-2 border-slate-300" />}
+            {VERDICT_ICON[verdict] ?? <div className="size-5 rounded-full border-2 border-border" />}
             <div>
               {run?.testCaseId || run?.test_case_id ? (
                 <button
                   onClick={() => navigate(`/projects/${projectId}/test-cases/${run.testCaseId ?? run.test_case_id}`)}
-                  className="text-lg font-semibold hover:text-indigo-600 transition-colors text-left"
+                  className="text-lg font-semibold hover:text-brand-400 transition-colors text-left"
                 >
                   {run?.testCaseTitle ?? run?.test_case_title ?? `Run #${runId}`}
                 </button>
@@ -421,13 +420,13 @@ export default function TestRunDetailPage() {
           </div>
           <div className="flex items-center gap-2">
             {isLive && (
-              <div className="flex items-center gap-1.5 rounded-lg border bg-yellow-50 px-3 py-1.5 text-sm text-yellow-700">
+              <div className="flex items-center gap-1.5 rounded-lg border bg-yellow-500/10 px-3 py-1.5 text-sm text-yellow-500">
                 <Clock className="size-4 animate-pulse" />
                 Running
               </div>
             )}
             {verdict && (
-              <Badge className={`border ${VERDICT_BADGE[verdict] ?? "bg-slate-100 text-slate-600"}`}>
+              <Badge className={`border ${VERDICT_BADGE[verdict] ?? "bg-muted text-muted-foreground"}`}>
                 {VERDICT_LABEL[verdict] ?? verdict}
               </Badge>
             )}
@@ -445,7 +444,7 @@ export default function TestRunDetailPage() {
         </h2>
 
         {steps.length === 0 ? (
-          <div className="rounded-xl border bg-white p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-xl border bg-card p-8 text-center text-sm text-muted-foreground">
             {isLive ? (
               <div className="flex flex-col items-center gap-2">
                 <LoadingSpinner size="sm" />

@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight, X } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { CustomSelect } from "@/components/ui/custom-select";
+import { FormLabel, FormInput, FormTextarea, FormError } from "@/shared/components/ui/FormField";
 import { SELECTOR_TYPES } from "./ObjectFormDrawer";
+
+const SELECTOR_OPTIONS = SELECTOR_TYPES.map((t) => ({ value: t.value, label: t.label }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -26,31 +27,36 @@ function rowsToDict(rows) {
 
 function SelectorRow({ row, index, onChange, onDelete, isOnly }) {
   return (
-    <div className="flex items-center gap-2">
-      <GripVertical className="size-3.5 text-slate-300 shrink-0" />
-      <select
-        value={row.type}
-        onChange={(e) => onChange(index, "type", e.target.value)}
-        className="w-28 shrink-0 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      >
-        {SELECTOR_TYPES.map((t) => (
-          <option key={t.value} value={t.value}>{t.label}</option>
-        ))}
-      </select>
-      <Input
-        value={row.value}
-        onChange={(e) => onChange(index, "value", e.target.value)}
-        placeholder={SELECTOR_TYPES.find((t) => t.value === row.type)?.hint || ""}
-        className="flex-1 h-8 text-xs font-mono"
-      />
-      <button
-        type="button"
-        onClick={() => onDelete(index)}
-        disabled={isOnly}
-        className="shrink-0 rounded-md p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-      >
-        <Trash2 className="size-3.5" />
-      </button>
+    <div className="flex gap-6">
+      <div className="flex flex-col gap-1.5 w-36 shrink-0">
+        <FormLabel>Type</FormLabel>
+        <CustomSelect
+          value={row.type}
+          onValueChange={(val) => onChange(index, "type", val)}
+          options={SELECTOR_OPTIONS}
+          className="w-full"
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+        <FormLabel>Value</FormLabel>
+        <div className="flex gap-2">
+          <FormInput
+            value={row.value}
+            onChange={(e) => onChange(index, "value", e.target.value)}
+            placeholder={SELECTOR_TYPES.find((t) => t.value === row.type)?.hint || ""}
+            className="font-mono text-sm flex-1"
+          />
+          <button
+            type="button"
+            onClick={() => onDelete(index)}
+            disabled={isOnly}
+            className="h-9 w-9 flex items-center justify-center rounded border border-border text-muted-foreground/40 hover:text-red-500 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+          >
+            <Trash2 className="size-4" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -60,14 +66,14 @@ function SelectorRow({ row, index, onChange, onDelete, isOnly }) {
 export default function ObjectEditPanel({ object, onSave, onCancel }) {
   const isNew = !object?.id;
 
-  const [name, setName]               = useState("");
-  const [pageKey, setPageKey]         = useState("");
-  const [description, setDescription] = useState("");
+  const [name, setName]                     = useState("");
+  const [pageKey, setPageKey]               = useState("");
+  const [description, setDescription]       = useState("");
   const [selectorMethod, setSelectorMethod] = useState("css");
-  const [rows, setRows]               = useState([{ type: "css", value: "" }]);
-  const [showProps, setShowProps]     = useState(false);
-  const [saving, setSaving]           = useState(false);
-  const [error, setError]             = useState("");
+  const [rows, setRows]                     = useState([{ type: "css", value: "" }]);
+  const [showProps, setShowProps]           = useState(false);
+  const [saving, setSaving]                 = useState(false);
+  const [error, setError]                   = useState("");
 
   useEffect(() => {
     setName(object?.name || "");
@@ -92,7 +98,7 @@ export default function ObjectEditPanel({ object, onSave, onCancel }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-    if (!name.trim()) return setError("Name is required");
+    if (!name.trim()) return setError("Object name is required");
     const collection = rowsToDict(rows);
     if (!Object.keys(collection).length) return setError("At least one selector with a value is required");
 
@@ -121,91 +127,87 @@ export default function ObjectEditPanel({ object, onSave, onCancel }) {
     : rows[0]?.type || "css";
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900">
-            {isNew ? "New Test Object" : `Edit: ${object.name}`}
-          </h3>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            {isNew ? "Define element locators for replay" : "Changes apply immediately on next replay"}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-        >
-          <X className="size-4" />
-        </button>
-      </div>
+    <div className="rounded-lg bg-card shadow-[0_0_14px_rgba(0,0,0,0.1)] dark:shadow-[0_0_14px_rgba(0,0,0,0.35)]">
+      <form onSubmit={handleSubmit}>
+        <div className="flex flex-col gap-4 p-6">
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-
-          {/* Name */}
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Object Name <span className="text-red-400">*</span>
-            </Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. btn_Login"
-              className="font-mono text-sm"
-              autoFocus
-            />
+          {/* Title */}
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">
+              {isNew ? "New Object" : "Edit Object"}
+            </h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {isNew
+                ? "Define element locators for automated replay"
+                : "Changes apply on the next test replay"}
+            </p>
           </div>
 
-          {/* Page */}
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Page / Group</Label>
-            <Input value={pageKey} onChange={(e) => setPageKey(e.target.value)} placeholder="e.g. Page_Login" />
+          {/* Row: Name + Page */}
+          <div className="flex gap-4">
+            <div className="flex flex-1 flex-col gap-1.5">
+              <FormLabel>
+                Object Name <span className="text-destructive">*</span>
+              </FormLabel>
+              <FormInput
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. btn_Login"
+                className="font-mono"
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-1 flex-col gap-1.5">
+              <FormLabel>Page / Group</FormLabel>
+              <FormInput
+                value={pageKey}
+                onChange={(e) => setPageKey(e.target.value)}
+                placeholder="e.g. Page_Login"
+              />
+            </div>
           </div>
 
           {/* Description */}
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Description</Label>
-            <textarea
+          <div className="flex flex-col gap-1.5">
+            <FormLabel>Description</FormLabel>
+            <FormTextarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional note"
+              placeholder="Optional note about this element"
               rows={2}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
             />
           </div>
 
-          {/* Default selector */}
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Default Selector</Label>
-            <select
+          {/* Default Selector */}
+          <div className="flex flex-col gap-1.5">
+            <FormLabel>Default Selector</FormLabel>
+            <CustomSelect
               value={primaryType}
-              onChange={(e) => setSelectorMethod(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            >
-              {rows.filter((r) => r.value.trim()).map((r) => (
-                <option key={r.type} value={r.type}>
-                  {SELECTOR_TYPES.find((t) => t.value === r.type)?.label ?? r.type}
-                  {" — "}{r.value.slice(0, 40)}
-                </option>
-              ))}
-            </select>
-            <p className="text-[10px] text-slate-400">Used first during replay. Others tried as fallback.</p>
+              onValueChange={setSelectorMethod}
+              options={rows.filter((r) => r.value.trim()).map((r) => ({
+                value: r.type,
+                label: SELECTOR_TYPES.find((t) => t.value === r.type)?.label ?? r.type,
+                sublabel: r.value.slice(0, 40),
+              }))}
+              className="w-full"
+            />
+            <p className="text-xs text-muted-foreground">
+              Used first during replay. Others tried as fallback.
+            </p>
           </div>
 
-          {/* Selector collection */}
-          <div className="space-y-2">
+          {/* Selector Collection */}
+          <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <Label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Selector Collection <span className="text-red-400">*</span>
-              </Label>
-              <Badge variant="outline" className="text-[10px] text-slate-400">
+              <FormLabel>
+                Selector Collection <span className="text-destructive">*</span>
+              </FormLabel>
+              <span className="text-xs text-muted-foreground">
                 {rows.length} locator{rows.length !== 1 ? "s" : ""}
-              </Badge>
+              </span>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+
+            <div className="flex flex-col gap-3 rounded border border-border bg-muted/20 p-3">
               {rows.map((row, i) => (
                 <SelectorRow
                   key={i}
@@ -219,30 +221,33 @@ export default function ObjectEditPanel({ object, onSave, onCancel }) {
               <button
                 type="button"
                 onClick={addRow}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 py-2 text-xs text-slate-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                className="flex h-10 items-center justify-center gap-2 rounded border border-dashed border-border text-sm text-muted-foreground transition-colors hover:border-brand-400 hover:bg-brand-50/50 hover:text-brand-500 dark:hover:bg-brand-900/20"
               >
-                <Plus className="size-3.5" /> Add fallback locator
+                <Plus className="size-4" />
+                Add fallback locator
               </button>
             </div>
           </div>
 
-          {/* DOM properties (read-only, collapsible) */}
+          {/* DOM properties snapshot */}
           {object?.elementProperties && Object.keys(object.elementProperties).length > 0 && (
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-2">
               <button
                 type="button"
                 onClick={() => setShowProps((v) => !v)}
-                className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600"
+                className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
-                {showProps ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+                {showProps
+                  ? <ChevronDown className="size-4" />
+                  : <ChevronRight className="size-4" />}
                 DOM properties snapshot
               </button>
               {showProps && (
-                <div className="rounded-xl border border-slate-100 divide-y divide-slate-100">
+                <div className="divide-y divide-border rounded border border-border">
                   {Object.entries(object.elementProperties).map(([k, v]) => (
-                    <div key={k} className="flex items-center gap-3 px-3 py-1.5">
-                      <span className="text-[10px] font-mono font-medium text-slate-400 w-24 shrink-0">{k}</span>
-                      <span className="text-[11px] text-slate-600 truncate">{String(v)}</span>
+                    <div key={k} className="flex items-center gap-4 px-4 py-2">
+                      <span className="w-28 shrink-0 font-mono text-xs text-muted-foreground">{k}</span>
+                      <span className="truncate text-xs text-foreground">{String(v)}</span>
                     </div>
                   ))}
                 </div>
@@ -250,17 +255,19 @@ export default function ObjectEditPanel({ object, onSave, onCancel }) {
             </div>
           )}
 
-          {error && (
-            <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</p>
-          )}
+          {error && <FormError>{error}</FormError>}
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-100 px-5 py-3 flex items-center justify-end gap-3 bg-white shrink-0">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={saving} size="sm">
+        <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-3">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit" disabled={saving} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+          <Button
+            type="submit"
+            disabled={saving}
+            className="bg-brand-600 text-white hover:bg-brand-700"
+          >
             {saving ? "Saving…" : isNew ? "Create Object" : "Save Changes"}
           </Button>
         </div>

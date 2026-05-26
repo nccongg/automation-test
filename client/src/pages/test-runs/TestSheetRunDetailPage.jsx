@@ -33,44 +33,44 @@ function formatDuration(start, end) {
 function getStepStyle(status) {
   const s = (status || "").toLowerCase();
   if (s === "passed" || s === "success" || s === "completed")
-    return { node: "bg-emerald-500 ring-emerald-200", tag: "bg-emerald-100 text-emerald-700" };
+    return { node: "bg-emerald-500 ring-emerald-500/20", tag: "bg-emerald-500/15 text-emerald-500" };
   if (s === "failed" || s === "error")
-    return { node: "bg-red-500 ring-red-200", tag: "bg-red-100 text-red-700" };
+    return { node: "bg-red-500 ring-red-500/20", tag: "bg-red-500/15 text-red-400" };
   if (s === "running")
-    return { node: "bg-blue-500 ring-blue-200", tag: "bg-blue-100 text-blue-700" };
-  return { node: "bg-slate-300 ring-slate-100", tag: "bg-slate-100 text-slate-500" };
+    return { node: "bg-blue-500 ring-blue-500/20", tag: "bg-blue-500/15 text-blue-400" };
+  return { node: "bg-muted-foreground/40 ring-border", tag: "bg-muted text-muted-foreground" };
 }
 
 /* ─── Step Error Message ──────────────────────────────────────────────────── */
 
 const ERROR_CATEGORY_STYLE = {
-  "Invalid API Key":       "bg-red-50 border-red-200 text-red-700",
-  "Rate Limit Exceeded":   "bg-orange-50 border-orange-200 text-orange-700",
-  "Authentication Failed": "bg-red-50 border-red-200 text-red-700",
-  "Permission Denied":     "bg-yellow-50 border-yellow-200 text-yellow-700",
-  "Not Found":             "bg-slate-50 border-slate-200 text-slate-600",
-  "Invalid Request":       "bg-orange-50 border-orange-200 text-orange-700",
-  "Server Error":          "bg-red-50 border-red-200 text-red-700",
-  "Timeout":               "bg-yellow-50 border-yellow-200 text-yellow-700",
-  "Connection Error":      "bg-yellow-50 border-yellow-200 text-yellow-700",
-  "Element Not Found":     "bg-orange-50 border-orange-200 text-orange-700",
-  "Navigation Failed":     "bg-orange-50 border-orange-200 text-orange-700",
+  "Invalid API Key":       "bg-red-500/10 border-red-500/20 text-red-400",
+  "Rate Limit Exceeded":   "bg-orange-500/10 border-orange-500/20 text-orange-400",
+  "Authentication Failed": "bg-red-500/10 border-red-500/20 text-red-400",
+  "Permission Denied":     "bg-yellow-500/10 border-yellow-500/20 text-yellow-500",
+  "Not Found":             "bg-muted border-border text-muted-foreground",
+  "Invalid Request":       "bg-orange-500/10 border-orange-500/20 text-orange-400",
+  "Server Error":          "bg-red-500/10 border-red-500/20 text-red-400",
+  "Timeout":               "bg-yellow-500/10 border-yellow-500/20 text-yellow-500",
+  "Connection Error":      "bg-yellow-500/10 border-yellow-500/20 text-yellow-500",
+  "Element Not Found":     "bg-orange-500/10 border-orange-500/20 text-orange-400",
+  "Navigation Failed":     "bg-orange-500/10 border-orange-500/20 text-orange-400",
 };
 
 function StepErrorMessage({ raw }) {
   const parsed = parseAgentError(raw);
   if (parsed) {
-    const style = ERROR_CATEGORY_STYLE[parsed.category] ?? "bg-slate-50 border-slate-200 text-slate-600";
+    const style = ERROR_CATEGORY_STYLE[parsed.category] ?? "bg-muted border-border text-muted-foreground";
     return (
       <div className={`flex flex-col gap-1 rounded-lg border px-3 py-2 text-xs ${style}`}>
         <span className="font-semibold">{parsed.category}</span>
-        <span className="text-slate-600">{parsed.brief}</span>
+        <span className="text-muted-foreground">{parsed.brief}</span>
       </div>
     );
   }
   return (
-    <p className="text-xs text-slate-500 break-all">
-      <span className="text-slate-400">Message: </span>{raw}
+    <p className="text-xs text-muted-foreground break-all">
+      <span className="text-muted-foreground/60">Message: </span>{raw}
     </p>
   );
 }
@@ -81,26 +81,26 @@ function StepItem({ step, stepIndex, isLast }) {
   const style = getStepStyle(step.status);
   return (
     <div className="relative flex gap-3">
-      {!isLast && <div className="absolute left-[13px] top-7 h-full w-0.5 bg-slate-100" />}
+      {!isLast && <div className="absolute left-[13px] top-7 h-full w-0.5 bg-border" />}
       <div className="relative z-10 mt-0.5 flex-shrink-0">
         <div className={`h-7 w-7 rounded-full ring-4 ${style.node} flex items-center justify-center`}>
           <span className="text-[10px] font-bold text-white">{step.stepNo ?? stepIndex + 1}</span>
         </div>
       </div>
-      <div className="mb-4 flex-1 rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+      <div className="mb-4 flex-1 rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <p className="text-sm font-semibold text-slate-700">{step.title}</p>
+          <p className="text-sm font-semibold text-foreground">{step.title}</p>
           <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${style.tag}`}>
             {step.status}
           </span>
         </div>
         {(step.action || step.message || step.currentUrl) && (
-          <div className="mt-2 space-y-1.5 text-sm text-slate-600">
-            {step.action && <p><span className="text-slate-400">Action: </span>{step.action}</p>}
+          <div className="mt-2 space-y-1.5 text-sm text-muted-foreground">
+            {step.action && <p><span className="text-muted-foreground/60">Action: </span>{step.action}</p>}
             {step.message && <StepErrorMessage raw={step.message} />}
             {step.currentUrl && (
               <p>
-                <span className="text-slate-400">URL: </span>
+                <span className="text-muted-foreground/60">URL: </span>
                 <a href={step.currentUrl} target="_blank" rel="noreferrer"
                   className="text-blue-500 hover:underline break-all">{step.currentUrl}</a>
               </p>
@@ -108,12 +108,12 @@ function StepItem({ step, stepIndex, isLast }) {
           </div>
         )}
         {step.thoughtText && (
-          <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-500 leading-relaxed whitespace-pre-wrap">
-            <span className="font-medium text-slate-400">Thought: </span>{step.thoughtText}
+          <div className="mt-3 rounded-lg bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+            <span className="font-medium text-muted-foreground/60">Thought: </span>{step.thoughtText}
           </div>
         )}
         {step.extractedContent && (
-          <div className="mt-2 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2.5 text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">
+          <div className="mt-2 rounded-lg bg-amber-500/8 border border-amber-500/15 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
             <span className="font-medium text-amber-500">Extracted: </span>{step.extractedContent}
           </div>
         )}
@@ -141,12 +141,12 @@ const VERDICT_ICON = {
 };
 
 const ITEM_STATUS_BADGE = {
-  completed: "bg-emerald-100 text-emerald-700",
-  failed:    "bg-red-100 text-red-700",
-  cancelled: "bg-slate-100 text-slate-600",
-  running:   "bg-yellow-100 text-yellow-600",
-  queued:    "bg-indigo-50 text-indigo-600",
-  pending:   "bg-slate-100 text-slate-500",
+  completed: "bg-emerald-500/15 text-emerald-500",
+  failed:    "bg-red-500/15 text-red-400",
+  cancelled: "bg-muted text-muted-foreground",
+  running:   "bg-yellow-500/15 text-yellow-500",
+  queued:    "bg-brand-500/10 text-brand-400",
+  pending:   "bg-muted text-muted-foreground",
 };
 
 /* ─── Test Case Item Row ──────────────────────────────────────────────────── */
@@ -160,17 +160,17 @@ function TestCaseItem({ item, idx, isExpanded, onToggle, stepData }) {
       {/* Row header */}
       <button
         onClick={() => onToggle(item)}
-        className="w-full flex items-center justify-between gap-4 p-4 hover:bg-slate-50 transition-colors text-left"
+        className="w-full flex items-center justify-between gap-4 p-4 hover:bg-muted/30 transition-colors text-left"
       >
         <div className="flex items-center gap-3 min-w-0">
           <span className="shrink-0 w-6 text-center text-xs font-mono text-muted-foreground">
             {idx + 1}
           </span>
           {VERDICT_ICON[item.verdict] ?? (
-            <div className="size-4 shrink-0 rounded-full border-2 border-slate-300" />
+            <div className="size-4 shrink-0 rounded-full border-2 border-border" />
           )}
           <div className="min-w-0">
-            <p className="font-medium truncate text-slate-800">{item.title}</p>
+            <p className="font-medium truncate text-foreground">{item.title}</p>
             <p className="text-xs text-muted-foreground truncate">{item.goal}</p>
           </div>
         </div>
@@ -185,11 +185,11 @@ function TestCaseItem({ item, idx, isExpanded, onToggle, stepData }) {
           <span className="text-xs text-muted-foreground tabular-nums">
             {formatDuration(item.startedAt, item.finishedAt)}
           </span>
-          <Badge className={`capitalize text-xs ${ITEM_STATUS_BADGE[item.status] ?? "bg-slate-100 text-slate-600"}`}>
+          <Badge className={`capitalize text-xs ${ITEM_STATUS_BADGE[item.status] ?? "bg-muted text-muted-foreground"}`}>
             {item.verdict ?? item.status}
           </Badge>
           {hasRun && (
-            <div className="flex items-center gap-1 rounded-lg bg-white border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-500">
+            <div className="flex items-center gap-1 rounded-lg bg-card border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground">
               {isExpanded ? "Hide" : "Steps"}
               <ChevronDown className={`size-3.5 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
             </div>
@@ -199,26 +199,26 @@ function TestCaseItem({ item, idx, isExpanded, onToggle, stepData }) {
 
       {/* Expanded steps */}
       {isExpanded && hasRun && (
-        <div className="border-t border-slate-100 bg-slate-50/60 px-6 py-5">
+        <div className="border-t border-border bg-muted/20 px-6 py-5">
           {stepData?.loading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
               <LoadingSpinner size="sm" /> Loading steps…
             </div>
           ) : stepData?.error ? (
-            <p className="text-sm text-red-500 py-2">{stepData.error}</p>
+            <p className="text-sm text-red-400 py-2">{stepData.error}</p>
           ) : stepData?.steps?.length ? (
             <div>
-              <p className="mb-4 text-xs font-medium text-slate-400">{stepData.steps.length} steps recorded</p>
+              <p className="mb-4 text-xs font-medium text-muted-foreground">{stepData.steps.length} steps recorded</p>
               {stepData.steps.map((step, i) => (
                 <StepItem key={step.id} step={step} stepIndex={i} isLast={i === stepData.steps.length - 1} />
               ))}
             </div>
           ) : isLive ? (
-            <div className="flex items-center gap-2 text-sm text-blue-500 py-2">
+            <div className="flex items-center gap-2 text-sm text-blue-400 py-2">
               <LoadingSpinner size="sm" /> Waiting for steps…
             </div>
           ) : (
-            <p className="py-2 text-sm text-slate-400">No steps recorded for this test case.</p>
+            <p className="py-2 text-sm text-muted-foreground">No steps recorded for this test case.</p>
           )}
         </div>
       )}
@@ -247,21 +247,21 @@ function AiAnalysisSection({ runId, isLive }) {
   }
 
   return (
-    <section className="rounded-xl border bg-white shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+    <section className="rounded-xl border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
         <div className="flex items-center gap-2">
-          <Sparkles className="size-4 text-violet-500" />
-          <h2 className="text-sm font-semibold text-slate-700">AI Analysis</h2>
+          <Sparkles className="size-4 text-brand-400" />
+          <h2 className="text-sm font-semibold text-foreground">AI Analysis</h2>
         </div>
         {!analysis && (
           <button
             onClick={handleAnalyze}
             disabled={analyzing || isLive}
-            className="flex items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 rounded-lg bg-brand-500/8 px-3 py-1.5 text-xs font-medium text-brand-400 hover:bg-brand-500/15 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {analyzing ? (
               <>
-                <span className="size-3 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
+                <span className="size-3 rounded-full border-2 border-brand-400 border-t-transparent animate-spin" />
                 Analyzing…
               </>
             ) : (
@@ -275,7 +275,7 @@ function AiAnalysisSection({ runId, isLive }) {
         {analysis && (
           <button
             onClick={() => { setAnalysis(null); setAnalysisError(""); }}
-            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             Regenerate
           </button>
@@ -292,26 +292,26 @@ function AiAnalysisSection({ runId, isLive }) {
         )}
 
         {analysisError && (
-          <p className="text-sm text-red-500">{analysisError}</p>
+          <p className="text-sm text-red-400">{analysisError}</p>
         )}
 
         {analysis && (
           <div className="space-y-4">
-            <div className="rounded-lg bg-violet-50 border border-violet-100 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-violet-400 mb-1.5">Conclusion</p>
-              <p className="text-sm text-slate-700 leading-relaxed">{analysis.conclusion}</p>
+            <div className="rounded-lg bg-brand-500/8 border border-brand-500/15 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand-400 mb-1.5">Conclusion</p>
+              <p className="text-sm text-foreground leading-relaxed">{analysis.conclusion}</p>
             </div>
 
             {analysis.suggestions?.length > 0 && (
               <div>
                 <div className="flex items-center gap-1.5 mb-2">
                   <Lightbulb className="size-3.5 text-amber-500" />
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Suggestions</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Suggestions</p>
                 </div>
                 <ul className="space-y-2">
                   {analysis.suggestions.map((s, i) => (
-                    <li key={i} className="flex items-start gap-2.5 text-sm text-slate-600">
-                      <span className="mt-0.5 flex-shrink-0 size-5 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-[10px] font-bold text-amber-600">
+                    <li key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                      <span className="mt-0.5 flex-shrink-0 size-5 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-[10px] font-bold text-amber-500">
                         {i + 1}
                       </span>
                       {s}
@@ -433,7 +433,7 @@ export default function TestSuiteRunDetailPage() {
           }
           action={
             isLive ? (
-              <div className="flex items-center gap-2 rounded-lg border bg-yellow-50 px-3 py-1.5 text-sm text-yellow-700">
+              <div className="flex items-center gap-2 rounded-lg border bg-yellow-500/10 px-3 py-1.5 text-sm text-yellow-500">
                 <Clock className="size-4 animate-pulse" />
                 Live
               </div>
@@ -444,10 +444,10 @@ export default function TestSuiteRunDetailPage() {
 
       {/* Summary Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Total" value={run.totalCases} color="bg-white" />
-        <StatCard label="Passed" value={run.passed} color="bg-emerald-50 border-emerald-200" />
-        <StatCard label="Failed" value={(run.failed ?? 0) + (run.errored ?? 0)} color="bg-red-50 border-red-200" />
-        <StatCard label="Pass Rate" value={`${passRate}%`} color="bg-indigo-50 border-indigo-200" />
+        <StatCard label="Total" value={run.totalCases} color="bg-card border-border" />
+        <StatCard label="Passed" value={run.passed} color="bg-emerald-500/10 border-emerald-500/20" />
+        <StatCard label="Failed" value={(run.failed ?? 0) + (run.errored ?? 0)} color="bg-red-500/10 border-red-500/20" />
+        <StatCard label="Pass Rate" value={`${passRate}%`} color="bg-brand-500/10 border-brand-500/20" />
       </div>
 
       {/* Progress Bar */}
@@ -456,9 +456,9 @@ export default function TestSuiteRunDetailPage() {
           <span>{run.passed + run.failed + (run.errored ?? 0)} / {run.totalCases} completed</span>
           <span>{formatDuration(run.startedAt, run.completedAt || new Date().toISOString())}</span>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+            className="h-full rounded-full bg-success transition-all duration-500"
             style={{ width: `${passRate}%` }}
           />
         </div>
@@ -472,7 +472,7 @@ export default function TestSuiteRunDetailPage() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Test Case Results ({items.length})
         </h2>
-        <div className="rounded-xl border bg-white divide-y overflow-hidden">
+        <div className="rounded-xl border bg-card divide-y overflow-hidden">
           {items.length === 0 ? (
             <div className="p-8 text-center text-sm text-muted-foreground">No test cases found.</div>
           ) : (

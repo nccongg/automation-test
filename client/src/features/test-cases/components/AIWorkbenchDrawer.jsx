@@ -17,6 +17,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { FormInput, FormTextarea, FormError } from "@/shared/components/ui/FormField";
 import {
   generateTestCase,
   saveTestCases,
@@ -35,7 +36,7 @@ function extractSteps(candidate) {
   return Array.isArray(planSnapshot.steps)
     ? planSnapshot.steps
         .map((s) =>
-          typeof s === "string" ? s : s?.text ?? s?.description ?? "",
+          typeof s === "string" ? s : (s?.text ?? s?.description ?? ""),
         )
         .filter(Boolean)
     : [];
@@ -120,6 +121,8 @@ function CandidateCard({
   onUpdate,
   onSaved,
   onDiscard,
+  rowIndex = 0,
+  isInline = false,
 }) {
   const navigate = useNavigate();
 
@@ -254,24 +257,33 @@ function CandidateCard({
   const verdictStyle = VERDICT_STYLE[runVerdict] ?? null;
 
   const isRunning =
-    runPhase === "saving" ||
-    runPhase === "starting" ||
-    runPhase === "running";
+    runPhase === "saving" || runPhase === "starting" || runPhase === "running";
 
   const isDone = runPhase === "done";
 
   const borderClass = isSaved
-    ? "border-emerald-200 bg-emerald-50/30"
+    ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-800/30 dark:bg-emerald-950/10"
     : isDone && verdictStyle
       ? `${verdictStyle.border} ${verdictStyle.bg}`
-      : "border-slate-200 bg-white";
+      : "border-border bg-card";
+
+  const inlineRowBg = isSaved
+    ? "bg-emerald-50/30 dark:bg-emerald-950/10"
+    : isDone && verdictStyle
+      ? verdictStyle.bg
+      : rowIndex % 2 === 0
+        ? "bg-card"
+        : "bg-muted/50";
 
   return (
-    <div className={`rounded-xl border transition-colors ${borderClass}`}>
-      <div className="flex items-start gap-2 p-4 pb-2">
+    <div className={isInline
+      ? `transition-colors ${inlineRowBg}`
+      : `rounded-xl border transition-colors ${borderClass}`
+    }>
+      <div className={`flex items-start gap-2 ${isInline ? "px-8 py-3" : "p-4 pb-2"}`}>
         <button
           onClick={() => onUpdate({ expanded: !expanded })}
-          className="mt-0.5 shrink-0 text-slate-400 hover:text-slate-600"
+          className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
         >
           {expanded ? (
             <ChevronUp className="size-4" />
@@ -282,14 +294,14 @@ function CandidateCard({
 
         <div className="min-w-0 flex-1">
           {editing ? (
-            <input
+            <FormInput
               autoFocus
               value={editTitle}
               onChange={(e) => onUpdate({ editTitle: e.target.value })}
-              className="w-full rounded border border-indigo-300 px-2 py-1 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-200"
+              className="font-semibold"
             />
           ) : (
-            <p className="text-sm font-semibold leading-snug text-slate-800">
+            <p className="text-sm font-semibold leading-snug text-foreground">
               {title}
             </p>
           )}
@@ -312,7 +324,7 @@ function CandidateCard({
           )}
 
           {isRunning && (
-            <span className="flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
+            <span className="flex items-center gap-1 rounded-full bg-brand-100 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700">
               <Loader2 className="size-3 animate-spin" />
               {runPhase === "saving"
                 ? "Preparing…"
@@ -325,7 +337,7 @@ function CandidateCard({
           {!isSaved && !isRunning && !editing && (
             <button
               onClick={startEdit}
-              className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
               title="Edit"
             >
               <Pencil className="size-3.5" />
@@ -335,41 +347,39 @@ function CandidateCard({
       </div>
 
       {expanded && (
-        <div className="space-y-3 px-4 pb-4 pl-10">
+        <div className={`space-y-3 ${isInline ? "px-8 pb-4 pl-14" : "px-4 pb-4 pl-10"}`}>
           {editing ? (
             <div className="space-y-2">
-              <textarea
+              <FormTextarea
                 value={editStepsText}
                 onChange={(e) => onUpdate({ editStepsText: e.target.value })}
                 rows={5}
                 placeholder="One step per line…"
-                className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                className="text-xs"
               />
 
               <div>
-                <label className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                   Expected Result
                 </label>
-                <input
+                <FormInput
                   value={editExpectedResult}
-                  onChange={(e) =>
-                    onUpdate({ editExpectedResult: e.target.value })
-                  }
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                  onChange={(e) => onUpdate({ editExpectedResult: e.target.value })}
+                  className="mt-1 text-xs"
                 />
               </div>
 
               <div className="flex gap-2">
                 <button
                   onClick={applyEdit}
-                  className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+                  className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
                 >
                   Apply
                 </button>
 
                 <button
                   onClick={cancelEdit}
-                  className="rounded-lg border px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
                 >
                   Cancel
                 </button>
@@ -380,8 +390,8 @@ function CandidateCard({
               {steps.length > 0 && (
                 <ol className="space-y-1">
                   {steps.map((step, i) => (
-                    <li key={i} className="flex gap-2 text-xs text-slate-500">
-                      <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[9px] font-bold text-slate-400">
+                    <li key={i} className="flex gap-2 text-xs text-muted-foreground">
+                      <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-bold text-muted-foreground/60">
                         {i + 1}
                       </span>
                       {step}
@@ -412,7 +422,7 @@ function CandidateCard({
                   <button
                     onClick={handleRunDraft}
                     disabled={isRunning}
-                    className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isRunning ? (
                       <Loader2 className="size-3 animate-spin" />
@@ -427,7 +437,7 @@ function CandidateCard({
                   <button
                     onClick={handleSaveToLibrary}
                     disabled={saving || isRunning}
-                    className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {saving ? (
                       <Loader2 className="size-3 animate-spin" />
@@ -444,7 +454,7 @@ function CandidateCard({
                   onClick={() =>
                     navigate(`/projects/${projectId}/test-runs/${runId}`)
                   }
-                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <ExternalLink className="size-3" />
                   Open Full Result
@@ -458,7 +468,7 @@ function CandidateCard({
                       `/projects/${projectId}/test-cases/${savedTestCaseId}`,
                     )
                   }
-                  className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+                  className="flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-100"
                 >
                   <ExternalLink className="size-3" />
                   View Detail
@@ -529,11 +539,7 @@ function useRunPolling(candidates, updateCandidate) {
 
   useEffect(() => {
     candidates.forEach((c) => {
-      if (
-        c.runPhase === "running" &&
-        c.runId &&
-        !pollingRefs.current[c.id]
-      ) {
+      if (c.runPhase === "running" && c.runId && !pollingRefs.current[c.id]) {
         startPolling(c.id, c.runId);
       }
     });
@@ -595,9 +601,7 @@ export default function AIWorkbenchDrawer({
         setPrompt(result.batch.sourcePrompt ?? "");
 
         setCandidates(
-          result.candidates.map((candidate) =>
-            initCandidateState(candidate),
-          ),
+          result.candidates.map((candidate) => initCandidateState(candidate)),
         );
       } catch (e) {
         if (!cancelled) {
@@ -658,9 +662,7 @@ export default function AIWorkbenchDrawer({
     if (!unsaved.length) return;
 
     setCandidates((prev) =>
-      prev.map((c) =>
-        !c.isSaved && !c.saving ? { ...c, saving: true } : c,
-      ),
+      prev.map((c) => (!c.isSaved && !c.saving ? { ...c, saving: true } : c)),
     );
 
     let successCount = 0;
@@ -702,7 +704,9 @@ export default function AIWorkbenchDrawer({
         `${successCount} test case${successCount !== 1 ? "s" : ""} saved to library!`,
       );
     } else {
-      toast.warning(`Saved ${successCount}/${unsaved.length}. ${failCount} failed.`);
+      toast.warning(
+        `Saved ${successCount}/${unsaved.length}. ${failCount} failed.`,
+      );
     }
   }
 
@@ -739,17 +743,17 @@ export default function AIWorkbenchDrawer({
 
   const content = (
     <>
-      <div className="flex shrink-0 items-center justify-between border-b px-5 py-4">
+      <div className={`flex shrink-0 items-center justify-between border-b py-4 ${inline ? "px-8" : "px-5"}`}>
         <div className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-100">
-            <Sparkles className="size-4 text-indigo-600" />
+          <div className="flex size-8 items-center justify-center rounded-lg bg-brand-100">
+            <Sparkles className="size-4 text-brand-600" />
           </div>
 
           <div>
-            <h2 className="text-sm font-semibold text-slate-800">
+            <h2 className="text-sm font-semibold text-foreground">
               AI Test Case Generator
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Generate, validate, then save to library
             </p>
           </div>
@@ -758,7 +762,7 @@ export default function AIWorkbenchDrawer({
         {!inline && (
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <X className="size-4" />
           </button>
@@ -766,8 +770,8 @@ export default function AIWorkbenchDrawer({
       </div>
 
       <div className={inline ? "flex-1" : "flex-1 overflow-y-auto"}>
-        <div className="space-y-3 border-b px-5 py-4">
-          <textarea
+        <div className={`space-y-3 border-b py-4 ${inline ? "px-8" : "px-5"}`}>
+          <FormTextarea
             ref={textareaRef}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -777,30 +781,28 @@ export default function AIWorkbenchDrawer({
                 handleGenerate();
               }
             }}
-            placeholder={
-              "Describe what you want to test…\n\nE.g. Login with valid and invalid credentials, check error messages and redirect on success."
-            }
+            placeholder={"Describe what you want to test…\n\nE.g. Login with valid and invalid credentials, check error messages and redirect on success."}
             rows={4}
             disabled={generating}
-            className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
+            className="py-2.5 disabled:opacity-60"
           />
 
           {genError && (
-            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
-              <AlertCircle className="size-4 shrink-0 text-red-500" />
-              <p className="text-xs text-red-700">{genError}</p>
+            <div className="flex items-center gap-2 rounded border border-destructive/20 bg-destructive/5 px-3 py-2.5">
+              <AlertCircle className="size-4 shrink-0 text-destructive" />
+              <p className="text-xs text-destructive">{genError}</p>
             </div>
           )}
 
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted-foreground">
               Enter to generate · Shift+Enter for new line
             </p>
 
             <button
               onClick={handleGenerate}
               disabled={!prompt.trim() || generating || loadingLatest}
-              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {generating ? (
                 <>
@@ -819,7 +821,7 @@ export default function AIWorkbenchDrawer({
 
         {loadingLatest && !hasResults && (
           <div className="flex flex-col items-center justify-center gap-3 px-5 py-16 text-center">
-            <Loader2 className="size-6 animate-spin text-indigo-400" />
+            <Loader2 className="size-6 animate-spin text-brand-400" />
             <p className="text-xs text-slate-400">
               Loading latest AI candidates…
             </p>
@@ -827,9 +829,9 @@ export default function AIWorkbenchDrawer({
         )}
 
         {hasResults && (
-          <div className="space-y-3 px-5 py-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className={inline ? "" : "space-y-3 px-5 py-4"}>
+            <div className={`flex items-center justify-between ${inline ? "border-b border-border px-8 py-3" : ""}`}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {candidates.length} candidate
                 {candidates.length !== 1 ? "s" : ""} generated
                 {unsavedCount > 0 && ` · ${unsavedCount} unsaved`}
@@ -845,7 +847,7 @@ export default function AIWorkbenchDrawer({
                   <button
                     onClick={handleSaveAll}
                     disabled={anyRunning || allSaved}
-                    className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Save className="size-3" />
                     Save All ({unsavedCount})
@@ -855,7 +857,7 @@ export default function AIWorkbenchDrawer({
                 <button
                   onClick={handleClearCandidates}
                   disabled={anyRunning}
-                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RefreshCw className="size-3" />
                   Clear
@@ -863,8 +865,8 @@ export default function AIWorkbenchDrawer({
               </div>
             </div>
 
-            <div className="space-y-3">
-              {candidates.map((c) => (
+            <div className={inline ? "divide-y divide-border" : "space-y-3"}>
+              {candidates.map((c, index) => (
                 <CandidateCard
                   key={c.id}
                   candidate={c}
@@ -874,6 +876,8 @@ export default function AIWorkbenchDrawer({
                   onUpdate={(updates) => updateCandidate(c.id, updates)}
                   onSaved={onSaved}
                   onDiscard={() => handleDiscard(c.id)}
+                  rowIndex={index}
+                  isInline={inline}
                 />
               ))}
             </div>
@@ -882,15 +886,15 @@ export default function AIWorkbenchDrawer({
 
         {!hasResults && !generating && !loadingLatest && !genError && (
           <div className="flex flex-col items-center justify-center gap-3 px-5 py-16 text-center">
-            <div className="flex size-14 items-center justify-center rounded-full bg-indigo-50">
-              <Sparkles className="size-6 text-indigo-400" />
+            <div className="flex size-14 items-center justify-center rounded-full bg-brand-50">
+              <Sparkles className="size-6 text-brand-400" />
             </div>
 
             <div className="space-y-1">
-              <p className="text-sm font-medium text-slate-700">
+              <p className="text-sm font-medium text-foreground">
                 Describe your test scenario
               </p>
-              <p className="max-w-xs text-xs text-slate-400">
+              <p className="max-w-xs text-xs text-muted-foreground">
                 Enter a prompt above and click Generate. AI will create test
                 case candidates you can review, edit, validate, and save.
               </p>
@@ -899,8 +903,8 @@ export default function AIWorkbenchDrawer({
         )}
       </div>
 
-      <div className="shrink-0 border-t bg-slate-50/80 px-5 py-3">
-        <p className="text-center text-[11px] text-slate-400">
+      <div className={`shrink-0 border-t py-3 ${inline ? "px-8" : "px-5"}`}>
+        <p className={`text-[11px] text-muted-foreground ${inline ? "" : "text-center"}`}>
           Candidates are stored in the database until you{" "}
           <strong>Save to Library</strong>. Unsaved AI candidates are cleared
           when generating a new batch.
@@ -911,12 +915,9 @@ export default function AIWorkbenchDrawer({
 
   if (inline) {
     return (
-      <section
-        id="ai-test-case-generator"
-        className="overflow-hidden rounded-xl border bg-white shadow-sm"
-      >
+      <div id="ai-test-case-generator">
         {content}
-      </section>
+      </div>
     );
   }
 
@@ -930,7 +931,7 @@ export default function AIWorkbenchDrawer({
       />
 
       <div
-        className={`fixed right-0 top-0 z-50 flex h-full w-[520px] max-w-[95vw] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`fixed right-0 top-0 z-50 flex h-full w-[520px] max-w-[95vw] flex-col bg-card shadow-2xl transition-transform duration-300 ease-in-out ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >

@@ -102,7 +102,7 @@ function AddCasesDialog({ open, onClose, onAdded, projectId, existingIds }) {
                     type="checkbox"
                     checked={selected.has(id)}
                     onChange={() => toggle(id)}
-                    className="mt-0.5 accent-indigo-600"
+                    className="mt-0.5 accent-brand-600"
                   />
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{tc.title}</p>
@@ -337,10 +337,10 @@ export default function TestSuiteDetailPage() {
                     if (e.key === "Escape") setEditingTitle(false);
                   }}
                   onBlur={saveTitle}
-                  className="text-2xl font-bold tracking-tight border-b-2 border-indigo-500 bg-transparent outline-none w-full min-w-0"
+                  className="text-2xl font-bold tracking-tight border-b-2 border-brand-500 bg-transparent outline-none w-full min-w-0"
                   disabled={saving}
                 />
-                <button onClick={saveTitle} className="shrink-0 text-indigo-600 hover:text-indigo-800">
+                <button onClick={saveTitle} className="shrink-0 text-brand-600 hover:text-brand-800">
                   <Check className="size-4" />
                 </button>
                 <button onClick={() => setEditingTitle(false)} className="shrink-0 text-slate-400 hover:text-slate-600">
@@ -372,10 +372,10 @@ export default function TestSuiteDetailPage() {
                   }}
                   onBlur={saveDesc}
                   placeholder="Add a description..."
-                  className="text-sm text-muted-foreground border-b border-indigo-400 bg-transparent outline-none w-full min-w-0"
+                  className="text-sm text-muted-foreground border-b border-brand-400 bg-transparent outline-none w-full min-w-0"
                   disabled={saving}
                 />
-                <button onClick={saveDesc} className="shrink-0 text-indigo-600 hover:text-indigo-800">
+                <button onClick={saveDesc} className="shrink-0 text-brand-600 hover:text-brand-800">
                   <Check className="size-3.5" />
                 </button>
                 <button onClick={() => setEditingDesc(false)} className="shrink-0 text-slate-400 hover:text-slate-600">
@@ -435,7 +435,7 @@ export default function TestSuiteDetailPage() {
                 className={[
                   "group flex items-center gap-3 p-4 transition-colors",
                   dragOverIndex === index
-                    ? "bg-indigo-50 border-indigo-200"
+                    ? "bg-brand-50 border-brand-200"
                     : "hover:bg-slate-50",
                   dragIndexRef.current === index ? "opacity-40" : "",
                 ].join(" ")}
@@ -452,7 +452,7 @@ export default function TestSuiteDetailPage() {
                   className="min-w-0 flex-1 cursor-pointer"
                   onClick={() => navigate(`/projects/${projectId}/test-cases/${item.testCaseId}`)}
                 >
-                  <p className="font-medium truncate hover:text-indigo-600 transition-colors">{item.title}</p>
+                  <p className="font-medium truncate hover:text-brand-600 transition-colors">{item.title}</p>
                   <p className="text-sm text-muted-foreground truncate">{item.goal}</p>
                 </div>
                 <Badge variant="outline" className="shrink-0 capitalize text-xs">
@@ -462,7 +462,7 @@ export default function TestSuiteDetailPage() {
                   onClick={() => handleRunCase(item.testCaseId)}
                   disabled={runningCaseId === item.testCaseId || running}
                   title="Run this test case"
-                  className="shrink-0 rounded-lg p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-indigo-50 hover:text-indigo-600 transition-all disabled:opacity-50"
+                  className="shrink-0 rounded-lg p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-brand-50 hover:text-brand-600 transition-all disabled:opacity-50"
                 >
                   {runningCaseId === item.testCaseId ? (
                     <Clock className="size-4 animate-pulse" />
@@ -492,7 +492,7 @@ export default function TestSuiteDetailPage() {
             </h2>
             <button
               onClick={() => navigate(`/projects/${projectId}/test-runs`)}
-              className="flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+              className="flex items-center gap-1 text-xs text-brand-600 hover:underline"
             >
               <History className="size-3" />
               View all

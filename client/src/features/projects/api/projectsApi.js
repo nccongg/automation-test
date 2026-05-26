@@ -76,6 +76,7 @@ export async function updateProject(projectId, projectData) {
     name: projectData?.name,
     description: projectData?.description,
     base_url: projectData?.base_url || projectData?.baseUrl,
+    ...(projectData?.config !== undefined ? { config: projectData.config } : {}),
   };
 
   const response = await apiClient.put(`/projects/${projectId}`, payload);

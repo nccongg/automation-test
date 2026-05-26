@@ -50,20 +50,22 @@ export default function ProjectTabs({ projectId }) {
   ];
 
   return (
-    <div className="rounded-xl border bg-white">
+    <div className="rounded-xl border bg-card">
       {/* Tab Navigation */}
-      <div className="flex gap-1 border-b p-2">
+      <div className="flex border-b px-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-                activeTab === tab.id
-                  ? 'bg-[var(--brand-primary)] text-white'
-                  : 'text-muted-foreground hover:bg-muted'
+                'relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors',
+                'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[4px] after:rounded-t-full after:transition-colors',
+                isActive
+                  ? 'text-[var(--ds-tab-active)] after:bg-[var(--ds-tab-active)]'
+                  : 'text-muted-foreground hover:text-foreground after:bg-transparent'
               )}
             >
               <Icon className="size-4" />

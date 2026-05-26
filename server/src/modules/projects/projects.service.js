@@ -174,6 +174,10 @@ async function getProjectById(userId, projectId) {
     title: project.name,
     description: project.description || "",
     baseUrl: project.base_url,
+    config: project.config || {},
+    ownerName: project.owner_name || "",
+    createdAt: project.created_at,
+    updatedAt: project.updated_at,
     status: statusInfo.display,
     statusTone: statusInfo.tone,
     totalTests: parseInt(project.total_test_cases, 10) || 0,
@@ -201,6 +205,7 @@ async function updateProject(userId, projectId, body) {
     body?.base_url !== undefined || body?.baseUrl !== undefined
       ? String(body?.base_url || body?.baseUrl).trim()
       : undefined;
+  const config = body?.config !== undefined ? body.config : undefined;
 
   if (name !== undefined && name.length === 0) {
     throw { status: 400, message: "Project name cannot be empty" };
@@ -214,6 +219,7 @@ async function updateProject(userId, projectId, body) {
     name,
     description,
     baseUrl,
+    config,
   });
 
   return {
@@ -221,6 +227,7 @@ async function updateProject(userId, projectId, body) {
     name: updated.name,
     description: updated.description,
     baseUrl: updated.base_url,
+    config: updated.config || {},
     createdAt: updated.created_at,
     updatedAt: updated.updated_at,
   };
