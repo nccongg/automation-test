@@ -134,15 +134,47 @@ async function reorderItems(req, res, next) {
 
 // ─── Run ──────────────────────────────────────────────────────────────────────
 
+async function getRunOptions(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const sheetId = toInt(req.params?.id);
+
+    if (!sheetId) {
+      return res.status(400).json({
+        success: false,
+        message: "id must be a positive integer",
+      });
+    }
+
+    const data = await service.getRunOptions(sheetId, userId);
+    return res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function runSheet(req, res, next) {
   try {
     const userId = req.user?.userId;
     const sheetId = toInt(req.params?.id);
+
     if (!sheetId) {
-      return res.status(400).json({ success: false, message: "id must be a positive integer" });
+      return res.status(400).json({
+        success: false,
+        message: "id must be a positive integer",
+      });
     }
-    const testCaseIds = Array.isArray(req.body?.testCaseIds) ? req.body.testCaseIds : undefined;
-    const data = await service.runSheet(sheetId, userId, { testCaseIds });
+
+    const testCaseIds = Array.isArray(req.body?.testCaseIds)
+      ? req.body.testCaseIds
+      : undefined;
+
+    const items = Array.isArray(req.body?.items)
+      ? req.body.items
+      : undefined;
+
+    const data = await service.runSheet(sheetId, userId, { testCaseIds, items });
+
     return res.status(202).json({ success: true, data });
   } catch (err) {
     next(err);
@@ -200,6 +232,7 @@ module.exports = {
   addItems,
   removeItem,
   reorderItems,
+  getRunOptions,
   runSheet,
   listSheetRuns,
   getSheetRunDetail,

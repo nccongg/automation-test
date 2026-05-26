@@ -404,6 +404,7 @@ router.put("/:id/items/reorder", ctrl.reorderItems);
  *       404:
  *         description: Test sheet not found
  */
+router.get("/:id/run-options", ctrl.getRunOptions);
 router.post("/:id/run", ctrl.runSheet);
 
 module.exports = router;
