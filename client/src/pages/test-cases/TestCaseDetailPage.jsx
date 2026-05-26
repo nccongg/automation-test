@@ -151,7 +151,7 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
         <button
           type="button"
           onClick={() => !editing && setOpen((o) => !o)}
-          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           {open ? (
             <ChevronDown className="size-3" />
@@ -159,8 +159,8 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
             <ChevronRight className="size-3" />
           )}
           <span className="font-medium">Test plan</span>
-          <span className="text-slate-300">·</span>
-          <span className="text-slate-400">
+          <span className="text-muted-foreground/30">·</span>
+          <span className="text-muted-foreground">
             {editing ? draftSteps.length : steps.length} steps
           </span>
         </button>
@@ -168,7 +168,7 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
           <button
             type="button"
             onClick={startEdit}
-            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-slate-400 hover:bg-brand-50 hover:text-brand-600 transition-all"
+            className="flex items-center gap-1 rounded-[4px] px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-primary/5 hover:text-primary transition-all"
           >
             <Pencil className="size-2.5" />
             Edit
@@ -179,7 +179,7 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
               type="button"
               onClick={saveSteps}
               disabled={saving}
-              className="flex items-center gap-1 rounded bg-brand-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-1 rounded-[4px] bg-[linear-gradient(180deg,#60a5fa_0%,#2563eb_100%)] px-2 py-0.5 text-[10px] font-bold text-white disabled:opacity-50 transition-all"
             >
               {saving ? (
                 <span className="size-2.5 animate-spin rounded-full border border-white/40 border-t-white" />
@@ -192,7 +192,7 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
               type="button"
               onClick={cancelEdit}
               disabled={saving}
-              className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-slate-500 hover:bg-slate-100 transition-colors"
+              className="flex items-center gap-1 rounded-[4px] px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-surface-2 transition-colors"
             >
               <X className="size-2.5" />
               Cancel
@@ -208,10 +208,10 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
         <div className="mt-2 space-y-1.5">
           {steps.map((step, i) => (
             <div key={step.id ?? i} className="flex gap-2.5">
-              <span className="relative z-10 mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-[9px] font-bold text-slate-400">
+              <span className="relative z-10 mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-surface-2 text-[9px] font-bold text-muted-foreground">
                 {step.order ?? i + 1}
               </span>
-              <p className="text-xs text-slate-500 leading-relaxed">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 {step.description || step.text || `Step ${i + 1}`}
               </p>
             </div>
@@ -223,7 +223,7 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
         <div className="mt-2 space-y-2">
           {draftSteps.map((step, i) => (
             <div key={i} className="flex gap-2.5 items-start">
-              <span className="mt-2 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-brand-50 text-[9px] font-bold text-brand-400">
+              <span className="mt-2 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">
                 {i + 1}
               </span>
               <textarea
@@ -231,13 +231,13 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
                 onChange={(e) => updateStepText(i, e.target.value)}
                 rows={2}
                 disabled={saving}
-                className="flex-1 resize-none rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-200 transition-colors disabled:opacity-50"
+                className="flex-1 resize-none rounded-[6px] border border-border bg-surface px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors disabled:opacity-50"
               />
               <button
                 type="button"
                 onClick={() => removeStep(i)}
                 disabled={saving}
-                className="mt-2 shrink-0 text-slate-300 hover:text-red-400 transition-colors"
+                className="mt-2 shrink-0 text-muted-foreground/30 hover:text-destructive transition-colors"
               >
                 <X className="size-3.5" />
               </button>
@@ -247,9 +247,9 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
             type="button"
             onClick={addStep}
             disabled={saving}
-            className="flex items-center gap-1.5 px-1 py-0.5 text-[11px] text-slate-400 hover:text-brand-600 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-1 py-0.5 text-[11px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
           >
-            <span className="flex size-[18px] items-center justify-center rounded-full border border-dashed border-slate-300 text-xs">
+            <span className="flex size-[18px] items-center justify-center rounded-full border border-dashed border-border text-xs">
               +
             </span>
             Add step
@@ -264,14 +264,14 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
 
 function VerdictChip({ verdict }) {
   const colors = {
-    pass: "text-emerald-500 bg-emerald-500/15 border-emerald-500/20",
-    pass_with_warning: "text-amber-500 bg-amber-500/15 border-amber-500/20",
-    fail: "text-red-400 bg-red-500/15 border-red-500/20",
-    error: "text-orange-400 bg-orange-500/15 border-orange-500/20",
+    pass: "border-success text-success",
+    pass_with_warning: "border-amber-500 text-amber-500",
+    fail: "border-destructive text-destructive",
+    error: "border-orange-500 text-orange-500",
   };
   return (
     <span
-      className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${colors[verdict] || "text-muted-foreground bg-muted border-border"}`}
+      className={`rounded-[6px] border px-1.5 py-0.5 text-[10px] font-normal ${colors[verdict] || "border-border text-muted-foreground"}`}
     >
       {VERDICT_LABEL[verdict] ?? verdict}
     </span>
@@ -538,8 +538,8 @@ export default function TestCaseDetailPage() {
       </button>
 
       {/* ── Header Card ── */}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-6 pt-5 pb-5">
+      <div className="overflow-hidden rounded-[6px] bg-surface shadow-[0px_4px_24px_rgba(0,0,0,0.15)] border border-border">
+        <div className="px-8 pt-6 pb-6">
           <div className="flex items-start gap-4">
             {/* Left: info */}
             <div className="min-w-0 flex-1 space-y-2">
@@ -552,7 +552,7 @@ export default function TestCaseDetailPage() {
                 >
                   <SelectTrigger className="h-auto w-auto border-0 p-0 shadow-none bg-transparent focus:ring-0 gap-1">
                     <Badge
-                      className={`capitalize cursor-pointer text-xs ${STATUS_STYLE[tc.status] ?? "bg-slate-100 text-slate-600"}`}
+                      className={`capitalize cursor-pointer text-xs ${STATUS_STYLE[tc.status] ?? "bg-surface-2 text-muted-foreground"}`}
                     >
                       {tc.status}
                     </Badge>
@@ -563,7 +563,7 @@ export default function TestCaseDetailPage() {
                     <SelectItem value="archived">Archived</SelectItem>
                   </SelectContent>
                 </Select>
-                <span className="flex items-center gap-1 text-xs text-slate-300">
+                <span className="flex items-center gap-1 text-xs text-muted-foreground/40">
                   <Hash className="size-3" />
                   {tc.id}
                 </span>
@@ -588,17 +588,17 @@ export default function TestCaseDetailPage() {
                     }}
                     onBlur={saveTitle}
                     disabled={saving}
-                    className="text-xl font-bold tracking-tight border-b-2 border-brand-500 bg-transparent outline-none w-full"
+                    className="text-[22px] font-bold leading-[30px] tracking-[0.5px] border-b-2 border-primary bg-transparent outline-none w-full text-foreground"
                   />
                   <button
                     onClick={saveTitle}
-                    className="shrink-0 text-brand-600 hover:text-brand-800"
+                    className="shrink-0 text-primary hover:text-primary/80"
                   >
                     <Check className="size-4" />
                   </button>
                   <button
                     onClick={() => setEditingTitle(false)}
-                    className="shrink-0 text-slate-400"
+                    className="shrink-0 text-muted-foreground"
                   >
                     <X className="size-4" />
                   </button>
@@ -608,7 +608,7 @@ export default function TestCaseDetailPage() {
                   className="group flex cursor-pointer items-center gap-2"
                   onClick={startEditTitle}
                 >
-                  <h1 className="text-xl font-bold tracking-tight text-slate-800 leading-snug">
+                  <h1 className="text-[22px] font-bold leading-[30px] tracking-[0.5px] text-foreground">
                     {tc.title}
                   </h1>
                   <Pencil className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -618,7 +618,7 @@ export default function TestCaseDetailPage() {
               {/* Goal */}
               {editingGoal ? (
                 <div className="flex items-start gap-2">
-                  <Target className="mt-2 size-3.5 shrink-0 text-slate-400" />
+                  <Target className="mt-2 size-3.5 shrink-0 text-muted-foreground" />
                   <textarea
                     ref={goalRef}
                     value={draftGoal}
@@ -629,17 +629,17 @@ export default function TestCaseDetailPage() {
                     onBlur={saveGoal}
                     disabled={saving}
                     rows={3}
-                    className="flex-1 text-sm text-slate-600 border-b border-brand-400 bg-transparent outline-none resize-none leading-relaxed"
+                    className="flex-1 text-sm text-muted-foreground border-b border-primary bg-transparent outline-none resize-none leading-relaxed"
                   />
                   <button
                     onClick={saveGoal}
-                    className="mt-1 shrink-0 text-brand-600"
+                    className="mt-1 shrink-0 text-primary"
                   >
                     <Check className="size-3.5" />
                   </button>
                   <button
                     onClick={() => setEditingGoal(false)}
-                    className="mt-1 shrink-0 text-slate-400"
+                    className="mt-1 shrink-0 text-muted-foreground"
                   >
                     <X className="size-3.5" />
                   </button>
@@ -713,7 +713,7 @@ export default function TestCaseDetailPage() {
                   <Button
                     onClick={handleQuickReplay}
                     disabled={!!busyAction}
-                    className="bg-brand-600 hover:bg-brand-700 gap-1.5"
+                    className="gap-1.5"
                   >
                     {busyAction === "quick_replay" ? (
                       <>
@@ -731,7 +731,7 @@ export default function TestCaseDetailPage() {
                   <Button
                     onClick={handleRunWithAI}
                     disabled={!!busyAction}
-                    className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                    className="gap-1.5"
                   >
                     {busyAction === "ai_run" ? (
                       <>
@@ -765,7 +765,7 @@ export default function TestCaseDetailPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="rounded-lg border border-slate-200"
+                      className="rounded-[6px] border border-border"
                     >
                       <MoreHorizontal className="size-4" />
                     </Button>
@@ -776,7 +776,7 @@ export default function TestCaseDetailPage() {
                         onClick={handleRunWithAI}
                         disabled={!!busyAction}
                       >
-                        <Play className="size-3.5 mr-2 text-emerald-600" />
+                        <Play className="size-3.5 mr-2 text-primary" />
                         Run with AI Agent
                       </DropdownMenuItem>
                     )}
@@ -787,7 +787,7 @@ export default function TestCaseDetailPage() {
                     <DropdownMenuItem
                       onClick={() => setDeveloperMode((v) => !v)}
                     >
-                      <Terminal className="size-3.5 mr-2 text-slate-500" />
+                      <Terminal className="size-3.5 mr-2 text-muted-foreground" />
                       {developerMode
                         ? "Disable developer mode"
                         : "Developer mode"}
@@ -846,7 +846,7 @@ export default function TestCaseDetailPage() {
               <button
                 onClick={() => setConfirmDelete(false)}
                 disabled={deleting}
-                className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 Cancel
               </button>
@@ -856,22 +856,22 @@ export default function TestCaseDetailPage() {
 
         {/* Pass rate bar */}
         {passRate !== null && runs.length > 0 && (
-          <div className="border-t border-slate-100 px-6 py-2.5">
+          <div className="border-t border-border px-8 py-3">
             <div className="flex items-center gap-3">
-              <span className="w-16 shrink-0 text-[10px] text-slate-400">
+              <span className="w-16 shrink-0 text-[13px] text-muted-foreground">
                 Pass rate
               </span>
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
                 <div
-                  className="h-full rounded-full bg-emerald-400 transition-all duration-700"
+                  className="h-full rounded-full bg-success transition-all duration-700"
                   style={{ width: `${passRate}%` }}
                 />
               </div>
               <div className="flex w-20 items-center justify-end gap-2">
-                <span className="text-[11px] font-semibold text-slate-600">
+                <span className="text-[13px] font-bold text-foreground">
                   {passRate}%
                 </span>
-                <span className="text-[10px] text-slate-400">
+                <span className="text-[12px] text-muted-foreground">
                   {passCount}/{runs.length}
                 </span>
               </div>
@@ -898,248 +898,183 @@ export default function TestCaseDetailPage() {
       </div>
 
       {/* ── Run History ── */}
-      <section>
-        <div className="mb-4 flex items-center gap-1 rounded-xl bg-slate-100 p-1 w-fit">
+      <section className="overflow-hidden rounded-xl bg-card">
+
+        {/* Tabs */}
+        <div className="flex border-b border-border">
           {[
-            {
-              key: "runs",
-              label: "Run History",
-              count: runs.length,
-              renderIcon: () => <Play className="size-3.5" />,
-            },
-            {
-              key: "datasets",
-              label: "Dataset Runs",
-              count: batches.length,
-              renderIcon: () => <Database className="size-3.5" />,
-            },
-          ].map(({ key, label, count, renderIcon }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setHistoryTab(key)}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                historyTab === key
-                  ? "bg-white text-slate-800 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {renderIcon()}
-              {label}
-              <span
-                className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-                  historyTab === key
-                    ? "bg-slate-100 text-slate-600"
-                    : "bg-slate-200 text-slate-500"
+            { key: "runs",     label: "Run History",  count: runs.length,    icon: <Play className="size-4" /> },
+            { key: "datasets", label: "Dataset Runs", count: batches.length, icon: <Database className="size-4" /> },
+          ].map(({ key, label, count, icon }) => {
+            const isActive = historyTab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setHistoryTab(key)}
+                className={`relative flex h-[50px] items-center gap-2 px-6 text-[16px] font-bold tracking-[0.5px] transition-colors ${
+                  isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {count}
-              </span>
-            </button>
-          ))}
+                {icon}
+                {label}
+                <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
+                  isActive ? "bg-muted text-muted-foreground" : "bg-muted/60 text-muted-foreground"
+                }`}>
+                  {count}
+                </span>
+                {isActive && (
+                  <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full bg-primary" />
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        {historyTab === "runs" &&
-          (() => {
-            const totalPages = Math.ceil(runs.length / RUN_PAGE_SIZE);
-            const pageRuns = runs.slice(
-              (runPage - 1) * RUN_PAGE_SIZE,
-              runPage * RUN_PAGE_SIZE,
-            );
-            const globalOffset = (runPage - 1) * RUN_PAGE_SIZE;
+        {/* ── Runs tab ── */}
+        {historyTab === "runs" && (() => {
+          const totalPages  = Math.ceil(runs.length / RUN_PAGE_SIZE);
+          const pageRuns    = runs.slice((runPage - 1) * RUN_PAGE_SIZE, runPage * RUN_PAGE_SIZE);
+          const globalOffset = (runPage - 1) * RUN_PAGE_SIZE;
 
-            return (
-              <>
-                {failCount > 0 && runs.length > 0 && (
-                  <p className="mb-3 text-xs text-slate-400">
-                    {failCount} failed
+          return (
+            <>
+              {/* Column headers */}
+              <div className="flex items-center border-b border-border bg-muted/40 px-8" style={{ height: 46 }}>
+                <span className="w-6 shrink-0" />
+                <span className="flex-1 pl-3 text-[13px] font-bold text-foreground">Run</span>
+                <span className="w-44 text-right text-[13px] font-bold text-foreground">Date · Duration</span>
+                <span className="w-32 text-right text-[13px] font-bold text-foreground">Status</span>
+                <span className="w-40 text-right text-[13px] font-bold text-foreground">Actions</span>
+              </div>
+
+              {runs.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-16 text-center">
+                  <Play className="mx-auto size-8 text-muted-foreground/30" />
+                  <p className="text-[14px] font-medium text-muted-foreground">No runs yet</p>
+                  <p className="text-[13px] text-muted-foreground/60">Run this test case to see results here</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {pageRuns.map((run, i) => (
+                    <RunRow
+                      key={run.id}
+                      run={run}
+                      projectId={projectId}
+                      index={globalOffset + i}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-border px-8 py-3">
+                  <p className="text-[13px] tracking-[0.5px] text-muted-foreground tabular-nums">
+                    {globalOffset + 1}–{Math.min(globalOffset + RUN_PAGE_SIZE, runs.length)} of {runs.length} runs
                   </p>
-                )}
-
-                {runs.length === 0 ? (
-                  <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 py-16">
-                    <Play className="size-8 text-slate-300" />
-                    <p className="font-medium text-slate-500">No runs yet</p>
-                    <p className="text-sm text-slate-400">
-                      Run this test case to see results here
-                    </p>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setRunPage((p) => Math.max(1, p - 1))}
+                      disabled={runPage === 1}
+                      className="flex h-[38px] w-[38px] items-center justify-center rounded-[6px] bg-surface shadow-[0px_4px_14px_rgba(0,0,0,0.2)] text-muted-foreground hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+                    >
+                      ←
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        type="button"
+                        onClick={() => setRunPage(page)}
+                        className={`h-[38px] min-w-[38px] rounded-[6px] px-2 text-[13px] font-medium transition-colors ${
+                          runPage === page
+                            ? "bg-[linear-gradient(180deg,#60a5fa_0%,#2563eb_100%)] text-white shadow-[0px_4px_14px_rgba(0,0,0,0.2)]"
+                            : "bg-surface shadow-[0px_4px_14px_rgba(0,0,0,0.2)] text-muted-foreground hover:bg-surface-2"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setRunPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={runPage === totalPages}
+                      className="flex h-[38px] w-[38px] items-center justify-center rounded-[6px] bg-surface shadow-[0px_4px_14px_rgba(0,0,0,0.2)] text-muted-foreground hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+                    >
+                      →
+                    </button>
                   </div>
-                ) : (
-                  <>
-                    <div className="space-y-3">
-                      {pageRuns.map((run, i) => (
-                        <RunRow
-                          key={run.id}
-                          run={run}
-                          projectId={projectId}
-                          index={globalOffset + i}
-                        />
-                      ))}
-                    </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
 
-                    {totalPages > 1 && (
-                      <div className="mt-4 flex items-center justify-between">
-                        <p className="text-xs text-slate-400">
-                          Showing {globalOffset + 1}–
-                          {Math.min(globalOffset + RUN_PAGE_SIZE, runs.length)}{" "}
-                          of {runs.length} runs
-                        </p>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setRunPage((p) => Math.max(1, p - 1))
-                            }
-                            disabled={runPage === 1}
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                          >
-                            ← Prev
-                          </button>
-
-                          {Array.from(
-                            { length: totalPages },
-                            (_, i) => i + 1,
-                          ).map((page) => {
-                            const isEllipsis =
-                              totalPages > 7 &&
-                              page !== 1 &&
-                              page !== totalPages &&
-                              Math.abs(page - runPage) > 2;
-                            if (isEllipsis) {
-                              const prevIsEllipsis =
-                                totalPages > 7 &&
-                                page - 1 !== 1 &&
-                                page - 1 !== totalPages &&
-                                Math.abs(page - 1 - runPage) > 2;
-                              return prevIsEllipsis ? null : (
-                                <span
-                                  key={page}
-                                  className="px-1 text-xs text-slate-300"
-                                >
-                                  …
-                                </span>
-                              );
-                            }
-                            return (
-                              <button
-                                key={page}
-                                type="button"
-                                onClick={() => setRunPage(page)}
-                                className={`min-w-[32px] rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                                  runPage === page
-                                    ? "border-brand-300 bg-brand-600 text-white shadow-sm"
-                                    : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
-                                }`}
-                              >
-                                {page}
-                              </button>
-                            );
-                          })}
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setRunPage((p) => Math.min(totalPages, p + 1))
-                            }
-                            disabled={runPage === totalPages}
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                          >
-                            Next →
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </>
-            );
-          })()}
-
+        {/* ── Datasets tab ── */}
         {historyTab === "datasets" && (
           <>
+            {/* Column headers */}
+            <div className="flex items-center border-b border-border bg-muted/40 px-8" style={{ height: 46 }}>
+              <span className="flex-1 text-[13px] font-bold text-foreground">Dataset</span>
+              <span className="w-44 text-right text-[13px] font-bold text-foreground">Date</span>
+              <span className="w-36 text-right text-[13px] font-bold text-foreground">Results</span>
+              <span className="w-24 text-right text-[13px] font-bold text-foreground">Status</span>
+              <span className="w-14" />
+            </div>
+
             {batches.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 py-14 text-center">
-                <Database className="size-8 text-slate-300" />
-                <p className="font-medium text-slate-500">
-                  No dataset runs yet
+              <div className="flex flex-col items-center gap-2 py-16 text-center">
+                <Database className="mx-auto size-8 text-muted-foreground/30" />
+                <p className="text-[14px] font-medium text-muted-foreground">No dataset runs yet</p>
+                <p className="text-[13px] text-muted-foreground/60">
+                  Use the Replay section above to select a dataset and run batch tests.
                 </p>
-                <p className="text-sm text-slate-400">
-                  Use the <strong>Replay section</strong> above to select a
-                  dataset and run batch tests.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setDeveloperMode(true)}
-                  className="mt-1 text-xs text-slate-400 underline underline-offset-2 hover:text-amber-600 transition-colors"
-                >
-                  Enable developer mode
-                </button>
               </div>
             ) : (
-              <>
-                <p className="mb-3 text-xs text-slate-400">
-                  {batches.length} batch run{batches.length !== 1 ? "s" : ""}
-                </p>
-                <div className="space-y-2">
-                  {batches.map((batch) => (
+              <div className="divide-y divide-border">
+                {batches.map((batch, index) => {
+                  const rowBg = index % 2 === 0 ? "bg-card" : "bg-muted/50";
+                  return (
                     <button
                       key={batch.id}
                       type="button"
-                      onClick={() =>
-                        navigate(
-                          `/projects/${projectId}/test-runs/batches/${batch.id}`,
-                        )
-                      }
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-left shadow-sm hover:shadow-md hover:border-brand-200 transition-all"
+                      onClick={() => navigate(`/projects/${projectId}/test-runs/batches/${batch.id}`)}
+                      className={`group flex w-full items-center gap-4 px-8 transition-colors hover:bg-muted/60 ${rowBg}`}
+                      style={{ minHeight: 46 }}
                     >
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-50">
-                            <Database className="size-4 text-brand-500" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-slate-700 truncate">
-                              {batch.dataset_name ??
-                                `Dataset #${batch.dataset_id}`}
-                            </p>
-                            <p className="text-xs text-slate-400 mt-0.5">
-                              Batch #{batch.id}
-                              {batch.created_at
-                                ? ` · ${new Date(batch.created_at).toLocaleString()}`
-                                : ""}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4 shrink-0">
-                          <div className="flex items-center gap-3 text-sm">
-                            <span className="flex items-center gap-1 font-medium text-emerald-600">
-                              <CheckCircle2 className="size-4" />
-                              {batch.passed_rows ?? 0}
-                            </span>
-                            <span className="flex items-center gap-1 font-medium text-red-500">
-                              <XCircle className="size-4" />
-                              {batch.failed_rows ?? 0}
-                            </span>
-                            <span className="text-xs text-slate-400 tabular-nums">
-                              / {batch.total_rows ?? 0} rows
-                            </span>
-                          </div>
-                          <span
-                            className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                              batch.status === "completed"
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-blue-50 text-blue-600"
-                            }`}
-                          >
-                            {batch.status}
-                          </span>
-                          <span className="text-xs text-slate-400">View →</span>
-                        </div>
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <p className="truncate text-[14px] text-foreground">
+                          {batch.dataset_name ?? `Dataset #${batch.dataset_id}`}
+                        </p>
+                        <span className="shrink-0 text-[13px] text-muted-foreground">
+                          Batch #{batch.id}
+                        </span>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-5">
+                        <span className="w-44 text-right text-[13px] text-muted-foreground">
+                          {batch.created_at ? new Date(batch.created_at).toLocaleString() : "—"}
+                        </span>
+                        <span className="flex w-36 items-center justify-end gap-2 text-[13px]">
+                          <span className="text-success">{batch.passed_rows ?? 0} ✓</span>
+                          <span className="text-destructive">{batch.failed_rows ?? 0} ✗</span>
+                          <span className="text-muted-foreground">/ {batch.total_rows ?? 0}</span>
+                        </span>
+                        <span className={`w-24 rounded-[6px] border px-2 py-0.5 text-right text-xs font-normal ${
+                          batch.status === "completed"
+                            ? "border-success text-success"
+                            : "border-blue-400 text-blue-500"
+                        }`}>
+                          {batch.status}
+                        </span>
+                        <span className="w-14 text-right text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                          View →
+                        </span>
                       </div>
                     </button>
-                  ))}
-                </div>
-              </>
+                  );
+                })}
+              </div>
             )}
           </>
         )}

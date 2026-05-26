@@ -271,8 +271,8 @@ export default function DatasetTable({
                       isSelected
                         ? "bg-brand-500/8 ring-1 ring-inset ring-brand-500/20"
                         : isEven
-                        ? "bg-[#EDEEF2] hover:bg-[#e2e4ea]"
-                        : "bg-white hover:bg-[#EDEEF2]"
+                        ? "bg-muted/50 hover:bg-muted/80"
+                        : "bg-card hover:bg-muted/40"
                     }`}
                   >
                     {/* Row number */}

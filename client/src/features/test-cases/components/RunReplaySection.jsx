@@ -538,59 +538,39 @@ function SimpleDatasetRunner({
   }
 
   return (
-    <div className="px-5 pb-4 space-y-3">
-      {/* Generate with AI */}
-      <button
-        type="button"
-        onClick={() => setGenOpen(true)}
-        className="flex w-full items-center gap-2 rounded-xl border border-violet-200 bg-violet-50/40 px-3 py-2.5 text-left hover:bg-violet-50 transition-colors"
-      >
-        <Sparkles className="size-3.5 text-violet-500 shrink-0" />
-        <span className="text-xs font-semibold text-violet-700">
-          Generate dataset with AI…
-        </span>
-      </button>
-
-      <Dialog open={genOpen} onOpenChange={setGenOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="size-4 text-violet-500" />
-              Generate Dataset with AI
-            </DialogTitle>
-          </DialogHeader>
-          <AIDatasetGenerator
-            alwaysOpen
-            projectId={projectId}
-            goal={tc.goal}
-            scriptSteps={scriptSteps}
-            initialRow={null}
-            sourceTestCaseId={tc.id}
-            sourceTestCaseTitle={tc.title}
-            onDatasetSaved={handleDatasetSaved}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Or pick existing */}
+    <div className="px-5 pb-4 space-y-3 mt-2">
+      {/* Pick a dataset or generate one */}
       {loadingList ? (
         <div className="flex justify-center py-2">
           <LoadingSpinner size="sm" />
         </div>
       ) : (
-        datasets.length > 0 && (
-          <CustomSelect
-            value={selectedId}
-            onValueChange={handleSelect}
-            placeholder="Or pick an existing dataset…"
-            className="w-full"
-            options={datasets.map((ds) => ({
-              value: String(ds.id),
-              label: ds.name,
-              sublabel: `· ${ds.rowCount} rows`,
-            }))}
-          />
-        )
+        <div className="space-y-2">
+          {datasets.length > 0 && (
+            <CustomSelect
+              value={selectedId}
+              onValueChange={handleSelect}
+              placeholder="Pick a dataset…"
+              className="w-full"
+              options={datasets.map((ds) => ({
+                value: String(ds.id),
+                label: ds.name,
+                sublabel: `· ${ds.rowCount} rows`,
+              }))}
+            />
+          )}
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setGenOpen(true)}
+              className="flex items-center gap-2 rounded-lg border border-[#0048D9]/40 bg-[#0048D9]/5 px-4 py-2 text-xs font-medium text-[#0048D9] hover:bg-[#0048D9]/10 transition-colors"
+            >
+              <Sparkles className="size-3.5 shrink-0" />
+              Generate with AI
+            </button>
+          </div>
+        </div>
       )}
 
       {detailLoading && (
@@ -625,6 +605,27 @@ function SimpleDatasetRunner({
           <span className="text-xs text-red-600 flex-1">{error}</span>
         </div>
       )}
+
+      <Dialog open={genOpen} onOpenChange={setGenOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="size-4 text-violet-500" />
+              Generate Dataset with AI
+            </DialogTitle>
+          </DialogHeader>
+          <AIDatasetGenerator
+            alwaysOpen
+            projectId={projectId}
+            goal={tc.goal}
+            scriptSteps={scriptSteps}
+            initialRow={null}
+            sourceTestCaseId={tc.id}
+            sourceTestCaseTitle={tc.title}
+            onDatasetSaved={handleDatasetSaved}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1129,7 +1130,7 @@ export default function RunReplaySection({
   if (!developerMode) {
     if (!scripts.length && !scriptsLoading) {
       return (
-        <section className="rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
+        <section className="overflow-hidden rounded-xl bg-card border-dashed border-2 border-border px-8 py-10 text-center">
           <p className="text-sm text-muted-foreground font-medium">
             No recorded script yet
           </p>
@@ -1149,12 +1150,12 @@ export default function RunReplaySection({
     }
 
     return (
-      <section className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <section className="overflow-hidden rounded-xl bg-card">
         {/* Script metadata header */}
-        <div className="flex items-center gap-3 border-b border-border px-5 py-3.5">
+        <div className="flex items-center gap-3 border-b border-border px-8 py-4">
           <div className="flex flex-1 items-center gap-2.5 min-w-0">
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-brand-500/15">
-              <RotateCcw className="size-3.5 text-brand-400" />
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-[6px] bg-primary/10">
+              <RotateCcw className="size-3.5 text-primary" />
             </div>
             <div className="min-w-0">
               {scriptsLoading ? (
@@ -1208,10 +1209,10 @@ export default function RunReplaySection({
                         : selectedScript.id,
                     )
                   }
-                  className={`rounded-lg p-1.5 transition-colors ${
+                  className={`rounded-[6px] p-1.5 transition-colors ${
                     confirmDeleteScriptId === selectedScript.id
-                      ? "bg-red-50 text-red-400"
-                      : "text-slate-300 hover:bg-red-50 hover:text-red-400"
+                      ? "bg-destructive/10 text-destructive"
+                      : "text-muted-foreground/30 hover:bg-destructive/10 hover:text-destructive"
                   }`}
                   title="Delete this script"
                 >
@@ -1223,7 +1224,7 @@ export default function RunReplaySection({
                       className="fixed inset-0 z-10"
                       onClick={() => setConfirmDeleteScriptId(null)}
                     />
-                    <div className="absolute right-0 top-full mt-1.5 z-20 w-44 rounded-xl border border-red-500/20 bg-card shadow-lg p-3 space-y-2.5">
+                    <div className="absolute right-0 top-full mt-1.5 z-20 w-44 rounded-[6px] border border-destructive/20 bg-surface shadow-[0px_4px_14px_rgba(0,0,0,0.2)] p-3 space-y-2.5">
                       <p className="text-xs font-medium text-foreground">
                         Delete this script?
                       </p>
@@ -1235,14 +1236,14 @@ export default function RunReplaySection({
                           type="button"
                           onClick={() => handleDeleteScript(selectedScript.id)}
                           disabled={deletingScript}
-                          className="flex-1 rounded-lg bg-red-500 px-2 py-1.5 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+                          className="flex-1 rounded-[6px] bg-destructive px-2 py-1.5 text-xs font-bold text-white hover:brightness-105 disabled:opacity-50 transition-all"
                         >
                           {deletingScript ? "Deleting…" : "Delete"}
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmDeleteScriptId(null)}
-                          className="flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                          className="flex-1 rounded-[6px] border border-border px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-surface-2 transition-colors"
                         >
                           Cancel
                         </button>
@@ -1257,7 +1258,7 @@ export default function RunReplaySection({
 
         {/* Unsaved changes warning */}
         {scriptEditorSteps && (
-          <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-5 py-2">
+          <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-8 py-2">
             <AlertTriangle className="size-3.5 shrink-0 text-amber-500" />
             <span className="flex-1 text-xs text-amber-500">
               Unsaved changes — save before replaying.
@@ -1267,7 +1268,7 @@ export default function RunReplaySection({
 
         {/* Steps: read-only list OR editor */}
         {editStepsOpen && selectedScript ? (
-          <div className="px-5 py-4">
+          <div className="px-8 py-5">
             <ReplayScriptEditor
               scriptId={selectedScript.id}
               steps={editorSteps}
@@ -1288,7 +1289,7 @@ export default function RunReplaySection({
             <button
               type="button"
               onClick={() => setShowNormalDataset((o) => !o)}
-              className={`flex w-full items-center gap-2 px-5 py-3 text-left text-xs font-medium transition-colors ${
+              className={`flex w-full items-center gap-2 px-8 py-3 text-left text-xs font-medium transition-colors ${
                 showNormalDataset
                   ? "bg-sky-500/10 text-sky-400"
                   : "text-muted-foreground hover:bg-muted/50"
@@ -1317,12 +1318,12 @@ export default function RunReplaySection({
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-border px-5 py-3">
+        <div className="flex items-center justify-between border-t border-border px-8 py-3">
           {editStepsOpen ? (
             <button
               type="button"
               onClick={() => onEditStepsOpenChange?.(false)}
-              className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 transition-colors"
+              className="flex items-center gap-1.5 rounded-[6px] bg-[linear-gradient(180deg,#60a5fa_0%,#2563eb_100%)] px-3 py-1.5 text-xs font-bold text-white shadow-[0px_4px_14px_rgba(0,0,0,0.2)] hover:brightness-105 transition-all"
             >
               <Check className="size-3.5" />
               Done editing
@@ -1350,7 +1351,7 @@ export default function RunReplaySection({
 
         {/* Status messages */}
         {(actionError || actionSuccess) && (
-          <div className="px-5 pb-3 space-y-1.5">
+          <div className="px-8 pb-4 space-y-1.5">
             {actionError && (
               <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2.5">
                 <AlertTriangle className="size-3.5 text-red-400 shrink-0" />
@@ -1387,8 +1388,8 @@ export default function RunReplaySection({
 
   // ── Developer mode: full existing UI ─────────────────────────────────────────
   return (
-    <section className="rounded-2xl border border-amber-200 dark:border-amber-800/40 bg-white shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-b border-amber-100 dark:border-amber-900/30">
+    <section className="overflow-hidden rounded-[6px] bg-surface shadow-[0px_4px_24px_rgba(0,0,0,0.15)] border border-amber-200 dark:border-amber-800/40">
+      <div className="flex items-center justify-between gap-2 px-8 py-4 border-b border-border">
         <div className="flex items-center gap-2">
           <Terminal className="size-4 text-amber-600 dark:text-amber-400" />
           <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
@@ -1408,12 +1409,12 @@ export default function RunReplaySection({
         </button>
       </div>
 
-      <div className="divide-y divide-slate-100">
+      <div className="divide-y divide-border">
         {/* ── Run with AI Agent ────────────────────────────────── */}
-        <div className="px-5 py-4">
+        <div className="px-8 py-5">
           <div className="flex items-center gap-2 mb-3">
-            <Play className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-            <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+            <Play className="size-3.5 text-primary" />
+            <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">
               Run with AI Agent
             </h3>
           </div>
@@ -1448,7 +1449,7 @@ export default function RunReplaySection({
             <Button
               onClick={handleCreateRun}
               disabled={busyAction === "run" || busyAction === "replay"}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className=""
             >
               {busyAction === "run" ? (
                 <>
@@ -1466,10 +1467,10 @@ export default function RunReplaySection({
         </div>
 
         {/* ── Replay Script ───────────────────────────────────── */}
-        <div className="px-5 py-4">
+        <div className="px-8 py-5">
           <div className="flex items-center gap-2 mb-3">
             <RotateCcw className="size-3.5 text-violet-600 dark:text-violet-400" />
-            <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+            <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">
               Replay Script
             </h3>
           </div>
@@ -1497,15 +1498,15 @@ export default function RunReplaySection({
                 <p className="mt-1 text-xs text-red-500">{scriptsError}</p>
               )}
               {!scriptsError && scripts.length === 0 && (
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-1 text-xs text-muted-foreground">
                   No replay script yet — run the test case first.
                 </p>
               )}
               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">
+                <span className="rounded-[4px] bg-surface-2 px-2 py-0.5 text-[10px] text-muted-foreground">
                   config: {defaultRuntimeConfigId ?? "default"}
                 </span>
-                <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">
+                <span className="rounded-[4px] bg-surface-2 px-2 py-0.5 text-[10px] text-muted-foreground">
                   version: {getCurrentVersionId(tc) ?? "current"}
                 </span>
               </div>
@@ -1517,8 +1518,8 @@ export default function RunReplaySection({
                 onClick={() => onEditStepsOpenChange?.(!editStepsOpen)}
                 className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
                   editStepsOpen
-                    ? "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-600/50 dark:bg-violet-900/20 dark:text-violet-300"
-                    : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                    ? "border-primary/30 bg-primary/5 text-primary"
+                    : "border-border bg-surface text-muted-foreground hover:bg-surface-2"
                 }`}
               >
                 {editStepsOpen ? (
@@ -1564,14 +1565,14 @@ export default function RunReplaySection({
           {/* Tabs: Steps | Dataset */}
           {scriptSteps.length > 0 ? (
             <>
-              <div className="mb-4 flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 w-fit">
+              <div className="mb-4 flex items-center gap-1 rounded-[6px] border border-border bg-surface-2 p-1 w-fit">
                 <button
                   type="button"
                   onClick={() => setActiveReplayTab("steps")}
-                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 rounded-[4px] px-3 py-1.5 text-xs font-medium transition-colors ${
                     activeReplayTab === "steps"
-                      ? "bg-white text-slate-700 shadow-sm"
-                      : "text-slate-400 hover:text-slate-600"
+                      ? "bg-surface text-foreground shadow-[0px_2px_8px_rgba(0,0,0,0.2)]"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   <SlidersHorizontal className="size-3" />
@@ -1580,8 +1581,8 @@ export default function RunReplaySection({
                     <span
                       className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
                         activeReplayTab === "steps"
-                          ? "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
-                          : "bg-slate-200 text-slate-500"
+                          ? "bg-primary/10 text-primary"
+                          : "bg-surface-3 text-muted-foreground"
                       }`}
                     >
                       bind
@@ -1591,10 +1592,10 @@ export default function RunReplaySection({
                 <button
                   type="button"
                   onClick={() => setActiveReplayTab("dataset")}
-                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 rounded-[4px] px-3 py-1.5 text-xs font-medium transition-colors ${
                     activeReplayTab === "dataset"
-                      ? "bg-white text-slate-700 shadow-sm"
-                      : "text-slate-400 hover:text-slate-600"
+                      ? "bg-surface text-foreground shadow-[0px_2px_8px_rgba(0,0,0,0.2)]"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   <Database className="size-3" />
@@ -1603,8 +1604,8 @@ export default function RunReplaySection({
                     <span
                       className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                         activeReplayTab === "dataset"
-                          ? "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
-                          : "bg-slate-200 text-slate-500"
+                          ? "bg-primary/10 text-primary"
+                          : "bg-surface-3 text-muted-foreground"
                       }`}
                     >
                       row {selectedDatasetRowIndex + 1}
@@ -1673,62 +1674,25 @@ export default function RunReplaySection({
               {/* Dataset tab */}
               {activeReplayTab === "dataset" && (
                 <>
-                  {/* Flow guide — ① Script → ② Dataset → ③ Run all */}
-                  {(() => {
-                    const batchDone = actionSuccess.startsWith("Batch started");
-                    const steps3 = [
-                      { label: "Script", done: !!selectedScript },
-                      { label: "Dataset", done: !!datasetDetail },
-                      {
-                        label: "Run all",
-                        done: batchDone || busyAction === "batch",
-                      },
-                    ];
-                    return (
-                      <div className="mb-4 flex items-center gap-2 text-[11px]">
-                        {steps3.map(({ label, done }, i) => (
-                          <span
-                            key={label}
-                            className="flex items-center gap-1.5"
-                          >
-                            {i > 0 && (
-                              <span
-                                className={
-                                  steps3[i - 1].done
-                                    ? "text-emerald-400 dark:text-emerald-500"
-                                    : "text-slate-200 dark:text-slate-700"
-                                }
-                              >
-                                →
-                              </span>
-                            )}
-                            <span
-                              className={`flex items-center gap-1 ${done ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-slate-400"}`}
-                            >
-                              {done ? (
-                                <CheckCircle className="size-3 text-emerald-500 dark:text-emerald-400" />
-                              ) : (
-                                <span className="flex size-4 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold">
-                                  {i + 1}
-                                </span>
-                              )}
-                              {label}
-                            </span>
-                          </span>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                  <button
-                    type="button"
-                    onClick={() => setGenDialogOpen(true)}
-                    className="flex w-full items-center gap-2 rounded-xl border border-violet-200 dark:border-violet-700/40 bg-violet-50/30 dark:bg-violet-900/10 px-3 py-2.5 text-left hover:bg-violet-50/60 dark:hover:bg-violet-900/20 transition-colors"
-                  >
-                    <Sparkles className="size-3.5 text-violet-500 dark:text-violet-400 shrink-0" />
-                    <span className="text-xs font-semibold text-violet-700 dark:text-violet-300">
-                      Generate dataset with AI…
-                    </span>
-                  </button>
+                  <DatasetPicker
+                    key={datasetPickerKey}
+                    projectId={projectId}
+                    autoSelectId={autoSelectDatasetId}
+                    onSelectRow={handleSelectDatasetRow}
+                    onDetailLoaded={handleDetailLoaded}
+                    selectedRowIndex={selectedDatasetRowIndex}
+                  />
+
+                  <div className="flex justify-end mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setGenDialogOpen(true)}
+                      className="flex items-center gap-2 rounded-lg border border-[#0048D9]/40 bg-[#0048D9]/5 px-4 py-2 text-xs font-medium text-[#0048D9] hover:bg-[#0048D9]/10 transition-colors"
+                    >
+                      <Sparkles className="size-3.5 shrink-0" />
+                      Generate with AI
+                    </button>
+                  </div>
 
                   <Dialog open={genDialogOpen} onOpenChange={setGenDialogOpen}>
                     <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1753,34 +1717,12 @@ export default function RunReplaySection({
                       />
                     </DialogContent>
                   </Dialog>
-
-                  <DatasetPicker
-                    key={datasetPickerKey}
-                    projectId={projectId}
-                    autoSelectId={autoSelectDatasetId}
-                    onSelectRow={handleSelectDatasetRow}
-                    onDetailLoaded={handleDetailLoaded}
-                    selectedRowIndex={selectedDatasetRowIndex}
-                  />
                   {datasetDetail && (
-                    <div className="mt-4 rounded-xl border-2 border-sky-300 dark:border-sky-700/50 bg-gradient-to-br from-sky-50 to-brand-50/40 dark:from-sky-900/20 dark:to-brand-900/10 px-5 py-4 space-y-3 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-8 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-900/40 shadow-inner">
-                          <Layers className="size-4 text-sky-600 dark:text-sky-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-sky-800 dark:text-sky-200">
-                            Batch Run — {datasetDetail.rows?.length ?? 0} rows
-                          </p>
-                          <p className="text-[10px] text-sky-500 dark:text-sky-400">
-                            One test run will be queued per dataset row
-                          </p>
-                        </div>
-                      </div>
+                    <div className="mt-4 space-y-3">
 
                       {/* Variable → Column mapping */}
                       {scriptTemplateVars.length > 0 && (
-                        <div className="rounded-lg border border-slate-100 bg-white px-3 py-2 space-y-2 dark:bg-surface-2">
+                        <div className="rounded-lg border border-border bg-card px-3 py-2 space-y-2">
                           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                             Variable mapping
                           </p>
@@ -1879,7 +1821,9 @@ export default function RunReplaySection({
                                 </span>
                                 <span
                                   className={
-                                    ok ? "text-purple-500 dark:text-purple-400" : "text-amber-400 dark:text-amber-500"
+                                    ok
+                                      ? "text-purple-500 dark:text-purple-400"
+                                      : "text-amber-400 dark:text-amber-500"
                                   }
                                 >
                                   {ok

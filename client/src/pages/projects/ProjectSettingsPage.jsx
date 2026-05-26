@@ -6,8 +6,8 @@ import {
 import { updateProject, deleteProject } from "@/features/projects/api/projectsApi";
 import PageHeader from "@/shared/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { CustomSelect } from "@/components/ui/custom-select";
+import { FormLabel, FormInput, FormTextarea } from "@/shared/components/ui/FormField";
 import { toast } from "sonner";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -65,23 +65,20 @@ function AuthConfigEditor({ value, onChange }) {
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <Label>Authentication type</Label>
-        <select
+        <FormLabel>Authentication type</FormLabel>
+        <CustomSelect
           value={authType}
-          onChange={(e) => setType(e.target.value)}
-          className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-        >
-          {AUTH_TYPES.map((t) => (
-            <option key={t.value} value={t.value}>{t.label}</option>
-          ))}
-        </select>
+          onValueChange={setType}
+          options={AUTH_TYPES}
+          className="w-full"
+        />
       </div>
 
       {authType === "form" && (
         <div className="space-y-3 rounded-xl border border-border bg-muted/40 p-4">
           <div className="space-y-1.5">
-            <Label htmlFor="ps-login-url">Login page URL</Label>
-            <Input
+            <FormLabel htmlFor="ps-login-url">Login page URL</FormLabel>
+            <FormInput
               id="ps-login-url"
               placeholder="/login  or  https://yoursite.com/login"
               value={value?.loginUrl || ""}
@@ -91,8 +88,8 @@ function AuthConfigEditor({ value, onChange }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="ps-username-sel">Username selector</Label>
-              <Input
+              <FormLabel htmlFor="ps-username-sel">Username selector</FormLabel>
+              <FormInput
                 id="ps-username-sel"
                 placeholder="#email"
                 value={value?.usernameSelector || ""}
@@ -100,8 +97,8 @@ function AuthConfigEditor({ value, onChange }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ps-password-sel">Password selector</Label>
-              <Input
+              <FormLabel htmlFor="ps-password-sel">Password selector</FormLabel>
+              <FormInput
                 id="ps-password-sel"
                 placeholder="#password"
                 value={value?.passwordSelector || ""}
@@ -111,8 +108,8 @@ function AuthConfigEditor({ value, onChange }) {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="ps-submit-sel">Submit button selector</Label>
-            <Input
+            <FormLabel htmlFor="ps-submit-sel">Submit button selector</FormLabel>
+            <FormInput
               id="ps-submit-sel"
               placeholder="button[type=submit]"
               value={value?.submitSelector || ""}
@@ -122,8 +119,8 @@ function AuthConfigEditor({ value, onChange }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="ps-username">Username</Label>
-              <Input
+              <FormLabel htmlFor="ps-username">Username</FormLabel>
+              <FormInput
                 id="ps-username"
                 autoComplete="off"
                 value={value?.username || ""}
@@ -131,9 +128,9 @@ function AuthConfigEditor({ value, onChange }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ps-password">Password</Label>
+              <FormLabel htmlFor="ps-password">Password</FormLabel>
               <div className="relative">
-                <Input
+                <FormInput
                   id="ps-password"
                   type={showPassword ? "text" : "password"}
                   autoComplete="new-password"
@@ -161,8 +158,8 @@ function AuthConfigEditor({ value, onChange }) {
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="ps-cookie-name">Cookie name</Label>
-              <Input
+              <FormLabel htmlFor="ps-cookie-name">Cookie name</FormLabel>
+              <FormInput
                 id="ps-cookie-name"
                 placeholder="session"
                 value={cookie.name}
@@ -170,8 +167,8 @@ function AuthConfigEditor({ value, onChange }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ps-cookie-value">Cookie value</Label>
-              <Input
+              <FormLabel htmlFor="ps-cookie-value">Cookie value</FormLabel>
+              <FormInput
                 id="ps-cookie-value"
                 placeholder="abc123…"
                 value={cookie.value}
@@ -210,10 +207,10 @@ function DeleteProjectDialog({ projectTitle, onConfirm, onCancel, loading }) {
           associated test cases, runs, and objects. This action cannot be undone.
         </p>
         <div className="space-y-2 mb-5">
-          <Label className="text-xs text-muted-foreground">
+          <FormLabel className="text-xs text-muted-foreground">
             Type <span className="font-mono font-semibold text-foreground">{projectTitle}</span> to confirm
-          </Label>
-          <Input
+          </FormLabel>
+          <FormInput
             value={inputVal}
             onChange={(e) => setInputVal(e.target.value)}
             placeholder={projectTitle}
@@ -331,8 +328,8 @@ export default function ProjectSettingsPage() {
       <Section icon={Settings} title="General" description="Project name, description, and base URL">
         <form onSubmit={handleSaveGeneral} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="ps-name">Project Name</Label>
-            <Input
+            <FormLabel htmlFor="ps-name">Project Name</FormLabel>
+            <FormInput
               id="ps-name"
               value={name}
               onChange={(e) => { setName(e.target.value); setGeneralDirty(true); }}
@@ -341,23 +338,22 @@ export default function ProjectSettingsPage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="ps-description">Description</Label>
-            <textarea
+            <FormLabel htmlFor="ps-description">Description</FormLabel>
+            <FormTextarea
               id="ps-description"
               value={description}
               onChange={(e) => { setDescription(e.target.value); setGeneralDirty(true); }}
               placeholder="Brief description of what this project tests…"
               rows={3}
-              className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="ps-base-url">
+            <FormLabel htmlFor="ps-base-url">
               <Globe className="size-3.5 inline mr-1 text-muted-foreground" />
               Base URL
-            </Label>
-            <Input
+            </FormLabel>
+            <FormInput
               id="ps-base-url"
               value={baseUrl}
               onChange={(e) => { setBaseUrl(e.target.value); setGeneralDirty(true); }}

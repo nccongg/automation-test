@@ -20,21 +20,12 @@ import {
 import { SELECTOR_TYPES } from "@/features/object-repository/components/ObjectFormDrawer";
 import ObjectEditPanel from "@/features/object-repository/components/ObjectEditPanel";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { FormLabel, FormValue } from "@/shared/components/ui/FormField";
 import PageHeader from "@/shared/components/common/PageHeader";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import { toast } from "sonner";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function SelectorBadge({ type }) {
-  const label = SELECTOR_TYPES.find((t) => t.value === type)?.label ?? type;
-  return (
-    <span className="inline-flex w-20 shrink-0 items-center justify-center rounded border border-border bg-muted py-0.5 text-[10px] font-mono text-muted-foreground">
-      {label}
-    </span>
-  );
-}
+// ─── Copy button ──────────────────────────────────────────────────────────────
 
 function CopyBtn({ value }) {
   const [copied, setCopied] = useState(false);
@@ -48,9 +39,9 @@ function CopyBtn({ value }) {
           setTimeout(() => setCopied(false), 1500);
         });
       }}
-      className="shrink-0 rounded p-0.5 text-muted-foreground/30 hover:text-muted-foreground transition-colors"
+      className="ml-auto shrink-0 rounded p-1 text-muted-foreground/40 transition-colors hover:text-muted-foreground"
     >
-      {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
     </button>
   );
 }
@@ -58,54 +49,38 @@ function CopyBtn({ value }) {
 // ─── Candidate section ────────────────────────────────────────────────────────
 
 function CandidateSection({ projectId, objectId, onAccepted }) {
-  const { candidates, loading, accept, dismiss } = useCandidates(
-    projectId,
-    objectId,
-  );
+  const { candidates, loading, accept, dismiss } = useCandidates(projectId, objectId);
   const [accepting, setAccepting] = useState(null);
   const [dismissing, setDismissing] = useState(null);
 
   if (loading)
-    return (
-      <p className="text-xs text-muted-foreground py-2">Loading candidates…</p>
-    );
+    return <p className="py-2 text-sm text-muted-foreground">Loading candidates…</p>;
   if (!candidates.length)
     return (
-      <p className="text-xs text-muted-foreground py-3 text-center">
-        No pending candidates
-      </p>
+      <p className="py-3 text-center text-sm text-muted-foreground">No pending candidates</p>
     );
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       {candidates.map((c) => {
         const entries = Object.entries(c.selectorCollection || {});
         return (
-          <div
-            key={c.id}
-            className="rounded-xl border border-border bg-muted/30 p-3 space-y-2"
-          >
+          <div key={c.id} className="flex flex-col gap-3 rounded border border-border bg-muted/20 p-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                From run #{c.testRunId} ·{" "}
-                {new Date(c.detectedAt).toLocaleDateString()}
+              <span className="text-sm text-muted-foreground">
+                From run #{c.testRunId} · {new Date(c.detectedAt).toLocaleDateString()}
               </span>
-              <div className="flex gap-1.5">
+              <div className="flex gap-2">
                 <button
                   type="button"
                   disabled={dismissing === c.id}
                   onClick={async () => {
                     setDismissing(c.id);
-                    try {
-                      await dismiss(c.id);
-                      toast.success("Dismissed");
-                    } catch {
-                      toast.error("Failed");
-                    } finally {
-                      setDismissing(null);
-                    }
+                    try { await dismiss(c.id); toast.success("Dismissed"); }
+                    catch { toast.error("Failed"); }
+                    finally { setDismissing(null); }
                   }}
-                  className="rounded-md border border-border bg-card px-2 py-0.5 text-[11px] text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                  className="rounded border border-border bg-card px-3 py-1 text-sm text-red-400 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-950/20"
                 >
                   Dismiss
                 </button>
@@ -118,27 +93,29 @@ function CandidateSection({ projectId, objectId, onAccepted }) {
                       const obj = await accept(c.id);
                       toast.success("Locator updated");
                       onAccepted?.(obj);
-                    } catch {
-                      toast.error("Failed");
-                    } finally {
-                      setAccepting(null);
-                    }
+                    } catch { toast.error("Failed"); }
+                    finally { setAccepting(null); }
                   }}
-                  className="rounded-md bg-brand-600 px-2 py-0.5 text-[11px] text-white hover:bg-brand-700 disabled:opacity-50"
+                  className="rounded bg-brand-600 px-3 py-1 text-sm text-white hover:bg-brand-700 disabled:opacity-50"
                 >
                   {accepting === c.id ? "…" : "Accept"}
                 </button>
               </div>
             </div>
-            <div className="space-y-1">
-              {entries.map(([type, value]) => (
-                <div key={type} className="flex items-center gap-2">
-                  <SelectorBadge type={type} />
-                  <span className="font-mono text-[11px] text-muted-foreground truncate">
-                    {value}
-                  </span>
-                </div>
-              ))}
+            <div className="flex flex-col gap-2">
+              {entries.map(([type, value]) => {
+                const label = SELECTOR_TYPES.find((t) => t.value === type)?.label ?? type;
+                return (
+                  <div key={type} className="flex gap-4">
+                    <div className="w-28 shrink-0">
+                      <FormValue className="text-sm text-muted-foreground">{label}</FormValue>
+                    </div>
+                    <FormValue className="flex-1 font-mono text-sm">
+                      <span className="truncate flex-1">{value}</span>
+                    </FormValue>
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
@@ -149,221 +126,185 @@ function CandidateSection({ projectId, objectId, onAccepted }) {
 
 // ─── Object detail view ───────────────────────────────────────────────────────
 
-function ObjectDetail({
-  obj,
-  projectId,
-  onEdit,
-  onDelete,
-  onConfirm,
-  onObjectUpdated,
-}) {
+function ObjectDetail({ obj, projectId, onEdit, onDelete, onConfirm, onObjectUpdated }) {
   const [confirming, setConfirming] = useState(false);
   const [showCandidates, setShowCandidates] = useState(false);
+  const [showDomProps, setShowDomProps] = useState(false);
   const { candidates } = useCandidates(projectId, obj?.id);
 
   const selEntries = Object.entries(obj.selectorCollection || {});
+  const fallbacks = selEntries.filter(([t]) => t !== obj.selectorMethod);
   const isAuto = obj.status === "auto";
 
   async function handleConfirm() {
     setConfirming(true);
-    try {
-      await onConfirm(obj.id);
-      toast.success("Object confirmed");
-    } catch {
-      toast.error("Failed to confirm");
-    } finally {
-      setConfirming(false);
-    }
+    try { await onConfirm(obj.id); toast.success("Object confirmed"); }
+    catch { toast.error("Failed to confirm"); }
+    finally { setConfirming(false); }
   }
 
   return (
-    <div className="space-y-6">
-      {/* Object header */}
+    <div className="flex flex-col gap-4 rounded-lg bg-card p-6 shadow-[0_0_14px_rgba(0,0,0,0.1)] dark:shadow-[0_0_14px_rgba(0,0,0,0.35)]">
+
+      {/* Header row */}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-lg font-semibold font-mono text-foreground">
-              {obj.name}
-            </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-mono text-xl font-semibold text-foreground">{obj.name}</h2>
             {obj.status === "confirmed" ? (
-              <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                <ShieldCheck className="size-2.5" /> Confirmed
+              <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                <ShieldCheck className="size-3" /> Confirmed
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                <Sparkles className="size-2.5" /> Auto
+              <span className="inline-flex items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-500">
+                <Sparkles className="size-3" /> Auto
               </span>
             )}
             {candidates.length > 0 && (
-              <span className="inline-flex items-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-500">
+              <span className="inline-flex items-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-500">
                 {candidates.length} candidate{candidates.length > 1 ? "s" : ""}
               </span>
             )}
           </div>
-          {obj.pageKey && (
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {obj.pageKey}
-            </p>
-          )}
-          {obj.description && (
-            <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-              {obj.description}
-            </p>
-          )}
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           {isAuto && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={confirming}
-              onClick={handleConfirm}
-              className="gap-1.5"
-            >
+            <Button size="sm" variant="outline" disabled={confirming} onClick={handleConfirm} className="gap-1.5">
               <ShieldCheck className="size-3.5" />
               {confirming ? "Confirming…" : "Confirm"}
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onEdit(obj)}
-            className="gap-1.5"
-          >
-            <Pencil className="size-3.5" />
-            Edit
+          <Button size="sm" variant="outline" onClick={() => onEdit(obj)} className="gap-1.5">
+            <Pencil className="size-3.5" /> Edit
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onDelete(obj)}
-            className="gap-1.5 text-red-400 hover:bg-red-500/10 hover:text-red-400 border-red-500/20"
-          >
-            <Trash2 className="size-3.5" />
-            Delete
+          <Button size="sm" variant="outline" onClick={() => onDelete(obj)}
+            className="gap-1.5 border-red-200 text-red-400 hover:bg-red-50 hover:text-red-500 dark:border-red-800/30 dark:hover:bg-red-950/20">
+            <Trash2 className="size-3.5" /> Delete
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Selectors */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Selectors
-          </h3>
-
-          {/* Primary */}
-          <div className="rounded-xl border border-brand-500/20 bg-brand-500/8 px-4 py-3 space-y-1">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-brand-400">
-              Default
-            </p>
-            <div className="flex items-center gap-2">
-              <SelectorBadge type={obj.selectorMethod} />
-              <span className="font-mono text-sm text-brand-300 truncate flex-1">
-                {obj.selectorCollection?.[obj.selectorMethod] || "—"}
-              </span>
-              {obj.selectorCollection?.[obj.selectorMethod] && (
-                <CopyBtn value={obj.selectorCollection[obj.selectorMethod]} />
-              )}
+      {/* Info row: Page + Description */}
+      {(obj.pageKey || obj.description) && (
+        <div className="flex gap-4">
+          {obj.pageKey && (
+            <div className="flex flex-1 flex-col gap-1.5">
+              <FormLabel>Page / Group</FormLabel>
+              <FormValue>{obj.pageKey}</FormValue>
             </div>
+          )}
+          {obj.description && (
+            <div className="flex flex-1 flex-col gap-1.5">
+              <FormLabel>Description</FormLabel>
+              <FormValue className="text-muted-foreground">{obj.description}</FormValue>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Default selector */}
+      <div className="flex flex-col gap-1.5">
+        <FormLabel>Default Selector</FormLabel>
+        <div className="flex gap-4">
+          <div className="w-28 shrink-0">
+            <FormValue className="text-sm font-medium text-brand-500">
+              {SELECTOR_TYPES.find((t) => t.value === obj.selectorMethod)?.label ?? obj.selectorMethod}
+            </FormValue>
           </div>
+          <FormValue className="flex-1 min-w-0">
+            <span className="flex-1 truncate font-mono text-sm">
+              {obj.selectorCollection?.[obj.selectorMethod] || "—"}
+            </span>
+            {obj.selectorCollection?.[obj.selectorMethod] && (
+              <CopyBtn value={obj.selectorCollection[obj.selectorMethod]} />
+            )}
+          </FormValue>
+        </div>
+      </div>
 
-          {/* Fallbacks */}
-          {selEntries.filter(([t]) => t !== obj.selectorMethod).length > 0 && (
-            <div className="rounded-xl border border-border divide-y divide-border">
-              {selEntries
-                .filter(([t]) => t !== obj.selectorMethod)
-                .map(([type, value]) => (
-                  <div
-                    key={type}
-                    className="flex items-center gap-2 px-4 py-2.5"
-                  >
-                    <SelectorBadge type={type} />
-                    <span className="font-mono text-[11px] text-muted-foreground truncate flex-1">
-                      {value}
-                    </span>
-                    <CopyBtn value={value} />
-                  </div>
-                ))}
+      {/* Fallback selectors */}
+      {fallbacks.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <FormLabel>Fallback Selectors</FormLabel>
+          {fallbacks.map(([type, value]) => (
+            <div key={type} className="flex gap-4">
+              <div className="w-28 shrink-0">
+                <FormValue className="text-sm text-muted-foreground">
+                  {SELECTOR_TYPES.find((t) => t.value === type)?.label ?? type}
+                </FormValue>
+              </div>
+              <FormValue className="flex-1 min-w-0">
+                <span className="flex-1 truncate font-mono text-sm text-muted-foreground">{value}</span>
+                <CopyBtn value={value} />
+              </FormValue>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* DOM Properties */}
+      {obj.elementProperties && Object.keys(obj.elementProperties).length > 0 && (
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setShowDomProps((v) => !v)}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {showDomProps ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+            DOM properties snapshot
+          </button>
+          {showDomProps && (
+            <div className="divide-y divide-border rounded border border-border">
+              {Object.entries(obj.elementProperties).map(([k, v]) => (
+                <div key={k} className="flex items-center gap-4 px-4 py-2">
+                  <span className="w-28 shrink-0 font-mono text-xs text-muted-foreground">{k}</span>
+                  <span className="flex-1 truncate text-xs text-foreground">{String(v)}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>
-
-        {/* DOM Properties */}
-        {obj.elementProperties &&
-          Object.keys(obj.elementProperties).length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                DOM Properties
-              </h3>
-              <div className="rounded-xl border border-border divide-y divide-border">
-                {Object.entries(obj.elementProperties).map(([k, v]) => (
-                  <div key={k} className="flex items-center gap-3 px-4 py-2">
-                    <span className="text-[10px] font-mono font-medium text-muted-foreground w-28 shrink-0">
-                      {k}
-                    </span>
-                    <span className="text-xs text-muted-foreground truncate flex-1">
-                      {String(v)}
-                    </span>
-                    {(obj.selectedProperties || []).includes(k) && (
-                      <Badge className="shrink-0 text-[9px] bg-brand-500/10 text-brand-400 border-brand-500/20">
-                        used
-                      </Badge>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-      </div>
+      )}
 
       {/* Candidate locators */}
-      <div className="space-y-2">
+      <div className="flex flex-col gap-3">
         <button
           type="button"
           onClick={() => setShowCandidates((v) => !v)}
-          className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          {showCandidates ? (
-            <ChevronDown className="size-3.5" />
-          ) : (
-            <ChevronRight className="size-3.5" />
-          )}
+          {showCandidates ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
           Candidate Locators
           {candidates.length > 0 && (
-            <span className="ml-1 rounded bg-amber-500/15 text-amber-500 px-1.5 text-[9px]">
+            <span className="ml-1 rounded bg-amber-500/15 px-1.5 text-xs text-amber-500">
               {candidates.length}
             </span>
           )}
         </button>
         {showCandidates && (
-          <CandidateSection
-            projectId={projectId}
-            objectId={obj.id}
-            onAccepted={onObjectUpdated}
-          />
+          <CandidateSection projectId={projectId} objectId={obj.id} onAccepted={onObjectUpdated} />
         )}
       </div>
 
       {/* Meta */}
-      <div className="flex flex-wrap gap-x-6 gap-y-1 pt-2 border-t border-border">
-        {obj.sourceUrl && (
-          <p className="text-[11px] text-muted-foreground">
-            Source: <span className="font-mono">{obj.sourceUrl}</span>
-          </p>
-        )}
-        {obj.createdFromRunId && (
-          <p className="text-[11px] text-muted-foreground">
-            Created from run #{obj.createdFromRunId}
-          </p>
-        )}
-        {obj.updatedAt && (
-          <p className="text-[11px] text-muted-foreground">
-            Updated {new Date(obj.updatedAt).toLocaleString()}
-          </p>
-        )}
-      </div>
+      {(obj.sourceUrl || obj.createdFromRunId || obj.updatedAt) && (
+        <div className="flex flex-wrap gap-x-6 gap-y-1 border-t border-border pt-4">
+          {obj.sourceUrl && (
+            <p className="text-xs text-muted-foreground">
+              Source: <span className="font-mono">{obj.sourceUrl}</span>
+            </p>
+          )}
+          {obj.createdFromRunId && (
+            <p className="text-xs text-muted-foreground">Created from run #{obj.createdFromRunId}</p>
+          )}
+          {obj.updatedAt && (
+            <p className="text-xs text-muted-foreground">
+              Updated {new Date(obj.updatedAt).toLocaleString()}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -374,33 +315,18 @@ function DeleteConfirm({ object, onConfirm, onCancel, loading }) {
   if (!object) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
-        onClick={onCancel}
-      />
-      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-card p-6 shadow-2xl">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-red-500/15 mb-4">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onCancel} />
+      <div className="relative z-10 w-full max-w-sm rounded-lg bg-card p-8 shadow-[0_0_14px_rgba(0,0,0,0.15)]">
+        <div className="mb-4 flex size-10 items-center justify-center rounded border border-red-200 bg-red-50 dark:border-red-800/30 dark:bg-red-950/20">
           <Trash2 className="size-5 text-red-400" />
         </div>
-        <h3 className="text-base font-semibold text-foreground mb-1">
-          Delete Object
-        </h3>
-        <p className="text-sm text-muted-foreground mb-5">
-          Delete{" "}
-          <span className="font-mono font-medium text-foreground">
-            {object.name}
-          </span>
-          ? This cannot be undone.
+        <h3 className="mb-1 text-lg font-semibold text-foreground">Delete Object</h3>
+        <p className="mb-6 text-base leading-6 text-muted-foreground">
+          Delete <span className="font-mono font-medium text-foreground">{object.name}</span>? This cannot be undone.
         </p>
-        <div className="flex gap-3 justify-end">
-          <Button variant="outline" onClick={onCancel} disabled={loading}>
-            Cancel
-          </Button>
-          <Button
-            onClick={onConfirm}
-            disabled={loading}
-            className="bg-red-600 hover:bg-red-700 text-white"
-          >
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={onCancel} disabled={loading}>Cancel</Button>
+          <Button onClick={onConfirm} disabled={loading} className="bg-red-600 text-white hover:bg-red-700">
             {loading ? "Deleting…" : "Delete"}
           </Button>
         </div>
@@ -415,32 +341,17 @@ export default function ObjectRepositoryPage() {
   const { projectId, onObjectsUpdated } = useOutletContext();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const {
-    objects,
-    grouped,
-    loading,
-    error,
-    reload,
-    create,
-    update,
-    remove,
-    confirm,
-  } = useObjectRepository(projectId);
+  const { objects, grouped, loading, error, reload, create, update, remove, confirm } =
+    useObjectRepository(projectId);
 
   const objectId = searchParams.get("objectId");
-  const selectedObj = objectId
-    ? (objects.find((o) => String(o.id) === objectId) ?? null)
-    : null;
+  const selectedObj = objectId ? (objects.find((o) => String(o.id) === objectId) ?? null) : null;
 
-  // "edit" | "new" | null
   const [editMode, setEditMode] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Clear edit mode when objectId changes
-  useEffect(() => {
-    setEditMode(null);
-  }, [objectId]);
+  useEffect(() => { setEditMode(null); }, [objectId]);
 
   async function handleSave(payload) {
     if (editMode === "edit" && selectedObj?.id) {
@@ -484,27 +395,16 @@ export default function ObjectRepositoryPage() {
   if (error)
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <div className="text-center space-y-2">
+        <div className="space-y-2 text-center">
           <p className="text-sm text-red-600">{error}</p>
-          <Button variant="outline" size="sm" onClick={reload}>
-            Retry
-          </Button>
+          <Button variant="outline" size="sm" onClick={reload}>Retry</Button>
         </div>
       </div>
     );
 
-  // Edit / new form
   if (editMode) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title={
-            editMode === "new"
-              ? "New Object"
-              : `Edit: ${selectedObj?.name ?? ""}`
-          }
-          description="Define element locators for replay"
-        />
         <ObjectEditPanel
           object={editMode === "new" ? null : selectedObj}
           onSave={handleSave}
@@ -521,48 +421,36 @@ export default function ObjectRepositoryPage() {
         description="Test element locators organized by page, detected and managed by the agent"
         action={
           <Button onClick={() => setEditMode("new")} className="gap-2">
-            <Plus className="size-4" />
-            New Object
+            <Plus className="size-4" /> New Object
           </Button>
         }
       />
 
       {objects.length === 0 ? (
-        /* Empty state */
-        <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20">
-          <Layers className="size-8 text-muted-foreground/30 mb-3" />
-          <p className="text-sm font-medium text-muted-foreground">
-            No test objects yet
-          </p>
-          <p className="text-xs text-muted-foreground/50 mt-1">
+        <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20">
+          <Layers className="mb-3 size-8 text-muted-foreground/30" />
+          <p className="text-sm font-medium text-muted-foreground">No test objects yet</p>
+          <p className="mt-1 text-xs text-muted-foreground/50">
             Run a test case — objects are detected automatically
           </p>
         </div>
       ) : (
         <div className="min-h-[500px]">
           {selectedObj ? (
-            <div className="rounded-xl border border-border bg-card p-6">
-              <ObjectDetail
-                obj={selectedObj}
-                projectId={projectId}
-                onEdit={() => setEditMode("edit")}
-                onDelete={setDeleteTarget}
-                onConfirm={confirm}
-                onObjectUpdated={() => {
-                  reload();
-                  onObjectsUpdated?.();
-                }}
-              />
-            </div>
+            <ObjectDetail
+              obj={selectedObj}
+              projectId={projectId}
+              onEdit={() => setEditMode("edit")}
+              onDelete={setDeleteTarget}
+              onConfirm={confirm}
+              onObjectUpdated={() => { reload(); onObjectsUpdated?.(); }}
+            />
           ) : (
-            <div className="flex h-full min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20">
-              <Box className="size-8 text-muted-foreground/30 mb-3" />
-              <p className="text-sm font-medium text-muted-foreground">
-                Select an object
-              </p>
-              <p className="text-xs text-muted-foreground/50 mt-1">
-                {objects.length} object{objects.length !== 1 ? "s" : ""}{" "}
-                across {totalPages} page{totalPages !== 1 ? "s" : ""}
+            <div className="flex h-full min-h-[300px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20">
+              <Box className="mb-3 size-8 text-muted-foreground/30" />
+              <p className="text-sm font-medium text-muted-foreground">Select an object</p>
+              <p className="mt-1 text-xs text-muted-foreground/50">
+                {objects.length} object{objects.length !== 1 ? "s" : ""} across {totalPages} page{totalPages !== 1 ? "s" : ""}
               </p>
             </div>
           )}

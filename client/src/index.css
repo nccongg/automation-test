@@ -63,6 +63,11 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* ── Status color utilities ── */
+  --color-success: var(--success);
+  --color-danger:  var(--danger);
+  --color-warning: var(--warning);
 }
 
 /* ── Viewport lock (VS Code style — body never scrolls) ── */
@@ -74,6 +79,20 @@ body {
 
 #root {
   height: 100%;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   DESIGN SYSTEM FIELD TOKENS  (light — same vars, dark overrides inherit)
+   ══════════════════════════════════════════════════════════════════════ */
+:root {
+  --ds-label:       var(--muted-foreground);
+  --ds-text:        var(--foreground);
+  --ds-placeholder: var(--fg-4);
+  --ds-border:      var(--input);
+  --ds-surface:     var(--muted);
+  --ds-error:       var(--destructive);
+  --ds-success:     var(--success);
+  --ds-tab-active:  var(--success);
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -263,14 +282,23 @@ body {
   body {
     @apply bg-background text-foreground;
     font-family:
+      "Roboto",
       "Geist",
       ui-sans-serif,
       system-ui,
       -apple-system,
       sans-serif;
-    font-feature-settings: "ss01", "cv11";
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3 {
+    font-family:
+      "IBM Plex Sans",
+      "Geist",
+      ui-sans-serif,
+      system-ui,
+      sans-serif;
   }
 
   /* ── Atmospheric page backdrop ─────────────────────────────────────── */

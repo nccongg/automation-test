@@ -9,7 +9,6 @@ import {
   createCollection as createTestCollection,
 } from "@/features/test-collection/api/testCollectionApi";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
-import PageHeader from "@/shared/components/common/PageHeader";
 import AddToSuiteDialog from "@/shared/components/common/AddToSuiteDialog";
 import AIWorkbenchDrawer from "@/features/test-cases/components/AIWorkbenchDrawer";
 import ScanWebsiteButton from "@/features/projects/components/ScanWebsiteButton";
@@ -150,44 +149,53 @@ export default function TestCasesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Test Cases"
-        description="Organize test cases by collections and generate automated test cases"
-        action={
-          <div className="flex items-center gap-2">
+    <>
+      <div className="overflow-hidden rounded-xl bg-card">
+        {/* Page header */}
+        <div className="flex items-start justify-between gap-4 border-b border-border px-8 py-7">
+          <div className="min-w-0">
+            <h1 className="text-[26px] font-bold leading-[30px] tracking-[0.5px] text-foreground">
+              Test Cases
+            </h1>
+            <p className="mt-1.5 text-[14px] tracking-[0.5px] text-muted-foreground">
+              Organize test cases by collections and generate automated test cases
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 pt-1">
             <ScanWebsiteButton projectId={projectId} />
-
             <Button
               variant="outline"
               onClick={() => setCreateCollection(true)}
-              className="gap-2"
             >
               <FolderPlus className="size-4" />
               New Collection
             </Button>
           </div>
-        }
-      />
+        </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder="Search test cases…"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-9"
+        {/* Search bar */}
+        <div className="border-b border-border px-8 py-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search test cases…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
+
+        {/* AI Workbench */}
+        <AIWorkbenchDrawer
+          inline
+          open={true}
+          onClose={() => {}}
+          projectId={projectId}
+          onSaved={handleAISaved}
         />
       </div>
-
-      <AIWorkbenchDrawer
-        inline
-        open={true}
-        onClose={() => {}}
-        projectId={projectId}
-        onSaved={handleAISaved}
-      />
 
       <ErrorPopup open={!!runError} onClose={() => setRunError("")} />
 
@@ -205,6 +213,6 @@ export default function TestCasesPage() {
         onCreated={handleCollectionCreated}
         projectId={projectId}
       />
-    </div>
+    </>
   );
 }

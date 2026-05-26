@@ -13,9 +13,8 @@ import PageHeader from '@/shared/components/common/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { CustomSelect } from '@/components/ui/custom-select';
+import { FormLabel, FormInput } from '@/shared/components/ui/FormField';
 
 export default function SettingsPage() {
   const { settings, loading, error, updateSettings } = useSettings();
@@ -90,8 +89,8 @@ export default function SettingsPage() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="notification-email">Email</Label>
-              <Input
+              <FormLabel htmlFor="notification-email">Email</FormLabel>
+              <FormInput
                 id="notification-email"
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
@@ -106,9 +105,9 @@ export default function SettingsPage() {
                 id="weekly-summary"
               />
               <div className="space-y-0.5">
-                <Label htmlFor="weekly-summary" className="cursor-pointer">
+                <FormLabel htmlFor="weekly-summary" className="cursor-pointer">
                   Weekly summary emails
-                </Label>
+                </FormLabel>
                 <div className="text-xs text-muted-foreground">
                   Get a digest of pass rate and failures every week.
                 </div>
@@ -127,7 +126,7 @@ export default function SettingsPage() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Timezone</Label>
+              <FormLabel>Timezone</FormLabel>
               <CustomSelect
                 value={formData.timezone}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, timezone: value }))}
@@ -142,7 +141,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Default project visibility</Label>
+              <FormLabel>Default project visibility</FormLabel>
               <CustomSelect
                 value="private"
                 onValueChange={() => {}}

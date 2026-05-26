@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { X, Plus, Trash2, GripVertical, ChevronDown, ChevronRight, Sparkles } from "lucide-react";
+import { X, Plus, Trash2, GripVertical, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { CustomSelect } from "@/components/ui/custom-select";
 import { Badge } from "@/components/ui/badge";
+import { FormLabel, FormInput, FormTextarea, FormError } from "@/shared/components/ui/FormField";
 
 export const SELECTOR_TYPES = [
   { value: "css",          label: "CSS",          hint: "button[data-testid='login']" },
@@ -20,7 +20,8 @@ export const SELECTOR_TYPES = [
 
 export const TYPE_COLORS = {};
 
-// Convert selectorCollection dict → editable rows array
+const SELECTOR_OPTIONS = SELECTOR_TYPES.map((t) => ({ value: t.value, label: t.label }));
+
 function dictToRows(collection) {
   if (!collection || typeof collection !== "object") return [{ type: "css", value: "" }];
   const entries = Object.entries(collection).filter(([, v]) => v);
@@ -28,7 +29,6 @@ function dictToRows(collection) {
   return entries.map(([type, value]) => ({ type, value: String(value) }));
 }
 
-// Convert rows array → selectorCollection dict
 function rowsToDict(rows) {
   const dict = {};
   for (const r of rows) {
@@ -40,30 +40,27 @@ function rowsToDict(rows) {
 function SelectorRow({ row, index, onChange, onDelete, isOnly }) {
   return (
     <div className="flex items-center gap-2 group">
-      <GripVertical className="size-4 text-slate-300 shrink-0" />
+      <GripVertical className="size-4 text-muted-foreground/30 shrink-0" />
 
-      <select
+      <CustomSelect
         value={row.type}
-        onChange={(e) => onChange(index, "type", e.target.value)}
-        className="w-28 shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-400"
-      >
-        {SELECTOR_TYPES.map((t) => (
-          <option key={t.value} value={t.value}>{t.label}</option>
-        ))}
-      </select>
+        onValueChange={(val) => onChange(index, "type", val)}
+        options={SELECTOR_OPTIONS}
+        className="w-28 shrink-0"
+      />
 
-      <Input
+      <FormInput
         value={row.value}
         onChange={(e) => onChange(index, "value", e.target.value)}
         placeholder={SELECTOR_TYPES.find((t) => t.value === row.type)?.hint || ""}
-        className="flex-1 h-8 text-xs font-mono"
+        className="flex-1 font-mono text-xs"
       />
 
       <button
         type="button"
         onClick={() => onDelete(index)}
         disabled={isOnly}
-        className="shrink-0 rounded-md p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        className="shrink-0 rounded p-1 text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
       >
         <Trash2 className="size-3.5" />
       </button>
@@ -138,30 +135,35 @@ export default function ObjectFormDrawer({ open, object, onClose, onSave }) {
   if (!open) return null;
 
   const primaryType = rows.find((r) => r.type === selectorMethod) ? selectorMethod : (rows[0]?.type || "css");
+  const filledRows = rows.filter((r) => r.value.trim());
 
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px]" onClick={onClose} />
 
-      <aside className="fixed right-0 top-0 bottom-0 z-50 flex w-full max-w-lg flex-col bg-white shadow-2xl border-l border-slate-200">
+      <aside className="fixed right-0 top-0 bottom-0 z-50 flex w-full max-w-lg flex-col bg-card shadow-2xl border-l border-border">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 className="text-base font-semibold text-foreground">
                 {isEdit ? "Edit Object" : "New Test Object"}
               </h2>
               {isAuto && (
-                <span className="rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">
+                <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                   Auto
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               {isEdit ? `Editing: ${object.name}` : "Define element locators for replay"}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
             <X className="size-4" />
           </button>
         </div>
@@ -171,66 +173,77 @@ export default function ObjectFormDrawer({ open, object, onClose, onSave }) {
 
             {/* Name */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                Object Name <span className="text-red-400">*</span>
-              </Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. button_Login" className="font-mono text-sm" autoFocus />
-              <p className="text-[11px] text-slate-400">Reference in test steps: <code className="bg-slate-100 px-1 rounded">click(findObject('{name || "button_Login"}'))</code></p>
+              <FormLabel>
+                Object Name <span className="text-destructive">*</span>
+              </FormLabel>
+              <FormInput
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. button_Login"
+                className="font-mono"
+                autoFocus
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Reference in steps: <code className="bg-muted px-1 rounded font-mono">click(findObject('{name || "button_Login"}'))</code>
+              </p>
             </div>
 
             {/* Page / Group */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Page / Group</Label>
-              <Input value={pageKey} onChange={(e) => setPageKey(e.target.value)} placeholder="e.g. Page_Login" />
+              <FormLabel>Page / Group</FormLabel>
+              <FormInput
+                value={pageKey}
+                onChange={(e) => setPageKey(e.target.value)}
+                placeholder="e.g. Page_Login"
+              />
             </div>
 
             {/* Description */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Description</Label>
-              <textarea
+              <FormLabel>Description</FormLabel>
+              <FormTextarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optional note"
                 rows={2}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
               />
             </div>
 
             {/* Primary selector method */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Default Selector</Label>
-              <select
+              <FormLabel>Default Selector</FormLabel>
+              <CustomSelect
                 value={primaryType}
-                onChange={(e) => setSelectorMethod(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-400"
-              >
-                {rows.filter((r) => r.value.trim()).map((r) => (
-                  <option key={r.type} value={r.type}>
-                    {SELECTOR_TYPES.find((t) => t.value === r.type)?.label ?? r.type}
-                    {" — "}{r.value.slice(0, 40)}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[11px] text-slate-400">Used first during replay. Others are tried as fallback (self-healing).</p>
+                onValueChange={setSelectorMethod}
+                options={filledRows.map((r) => ({
+                  value: r.type,
+                  label: SELECTOR_TYPES.find((t) => t.value === r.type)?.label ?? r.type,
+                  sublabel: r.value.slice(0, 40),
+                }))}
+                className="w-full"
+              />
+              <p className="text-[11px] text-muted-foreground">Used first during replay. Others tried as fallback (self-healing).</p>
             </div>
 
             {/* Selector collection */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                  Selector Collection <span className="text-red-400">*</span>
-                </Label>
-                <Badge variant="outline" className="text-[10px] text-slate-500">{rows.length} locator{rows.length !== 1 ? "s" : ""}</Badge>
+                <FormLabel>
+                  Selector Collection <span className="text-destructive">*</span>
+                </FormLabel>
+                <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                  {rows.length} locator{rows.length !== 1 ? "s" : ""}
+                </Badge>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+              <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
                 {rows.map((row, i) => (
                   <SelectorRow key={i} row={row} index={i} onChange={changeRow} onDelete={deleteRow} isOnly={rows.length === 1} />
                 ))}
                 <button
                   type="button"
                   onClick={addRow}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 py-2 text-xs text-slate-500 hover:border-brand-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+                  className="flex w-full items-center justify-center gap-1.5 rounded border border-dashed border-border py-2 text-xs text-muted-foreground hover:border-brand-400 hover:text-brand-500 hover:bg-brand-50/50 dark:hover:bg-brand-900/20 transition-colors"
                 >
                   <Plus className="size-3.5" /> Add fallback locator
                 </button>
@@ -243,17 +256,17 @@ export default function ObjectFormDrawer({ open, object, onClose, onSave }) {
                 <button
                   type="button"
                   onClick={() => setShowProps((v) => !v)}
-                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700"
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showProps ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
                   DOM properties snapshot
                 </button>
                 {showProps && (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 space-y-1">
+                  <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 space-y-1">
                     {Object.entries(object.elementProperties).map(([k, v]) => (
                       <div key={k} className="flex items-start gap-3 text-xs">
-                        <span className="shrink-0 w-28 font-medium text-slate-500 font-mono">{k}</span>
-                        <span className="text-slate-700 break-all">{String(v)}</span>
+                        <span className="shrink-0 w-28 font-mono text-muted-foreground">{k}</span>
+                        <span className="text-foreground break-all">{String(v)}</span>
                         {(object.selectedProperties || []).includes(k) && (
                           <Badge className="shrink-0 text-[9px] bg-brand-50 text-brand-600 border-brand-200">used</Badge>
                         )}
@@ -264,13 +277,11 @@ export default function ObjectFormDrawer({ open, object, onClose, onSave }) {
               </div>
             )}
 
-            {error && (
-              <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</p>
-            )}
+            {error && <FormError>{error}</FormError>}
           </div>
 
           {/* Footer */}
-          <div className="border-t border-slate-100 px-6 py-4 flex items-center justify-end gap-3 bg-white">
+          <div className="border-t border-border px-6 py-4 flex items-center justify-end gap-3 bg-card">
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
             <Button type="submit" disabled={saving} className="bg-brand-600 hover:bg-brand-700 text-white">
               {saving ? "Saving…" : isEdit ? "Save Changes" : "Create Object"}
