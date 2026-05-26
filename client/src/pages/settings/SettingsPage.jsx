@@ -15,13 +15,7 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { CustomSelect } from '@/components/ui/custom-select';
 
 export default function SettingsPage() {
   const { settings, loading, error, updateSettings } = useSettings();
@@ -134,30 +128,31 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Timezone</Label>
-              <Select value={formData.timezone} onValueChange={(value) => setFormData(prev => ({ ...prev, timezone: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select timezone" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="UTC">UTC</SelectItem>
-                  <SelectItem value="America/New_York">America/New_York</SelectItem>
-                  <SelectItem value="Asia/Ho_Chi_Minh">Asia/Ho_Chi_Minh</SelectItem>
-                </SelectContent>
-              </Select>
+              <CustomSelect
+                value={formData.timezone}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, timezone: value }))}
+                placeholder="Select timezone"
+                className="w-full"
+                options={[
+                  { value: "UTC", label: "UTC" },
+                  { value: "America/New_York", label: "America/New_York" },
+                  { value: "Asia/Ho_Chi_Minh", label: "Asia/Ho_Chi_Minh" },
+                ]}
+              />
             </div>
 
             <div className="space-y-2">
               <Label>Default project visibility</Label>
-              <Select value="private" onValueChange={() => {}}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Private" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="private">Private</SelectItem>
-                  <SelectItem value="team">Team</SelectItem>
-                  <SelectItem value="public">Public</SelectItem>
-                </SelectContent>
-              </Select>
+              <CustomSelect
+                value="private"
+                onValueChange={() => {}}
+                className="w-full"
+                options={[
+                  { value: "private", label: "Private" },
+                  { value: "team", label: "Team" },
+                  { value: "public", label: "Public" },
+                ]}
+              />
               <div className="text-xs text-muted-foreground">
                 This controls how new projects appear by default.
               </div>

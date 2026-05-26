@@ -15,12 +15,12 @@ export const BRAND_COLORS = {
   darkHover: "#262a2f",
 
   /** Auth page background */
-  pageBg: "#5a4949",
+  pageBg: "#1a1530",
 };
 
 export const BRAND_SHADOWS = {
-  /** Blue glow — used on primary CTA buttons */
-  primary: "0 6px 14px rgba(22, 146, 255, 0.28)",
-  /** Smaller blue glow — used on secondary/small buttons */
-  sm: "0 4px 12px rgba(22, 146, 255, 0.3)",
+  /** Violet glow — used on primary CTA buttons */
+  primary: "0 6px 14px rgba(124, 92, 255, 0.38)",
+  /** Smaller violet glow — used on secondary/small buttons */
+  sm: "0 4px 12px rgba(124, 92, 255, 0.28)",
 };

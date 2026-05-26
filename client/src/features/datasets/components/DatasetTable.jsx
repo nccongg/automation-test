@@ -5,9 +5,8 @@ function detectDelimiter(headerLine) {
   const tabCount = (headerLine.match(/\t/g) || []).length;
   const commaCount = (headerLine.match(/,/g) || []).length;
   const semicolonCount = (headerLine.match(/;/g) || []).length;
-  // Chọn delimiter xuất hiện nhiều nhất trong header
   const max = Math.max(tabCount, commaCount, semicolonCount);
-  if (max === 0) return ","; // fallback
+  if (max === 0) return ",";
   if (tabCount === max) return "\t";
   if (semicolonCount === max) return ";";
   return ",";
@@ -23,7 +22,7 @@ function parseCSVLine(line, delimiter = ",") {
     } else if (line.startsWith(delimiter, i) && !inQuotes) {
       result.push(current.trim());
       current = "";
-      i += delimiter.length - 1; // skip extra chars if delimiter is multi-char
+      i += delimiter.length - 1;
     } else {
       current += line[i];
     }
@@ -32,17 +31,6 @@ function parseCSVLine(line, delimiter = ",") {
   return result;
 }
 
-/**
- * Reusable dataset table component.
- *
- * Props:
- *   rows           - array of row objects
- *   onChange       - (rows) => void — called on any edit (omit for readOnly)
- *   readOnly       - disable all editing
- *   selectable     - show "Use" button per row for replay selection
- *   selectedRowIndex - currently selected row index
- *   onSelectRow    - (row | null, index | null) => void
- */
 export default function DatasetTable({
   rows = [],
   onChange,
@@ -108,7 +96,6 @@ export default function DatasetTable({
       if (lines.length < 2) return;
       const delimiter = detectDelimiter(lines[0]);
       const headers = parseCSVLine(lines[0], delimiter).map((h) => h.replace(/^"|"$/g, "").trim());
-
       const newRows = lines.slice(1).map((line) => {
         const cells = parseCSVLine(line, delimiter).map((c) => c.replace(/^"|"$/g, "").trim());
         const row = {};
@@ -124,25 +111,25 @@ export default function DatasetTable({
   if (!readOnly && rows.length === 0 && columns.length === 0) {
     return (
       <div className="space-y-3">
-        <div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/40 py-14 text-center">
-          <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-xl bg-slate-100">
-            <Table2 className="size-5 text-slate-400" />
+        <div className="rounded-xl border-2 border-dashed border-border bg-muted/20 py-14 text-center">
+          <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-xl bg-muted">
+            <Table2 className="size-5 text-muted-foreground/50" />
           </div>
-          <p className="text-sm font-semibold text-slate-500">No data yet</p>
-          <p className="mt-1 text-xs text-slate-400">Add a row or import a CSV file to get started</p>
+          <p className="text-sm font-semibold text-muted-foreground">No data yet</p>
+          <p className="mt-1 text-xs text-muted-foreground/60">Add a row or import a CSV file to get started</p>
           <div className="mt-5 flex items-center justify-center gap-2">
             <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImportCsv} />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-600 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all"
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3.5 py-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-all"
             >
               <Upload className="size-3.5" /> Import CSV
             </button>
             <button
               type="button"
               onClick={addRow}
-              className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3.5 py-2 text-xs font-semibold text-violet-700 shadow-sm hover:bg-violet-100 hover:border-violet-300 transition-all"
+              className="flex items-center gap-1.5 rounded-lg border border-brand-500/25 bg-brand-500/8 px-3.5 py-2 text-xs font-semibold text-brand-400 hover:bg-brand-500/15 transition-all"
             >
               <Plus className="size-3.5" /> Add row
             </button>
@@ -158,15 +145,15 @@ export default function DatasetTable({
       {!readOnly && (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               {rows.length} {rows.length === 1 ? "row" : "rows"}
             </span>
-            <span className="text-slate-200">·</span>
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <span className="text-muted-foreground/30">·</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               {columns.length} {columns.length === 1 ? "col" : "cols"}
             </span>
             {selectable && selectedRowIndex !== null && rows[selectedRowIndex] && (
-              <span className="flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-[10px] font-bold text-violet-700 ring-1 ring-violet-200">
+              <span className="flex items-center gap-1 rounded-full bg-brand-500/15 px-2.5 py-0.5 text-[10px] font-bold text-brand-400 ring-1 ring-brand-500/25">
                 <CheckCircle2 className="size-2.5" />
                 Row {selectedRowIndex + 1} active
               </span>
@@ -177,14 +164,14 @@ export default function DatasetTable({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-500 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all"
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted transition-all"
             >
               <Upload className="size-3" /> Import CSV
             </button>
             <button
               type="button"
               onClick={addRow}
-              className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-[11px] font-semibold text-violet-700 shadow-sm hover:bg-violet-100 hover:border-violet-300 transition-all"
+              className="flex items-center gap-1.5 rounded-lg border border-brand-500/25 bg-brand-500/8 px-3 py-1.5 text-[11px] font-semibold text-brand-400 hover:bg-brand-500/15 transition-all"
             >
               <Plus className="size-3" /> Add row
             </button>
@@ -193,21 +180,19 @@ export default function DatasetTable({
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
-        <table className="w-full border-collapse text-sm">
+      <div className="overflow-x-auto rounded-xl bg-card">
+        <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b-2 border-slate-200">
+            <tr className="bg-muted/40">
               {/* Row number gutter */}
-              <th className="w-10 border-r border-slate-200 px-3 py-3 text-center">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-300">#</span>
+              <th className="w-10 px-3 py-3 text-center">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">#</span>
               </th>
 
-              {columns.map((col, colIdx) => (
+              {columns.map((col) => (
                 <th
                   key={col}
-                  className={`px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 whitespace-nowrap ${
-                    colIdx < columns.length - 1 ? "border-r border-slate-200" : ""
-                  }`}
+                  className="px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>{col}</span>
@@ -215,7 +200,7 @@ export default function DatasetTable({
                       <button
                         type="button"
                         onClick={() => deleteColumn(col)}
-                        className="ml-auto rounded p-0.5 text-slate-300 hover:bg-red-50 hover:text-red-400 transition-colors"
+                        className="ml-auto rounded p-0.5 text-muted-foreground/30 hover:bg-red-500/10 hover:text-red-400 transition-colors"
                       >
                         <X className="size-2.5" />
                       </button>
@@ -226,7 +211,7 @@ export default function DatasetTable({
 
               {/* Add column */}
               {!readOnly && (
-                <th className="w-36 border-l border-slate-200 px-3 py-2.5">
+                <th className="w-36 px-3 py-2.5">
                   {addingCol ? (
                     <div className="flex items-center gap-1">
                       <input
@@ -240,9 +225,9 @@ export default function DatasetTable({
                         }}
                         onBlur={() => { if (!newColName.trim()) setAddingCol(false); }}
                         placeholder="column name"
-                        className="w-full rounded border border-violet-300 bg-white px-2 py-0.5 text-[11px] outline-none focus:ring-2 focus:ring-violet-200"
+                        className="w-full rounded border border-brand-400/40 bg-card px-2 py-0.5 text-[11px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-2 focus:ring-brand-500/15"
                       />
-                      <button type="button" onClick={addColumn} className="shrink-0 text-violet-600 hover:text-violet-800">
+                      <button type="button" onClick={addColumn} className="shrink-0 text-brand-400 hover:text-brand-300">
                         <Plus className="size-3.5" />
                       </button>
                     </div>
@@ -250,7 +235,7 @@ export default function DatasetTable({
                     <button
                       type="button"
                       onClick={() => setAddingCol(true)}
-                      className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400 hover:text-violet-600 transition-colors"
+                      className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-brand-400 transition-colors"
                     >
                       <Plus className="size-3" /> column
                     </button>
@@ -259,7 +244,7 @@ export default function DatasetTable({
               )}
 
               {(selectable || !readOnly) && (
-                <th className="w-20 border-l border-slate-200 px-3 py-2.5" />
+                <th className="w-20 px-3 py-2.5" />
               )}
             </tr>
           </thead>
@@ -269,7 +254,7 @@ export default function DatasetTable({
               <tr>
                 <td
                   colSpan={columns.length + 3}
-                  className="px-3 py-10 text-center text-sm text-slate-300"
+                  className="px-3 py-10 text-center text-sm text-muted-foreground/40"
                 >
                   No rows yet
                 </td>
@@ -282,56 +267,53 @@ export default function DatasetTable({
                 return (
                   <tr
                     key={rowIdx}
-                    className={`border-b border-slate-100 last:border-0 transition-colors ${
+                    className={`transition-colors ${
                       isSelected
-                        ? "bg-violet-50 ring-1 ring-inset ring-violet-200"
+                        ? "bg-brand-500/8 ring-1 ring-inset ring-brand-500/20"
                         : isEven
-                        ? "bg-slate-50/60 hover:bg-slate-100/60"
-                        : "bg-white hover:bg-slate-50/80"
+                        ? "bg-[#EDEEF2] hover:bg-[#e2e4ea]"
+                        : "bg-white hover:bg-[#EDEEF2]"
                     }`}
                   >
                     {/* Row number */}
-                    <td className="w-10 border-r border-slate-100 px-3 py-2.5 text-center">
+                    <td className="w-10 px-3 py-3 text-center">
                       <span className={`text-[11px] font-bold tabular-nums ${
-                        isSelected ? "text-violet-500" : "text-slate-300"
+                        isSelected ? "text-brand-400" : "text-muted-foreground/30"
                       }`}>
                         {rowIdx + 1}
                       </span>
                     </td>
 
-                    {columns.map((col, colIdx) => (
+                    {columns.map((col) => (
                       <td
                         key={col}
-                        className={`py-1.5 px-2 ${
-                          colIdx < columns.length - 1 ? "border-r border-slate-100" : ""
-                        }`}
+                        className="py-1.5 px-2"
                       >
                         {readOnly ? (
-                          <span className="block px-1.5 py-1 text-sm text-slate-700">
-                            {row[col] ?? <span className="text-slate-300">—</span>}
+                          <span className="block px-1.5 py-1 text-sm text-foreground">
+                            {row[col] ?? <span className="text-muted-foreground/30">—</span>}
                           </span>
                         ) : (
                           <input
                             type="text"
                             value={row[col] ?? ""}
                             onChange={(e) => setCell(rowIdx, col, e.target.value)}
-                            className={`w-full min-w-[100px] rounded-md border px-2.5 py-1.5 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-300 ${
+                            className={`w-full min-w-[100px] rounded-md border px-2.5 py-1.5 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground/30 ${
                               isSelected
-                                ? "border-violet-200 bg-white/80 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-                                : "border-transparent bg-transparent hover:border-slate-200 hover:bg-white focus:border-sky-300 focus:bg-white focus:ring-2 focus:ring-sky-100"
+                                ? "border-brand-500/20 bg-card focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10"
+                                : "border-transparent bg-transparent hover:border-border hover:bg-card focus:border-brand-400 focus:bg-card focus:ring-2 focus:ring-brand-500/10"
                             }`}
                           />
                         )}
                       </td>
                     ))}
 
-                    {/* Spacer for add-column header */}
                     {!readOnly && (
-                      <td className="border-l border-slate-100 px-3 py-2" />
+                      <td className="px-3 py-2" />
                     )}
 
                     {/* Actions */}
-                    <td className="border-l border-slate-100 px-2.5 py-1.5">
+                    <td className="px-2.5 py-1.5">
                       <div className="flex items-center justify-end gap-1">
                         {selectable && (
                           <button
@@ -339,8 +321,8 @@ export default function DatasetTable({
                             onClick={() => onSelectRow?.(isSelected ? null : row, isSelected ? null : rowIdx)}
                             className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-bold transition-all ${
                               isSelected
-                                ? "bg-violet-600 text-white shadow-sm"
-                                : "bg-slate-100 text-slate-500 hover:bg-violet-100 hover:text-violet-700"
+                                ? "bg-brand-500 text-white shadow-sm"
+                                : "bg-muted text-muted-foreground hover:bg-brand-500/10 hover:text-brand-400"
                             }`}
                           >
                             {isSelected ? (
@@ -354,7 +336,7 @@ export default function DatasetTable({
                           <button
                             type="button"
                             onClick={() => deleteRow(rowIdx)}
-                            className="rounded-md p-1 text-slate-300 hover:bg-red-50 hover:text-red-400 transition-colors"
+                            className="rounded-md p-1 text-muted-foreground/30 hover:bg-red-500/10 hover:text-red-400 transition-colors"
                           >
                             <Trash2 className="size-3.5" />
                           </button>

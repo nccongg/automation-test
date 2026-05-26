@@ -164,23 +164,23 @@ function RowsPreview({ columns, rows }) {
         <div className="overflow-x-auto max-h-52">
           <table className="w-full text-[11px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-300 w-7">#</th>
+              <tr className="bg-muted/40">
+                <th className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 w-7">#</th>
                 {columns.map((c) => (
-                  <th key={c} className="px-2 py-1.5 text-left text-[10px] font-semibold text-slate-500 whitespace-nowrap">
+                  <th key={c} className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
                     {c}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody>
               {rows.map((row, i) => (
-                <tr key={i} className="hover:bg-slate-50/60">
-                  <td className="px-2 py-1.5 text-slate-300 font-mono">{i + 1}</td>
+                <tr key={i} className={`transition-colors ${i % 2 === 1 ? "bg-[#EDEEF2] hover:bg-[#e2e4ea]" : "bg-white hover:bg-[#EDEEF2]"}`}>
+                  <td className="px-2 py-2.5 text-muted-foreground/30 font-mono tabular-nums">{i + 1}</td>
                   {columns.map((c) => (
                     <td
                       key={c}
-                      className="px-2 py-1.5 text-slate-600 font-mono max-w-[160px] truncate"
+                      className="px-2 py-2.5 text-foreground font-mono max-w-[160px] truncate"
                       title={String(row[c] ?? "")}
                     >
                       {String(row[c] ?? "")}

@@ -50,7 +50,7 @@ export default function ProjectTabs({ projectId }) {
   ];
 
   return (
-    <div className="rounded-xl border bg-white">
+    <div className="rounded-xl border bg-card">
       {/* Tab Navigation */}
       <div className="flex gap-1 border-b p-2">
         {tabs.map((tab) => {

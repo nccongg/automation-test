@@ -35,7 +35,7 @@ function extractSteps(candidate) {
   return Array.isArray(planSnapshot.steps)
     ? planSnapshot.steps
         .map((s) =>
-          typeof s === "string" ? s : s?.text ?? s?.description ?? "",
+          typeof s === "string" ? s : (s?.text ?? s?.description ?? ""),
         )
         .filter(Boolean)
     : [];
@@ -254,9 +254,7 @@ function CandidateCard({
   const verdictStyle = VERDICT_STYLE[runVerdict] ?? null;
 
   const isRunning =
-    runPhase === "saving" ||
-    runPhase === "starting" ||
-    runPhase === "running";
+    runPhase === "saving" || runPhase === "starting" || runPhase === "running";
 
   const isDone = runPhase === "done";
 
@@ -286,7 +284,7 @@ function CandidateCard({
               autoFocus
               value={editTitle}
               onChange={(e) => onUpdate({ editTitle: e.target.value })}
-              className="w-full rounded border border-indigo-300 px-2 py-1 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-200"
+              className="w-full rounded border border-brand-300 px-2 py-1 text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-brand-200"
             />
           ) : (
             <p className="text-sm font-semibold leading-snug text-slate-800">
@@ -312,7 +310,7 @@ function CandidateCard({
           )}
 
           {isRunning && (
-            <span className="flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
+            <span className="flex items-center gap-1 rounded-full bg-brand-100 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700">
               <Loader2 className="size-3 animate-spin" />
               {runPhase === "saving"
                 ? "Preparing…"
@@ -343,7 +341,7 @@ function CandidateCard({
                 onChange={(e) => onUpdate({ editStepsText: e.target.value })}
                 rows={5}
                 placeholder="One step per line…"
-                className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
               />
 
               <div>
@@ -355,14 +353,14 @@ function CandidateCard({
                   onChange={(e) =>
                     onUpdate({ editExpectedResult: e.target.value })
                   }
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
                 />
               </div>
 
               <div className="flex gap-2">
                 <button
                   onClick={applyEdit}
-                  className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+                  className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
                 >
                   Apply
                 </button>
@@ -458,7 +456,7 @@ function CandidateCard({
                       `/projects/${projectId}/test-cases/${savedTestCaseId}`,
                     )
                   }
-                  className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+                  className="flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-100"
                 >
                   <ExternalLink className="size-3" />
                   View Detail
@@ -529,11 +527,7 @@ function useRunPolling(candidates, updateCandidate) {
 
   useEffect(() => {
     candidates.forEach((c) => {
-      if (
-        c.runPhase === "running" &&
-        c.runId &&
-        !pollingRefs.current[c.id]
-      ) {
+      if (c.runPhase === "running" && c.runId && !pollingRefs.current[c.id]) {
         startPolling(c.id, c.runId);
       }
     });
@@ -595,9 +589,7 @@ export default function AIWorkbenchDrawer({
         setPrompt(result.batch.sourcePrompt ?? "");
 
         setCandidates(
-          result.candidates.map((candidate) =>
-            initCandidateState(candidate),
-          ),
+          result.candidates.map((candidate) => initCandidateState(candidate)),
         );
       } catch (e) {
         if (!cancelled) {
@@ -658,9 +650,7 @@ export default function AIWorkbenchDrawer({
     if (!unsaved.length) return;
 
     setCandidates((prev) =>
-      prev.map((c) =>
-        !c.isSaved && !c.saving ? { ...c, saving: true } : c,
-      ),
+      prev.map((c) => (!c.isSaved && !c.saving ? { ...c, saving: true } : c)),
     );
 
     let successCount = 0;
@@ -702,7 +692,9 @@ export default function AIWorkbenchDrawer({
         `${successCount} test case${successCount !== 1 ? "s" : ""} saved to library!`,
       );
     } else {
-      toast.warning(`Saved ${successCount}/${unsaved.length}. ${failCount} failed.`);
+      toast.warning(
+        `Saved ${successCount}/${unsaved.length}. ${failCount} failed.`,
+      );
     }
   }
 
@@ -741,8 +733,8 @@ export default function AIWorkbenchDrawer({
     <>
       <div className="flex shrink-0 items-center justify-between border-b px-5 py-4">
         <div className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-100">
-            <Sparkles className="size-4 text-indigo-600" />
+          <div className="flex size-8 items-center justify-center rounded-lg bg-brand-100">
+            <Sparkles className="size-4 text-brand-600" />
           </div>
 
           <div>
@@ -782,7 +774,7 @@ export default function AIWorkbenchDrawer({
             }
             rows={4}
             disabled={generating}
-            className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
+            className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-100 disabled:opacity-60"
           />
 
           {genError && (
@@ -800,7 +792,7 @@ export default function AIWorkbenchDrawer({
             <button
               onClick={handleGenerate}
               disabled={!prompt.trim() || generating || loadingLatest}
-              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {generating ? (
                 <>
@@ -819,7 +811,7 @@ export default function AIWorkbenchDrawer({
 
         {loadingLatest && !hasResults && (
           <div className="flex flex-col items-center justify-center gap-3 px-5 py-16 text-center">
-            <Loader2 className="size-6 animate-spin text-indigo-400" />
+            <Loader2 className="size-6 animate-spin text-brand-400" />
             <p className="text-xs text-slate-400">
               Loading latest AI candidates…
             </p>
@@ -882,8 +874,8 @@ export default function AIWorkbenchDrawer({
 
         {!hasResults && !generating && !loadingLatest && !genError && (
           <div className="flex flex-col items-center justify-center gap-3 px-5 py-16 text-center">
-            <div className="flex size-14 items-center justify-center rounded-full bg-indigo-50">
-              <Sparkles className="size-6 text-indigo-400" />
+            <div className="flex size-14 items-center justify-center rounded-full bg-brand-50">
+              <Sparkles className="size-6 text-brand-400" />
             </div>
 
             <div className="space-y-1">
@@ -899,7 +891,7 @@ export default function AIWorkbenchDrawer({
         )}
       </div>
 
-      <div className="shrink-0 border-t bg-slate-50/80 px-5 py-3">
+      <div className="shrink-0 border-t px-5 py-3">
         <p className="text-center text-[11px] text-slate-400">
           Candidates are stored in the database until you{" "}
           <strong>Save to Library</strong>. Unsaved AI candidates are cleared

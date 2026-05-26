@@ -45,7 +45,7 @@ function SelectorRow({ row, index, onChange, onDelete, isOnly }) {
       <select
         value={row.type}
         onChange={(e) => onChange(index, "type", e.target.value)}
-        className="w-28 shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+        className="w-28 shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-400"
       >
         {SELECTOR_TYPES.map((t) => (
           <option key={t.value} value={t.value}>{t.label}</option>
@@ -192,7 +192,7 @@ export default function ObjectFormDrawer({ open, object, onClose, onSave }) {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optional note"
                 rows={2}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
               />
             </div>
 
@@ -202,7 +202,7 @@ export default function ObjectFormDrawer({ open, object, onClose, onSave }) {
               <select
                 value={primaryType}
                 onChange={(e) => setSelectorMethod(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-400"
               >
                 {rows.filter((r) => r.value.trim()).map((r) => (
                   <option key={r.type} value={r.type}>
@@ -230,7 +230,7 @@ export default function ObjectFormDrawer({ open, object, onClose, onSave }) {
                 <button
                   type="button"
                   onClick={addRow}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 py-2 text-xs text-slate-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 py-2 text-xs text-slate-500 hover:border-brand-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
                 >
                   <Plus className="size-3.5" /> Add fallback locator
                 </button>
@@ -255,7 +255,7 @@ export default function ObjectFormDrawer({ open, object, onClose, onSave }) {
                         <span className="shrink-0 w-28 font-medium text-slate-500 font-mono">{k}</span>
                         <span className="text-slate-700 break-all">{String(v)}</span>
                         {(object.selectedProperties || []).includes(k) && (
-                          <Badge className="shrink-0 text-[9px] bg-indigo-50 text-indigo-600 border-indigo-200">used</Badge>
+                          <Badge className="shrink-0 text-[9px] bg-brand-50 text-brand-600 border-brand-200">used</Badge>
                         )}
                       </div>
                     ))}
@@ -272,7 +272,7 @@ export default function ObjectFormDrawer({ open, object, onClose, onSave }) {
           {/* Footer */}
           <div className="border-t border-slate-100 px-6 py-4 flex items-center justify-end gap-3 bg-white">
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-            <Button type="submit" disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+            <Button type="submit" disabled={saving} className="bg-brand-600 hover:bg-brand-700 text-white">
               {saving ? "Saving…" : isEdit ? "Save Changes" : "Create Object"}
             </Button>
           </div>

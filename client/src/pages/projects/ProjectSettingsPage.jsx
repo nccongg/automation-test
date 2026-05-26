@@ -21,15 +21,15 @@ const AUTH_TYPES = [
 function Section({ icon, title, description, children }) {
   const SectionIcon = icon;
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50/60">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-50">
-          <SectionIcon className="size-4 text-indigo-600" />
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-border bg-muted/50">
+        <div className="flex size-8 items-center justify-center rounded-lg bg-brand-500/10">
+          <SectionIcon className="size-4 text-brand-400" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-slate-800">{title}</p>
+          <p className="text-sm font-semibold text-foreground">{title}</p>
           {description && (
-            <p className="text-xs text-slate-500 mt-0.5">{description}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
           )}
         </div>
       </div>
@@ -78,7 +78,7 @@ function AuthConfigEditor({ value, onChange }) {
       </div>
 
       {authType === "form" && (
-        <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+        <div className="space-y-3 rounded-xl border border-border bg-muted/40 p-4">
           <div className="space-y-1.5">
             <Label htmlFor="ps-login-url">Login page URL</Label>
             <Input
@@ -144,7 +144,7 @@ function AuthConfigEditor({ value, onChange }) {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
@@ -155,8 +155,8 @@ function AuthConfigEditor({ value, onChange }) {
       )}
 
       {authType === "cookie" && (
-        <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-          <p className="text-xs text-slate-500">
+        <div className="space-y-3 rounded-xl border border-border bg-muted/40 p-4">
+          <p className="text-xs text-muted-foreground">
             Paste a session cookie from your browser DevTools (Application → Cookies).
           </p>
           <div className="grid grid-cols-2 gap-3">
@@ -183,7 +183,7 @@ function AuthConfigEditor({ value, onChange }) {
       )}
 
       {authType === "none" && (
-        <p className="text-sm text-slate-400 rounded-xl border border-slate-100 bg-slate-50/40 px-4 py-3">
+        <p className="text-sm text-muted-foreground rounded-xl border border-border bg-muted/30 px-4 py-3">
           No authentication — the agent will access pages as a guest.
         </p>
       )}
@@ -199,19 +199,19 @@ function DeleteProjectDialog({ projectTitle, onConfirm, onCancel, loading }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onCancel} />
-      <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="flex size-11 items-center justify-center rounded-xl bg-red-100 mb-4">
+      <div className="relative z-10 w-full max-w-md rounded-2xl bg-card border border-border p-6 shadow-2xl">
+        <div className="flex size-11 items-center justify-center rounded-xl bg-red-500/10 mb-4">
           <Trash2 className="size-5 text-red-500" />
         </div>
-        <h3 className="text-base font-semibold text-slate-900 mb-1">Delete Project</h3>
-        <p className="text-sm text-slate-500 mb-4 leading-relaxed">
+        <h3 className="text-base font-semibold text-foreground mb-1">Delete Project</h3>
+        <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
           This will permanently delete{" "}
-          <span className="font-semibold text-slate-800">{projectTitle}</span> and all
+          <span className="font-semibold text-foreground">{projectTitle}</span> and all
           associated test cases, runs, and objects. This action cannot be undone.
         </p>
         <div className="space-y-2 mb-5">
-          <Label className="text-xs text-slate-500">
-            Type <span className="font-mono font-semibold text-slate-700">{projectTitle}</span> to confirm
+          <Label className="text-xs text-muted-foreground">
+            Type <span className="font-mono font-semibold text-foreground">{projectTitle}</span> to confirm
           </Label>
           <Input
             value={inputVal}
@@ -321,7 +321,7 @@ export default function ProjectSettingsPage() {
   if (!project) return null;
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6">
       <PageHeader
         title="Project Settings"
         description="Manage your project details and authentication"
@@ -354,7 +354,7 @@ export default function ProjectSettingsPage() {
 
           <div className="space-y-1.5">
             <Label htmlFor="ps-base-url">
-              <Globe className="size-3.5 inline mr-1 text-slate-400" />
+              <Globe className="size-3.5 inline mr-1 text-muted-foreground" />
               Base URL
             </Label>
             <Input
@@ -363,14 +363,14 @@ export default function ProjectSettingsPage() {
               onChange={(e) => { setBaseUrl(e.target.value); setGeneralDirty(true); }}
               placeholder="https://example.com"
             />
-            <p className="text-[11px] text-slate-400">The root URL the agent navigates relative to</p>
+            <p className="text-[11px] text-muted-foreground">The root URL the agent navigates relative to</p>
           </div>
 
           <div className="flex justify-end pt-1">
             <Button
               type="submit"
               disabled={!generalDirty || savingGeneral}
-              className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="gap-2 bg-brand-600 hover:bg-brand-700 text-white"
             >
               <Save className="size-4" />
               {savingGeneral ? "Saving…" : "Save"}
@@ -394,7 +394,7 @@ export default function ProjectSettingsPage() {
             <Button
               type="submit"
               disabled={!authDirty || savingAuth}
-              className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="gap-2 bg-brand-600 hover:bg-brand-700 text-white"
             >
               <Save className="size-4" />
               {savingAuth ? "Saving…" : "Save"}
@@ -404,28 +404,28 @@ export default function ProjectSettingsPage() {
       </Section>
 
       {/* Danger zone */}
-      <div className="rounded-2xl border border-red-200 bg-white overflow-hidden">
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-red-100 bg-red-50/60">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-red-100">
+      <div className="rounded-2xl border border-red-500/20 bg-card overflow-hidden">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-red-500/15 bg-red-500/5">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-red-500/10">
             <AlertTriangle className="size-4 text-red-500" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-red-700">Danger Zone</p>
-            <p className="text-xs text-red-500 mt-0.5">Irreversible and destructive actions</p>
+            <p className="text-sm font-semibold text-red-500">Danger Zone</p>
+            <p className="text-xs text-red-500/70 mt-0.5">Irreversible and destructive actions</p>
           </div>
         </div>
         <div className="px-6 py-5">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-slate-800">Delete this project</p>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-sm font-medium text-foreground">Delete this project</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Permanently removes all test cases, runs, objects, and data.
               </p>
             </div>
             <Button
               variant="outline"
               onClick={() => setShowDelete(true)}
-              className="shrink-0 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+              className="shrink-0 border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400"
             >
               <Trash2 className="size-4 mr-1.5" />
               Delete Project

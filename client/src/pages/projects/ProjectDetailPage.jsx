@@ -77,7 +77,7 @@ function ProjectContextBar({ project, collapsed, onProjectUpdated }) {
       <div className="mb-2 flex flex-col items-center gap-2 border-b px-1 pb-3">
         <div
           title={`${project.title}\n${project.baseUrl}`}
-          className="flex size-9 shrink-0 select-none items-center justify-center rounded-xl bg-indigo-600 text-sm font-bold text-white"
+          className="flex size-9 shrink-0 select-none items-center justify-center rounded-xl bg-brand-600 text-sm font-bold text-white"
         >
           {projectInitial(project.title)}
         </div>
@@ -88,18 +88,18 @@ function ProjectContextBar({ project, collapsed, onProjectUpdated }) {
   return (
     <div className="mb-2 space-y-1.5 border-b px-2 pb-3">
       <div className="flex items-center gap-2">
-        <div className="flex size-8 shrink-0 select-none items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white">
+        <div className="flex size-8 shrink-0 select-none items-center justify-center rounded-lg bg-brand-600 text-xs font-bold text-white">
           {projectInitial(project.title)}
         </div>
 
-        <p className="flex-1 truncate text-sm font-semibold leading-tight text-slate-800">
+        <p className="flex-1 truncate text-sm font-semibold leading-tight text-foreground">
           {project.title}
         </p>
 
         <button
           onClick={() => setShowEdit(true)}
           title="Edit project"
-          className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <Pencil className="size-3.5" />
         </button>
@@ -115,15 +115,15 @@ function ProjectContextBar({ project, collapsed, onProjectUpdated }) {
               title={project.baseUrl}
               className="group flex w-fit items-center gap-1.5"
             >
-              <Globe className="size-3 shrink-0 text-indigo-400" />
-              <span className="max-w-[140px] truncate text-[11px] text-slate-400 transition-colors group-hover:text-indigo-500 group-hover:underline">
+              <Globe className="size-3 shrink-0 text-brand-400" />
+              <span className="max-w-[140px] truncate text-[11px] text-muted-foreground transition-colors group-hover:text-brand-400 group-hover:underline">
                 {formatBaseUrl(project.baseUrl)}
               </span>
             </a>
           )}
 
           {project.description && (
-            <p className="line-clamp-2 text-[11px] leading-relaxed text-slate-400">
+            <p className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
               {project.description}
             </p>
           )}
@@ -147,7 +147,7 @@ function ProjectContextBar({ project, collapsed, onProjectUpdated }) {
 
 function navClass(isActive, collapsed) {
   return [
-    "flex items-center gap-3 rounded-xl px-3 py-4 text-sm font-medium transition-colors",
+    "flex items-center gap-3 px-3 py-4 text-sm font-medium transition-colors rounded-lg",
     isActive
       ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
       : "text-muted-foreground hover:bg-muted",
@@ -157,17 +157,19 @@ function navClass(isActive, collapsed) {
 
 function childItemClass(isActive) {
   return [
-    "group flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
+    "group flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-left text-sm transition-colors",
     isActive
-      ? "bg-indigo-50 text-indigo-700 font-medium ring-1 ring-indigo-100"
-      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+      ? "bg-brand-500/15 text-brand-400 font-medium ring-1 ring-brand-500/20"
+      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
   ].join(" ");
 }
 
 function childIconClass(isActive) {
   return [
     "size-3.5 shrink-0",
-    isActive ? "text-indigo-500" : "text-slate-300 group-hover:text-slate-400",
+    isActive
+      ? "text-brand-400"
+      : "text-muted-foreground/30 group-hover:text-muted-foreground",
   ].join(" ");
 }
 
@@ -188,7 +190,7 @@ function CollectionNode({
   return (
     <div>
       <div
-        className="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+        className="group flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
         style={{ paddingLeft: `${depth * 14 + 8}px` }}
       >
         <button
@@ -198,21 +200,21 @@ function CollectionNode({
           title={node.name}
         >
           {isOpen ? (
-            <ChevronDown className="size-3.5 shrink-0 text-slate-400" />
+            <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
           ) : (
-            <ChevronRight className="size-3.5 shrink-0 text-slate-400" />
+            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
           )}
 
           {isOpen ? (
-            <FolderOpen className="size-3.5 shrink-0 text-slate-300 group-hover:text-slate-400" />
+            <FolderOpen className="size-3.5 shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground" />
           ) : (
-            <Folder className="size-3.5 shrink-0 text-slate-300 group-hover:text-slate-400" />
+            <Folder className="size-3.5 shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground" />
           )}
 
           <span className="min-w-0 flex-1 truncate">{node.name}</span>
         </button>
 
-        <span className="shrink-0 text-[11px] text-slate-400">
+        <span className="shrink-0 text-[11px] text-muted-foreground">
           {node.itemCount ?? itemCount}
         </span>
 
@@ -223,7 +225,7 @@ function CollectionNode({
             e.stopPropagation();
             onAddTestCases?.(node);
           }}
-          className="shrink-0 rounded-md p-1 text-slate-400 opacity-0 transition-opacity hover:bg-slate-100 hover:text-slate-700 group-hover:opacity-100"
+          className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
           title="Add test cases to collection"
         >
           <Plus className="size-3.5" />
@@ -271,7 +273,7 @@ function CollectionNode({
 
           {childCount === 0 && itemCount === 0 && (
             <div
-              className="px-2 py-1.5 text-xs text-slate-400"
+              className="px-2 py-1.5 text-xs text-muted-foreground"
               style={{ paddingLeft: `${(depth + 1) * 14 + 24}px` }}
             >
               Empty
@@ -493,11 +495,12 @@ export default function ProjectDetailPage() {
   return (
     <div className="flex gap-6">
       <aside
-        className={`sticky top-0 relative max-h-screen shrink-0 self-start overflow-y-auto rounded-xl border bg-white p-2 ease-in-out ${
+        className={`sticky top-0 shrink-0 overflow-y-auto overscroll-contain rounded-xl border bg-card p-2 ease-in-out ${
           isResizing ? "" : "transition-all duration-300"
         }`}
         style={{
           width: isSidebarCollapsed ? 64 : sidebarWidth,
+          maxHeight: "calc(100dvh - 32px)",
         }}
       >
         <div className="mb-2 flex items-center justify-between">
@@ -564,7 +567,7 @@ export default function ProjectDetailPage() {
           </div>
 
           {!isSidebarCollapsed && isTestCasesOpen && (
-            <div className="mb-2 ml-5 mt-1 space-y-0.5 border-l border-slate-200 pl-2">
+            <div className="mb-2 ml-5 mt-1 space-y-0.5 border-l border-border pl-2">
               {loadingTestCases || loadingCollections ? (
                 <div className="px-2 py-2 text-xs text-muted-foreground">
                   Loading…
@@ -652,7 +655,7 @@ export default function ProjectDetailPage() {
           </div>
 
           {!isSidebarCollapsed && isTestSuitesOpen && (
-            <div className="mb-2 ml-5 mt-1 space-y-0.5 border-l border-slate-200 pl-2">
+            <div className="mb-2 ml-5 mt-1 space-y-0.5 border-l border-border pl-2">
               {loadingSuites ? (
                 <div className="px-2 py-2 text-xs text-muted-foreground">
                   Loading…
@@ -683,8 +686,8 @@ export default function ProjectDetailPage() {
                       <span
                         className={
                           isActive
-                            ? "shrink-0 text-[11px] text-indigo-500"
-                            : "shrink-0 text-[11px] text-slate-400"
+                            ? "shrink-0 text-[11px] text-brand-400"
+                            : "shrink-0 text-[11px] text-muted-foreground"
                         }
                       >
                         {sheet.itemCount ?? 0}
@@ -730,7 +733,7 @@ export default function ProjectDetailPage() {
           </div>
 
           {!isSidebarCollapsed && isDataOpen && (
-            <div className="mb-2 ml-5 mt-1 space-y-0.5 border-l border-slate-200 pl-2">
+            <div className="mb-2 ml-5 mt-1 space-y-0.5 border-l border-border pl-2">
               {loadingDatasets ? (
                 <div className="px-2 py-2 text-xs text-muted-foreground">
                   Loading…
@@ -761,8 +764,8 @@ export default function ProjectDetailPage() {
                       <span
                         className={
                           isActive
-                            ? "shrink-0 text-[11px] text-indigo-500"
-                            : "shrink-0 text-[11px] text-slate-400"
+                            ? "shrink-0 text-[11px] text-brand-400"
+                            : "shrink-0 text-[11px] text-muted-foreground"
                         }
                       >
                         {ds.rowCount ?? 0}
@@ -808,7 +811,7 @@ export default function ProjectDetailPage() {
           </div>
 
           {!isSidebarCollapsed && isObjectsOpen && (
-            <div className="mb-2 ml-5 mt-1 space-y-0.5 border-l border-slate-200 pl-2">
+            <div className="mb-2 ml-5 mt-1 space-y-0.5 border-l border-border pl-2">
               {loadingObjects ? (
                 <div className="px-2 py-2 text-xs text-muted-foreground">
                   Loading…
@@ -844,20 +847,20 @@ export default function ProjectDetailPage() {
                               return next;
                             });
                           }}
-                          className="group flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors"
+                          className="group flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
                         >
                           {isPageOpen ? (
-                            <ChevronDown className="size-3 shrink-0 text-slate-400" />
+                            <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
                           ) : (
-                            <ChevronRight className="size-3 shrink-0 text-slate-400" />
+                            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
                           )}
-                          <FolderOpen className="size-3 shrink-0 text-slate-300 group-hover:text-slate-400" />
+                          <FolderOpen className="size-3.5 shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground" />
                           <span className="flex-1 truncate font-medium">
                             {pageKey === "(No Page)"
                               ? "Uncategorized"
                               : pageKey}
                           </span>
-                          <span className="shrink-0 text-slate-400">
+                          <span className="shrink-0 text-muted-foreground">
                             {objs.length}
                           </span>
                         </button>
@@ -880,7 +883,7 @@ export default function ProjectDetailPage() {
                                 style={{ paddingLeft: "24px" }}
                               >
                                 <Box className={childIconClass(isActive)} />
-                                <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
+                                <span className="min-w-0 flex-1 truncate">
                                   {obj.name}
                                 </span>
                               </button>
@@ -916,14 +919,17 @@ export default function ProjectDetailPage() {
           <div
             onMouseDown={handleResizeStart}
             className={`absolute right-0 top-0 h-full w-2 cursor-col-resize rounded-r-xl transition-colors ${
-              isResizing ? "bg-indigo-200" : "hover:bg-indigo-100"
+              isResizing ? "bg-brand-500/30" : "hover:bg-brand-500/15"
             }`}
             title="Drag to resize sidebar"
           />
         )}
       </aside>
 
-      <main className="min-w-0 flex-1">
+      <main
+        className="min-w-0 flex-1 overflow-y-auto overscroll-contain"
+        style={{ maxHeight: "calc(100dvh - 32px)" }}
+      >
         <Outlet
           context={{
             project: data,

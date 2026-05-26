@@ -40,52 +40,52 @@ import {
 
 const ACTION_META = {
   navigate: {
-    color: "text-blue-700 bg-blue-50 border-blue-200",
+    color: "text-blue-700 bg-blue-100 border-blue-300 dark:text-blue-300 dark:bg-blue-900/30 dark:border-blue-700/50",
     short: "NAV",
     Icon: Globe,
   },
   click: {
-    color: "text-emerald-700 bg-emerald-50 border-emerald-200",
+    color: "text-emerald-700 bg-emerald-100 border-emerald-300 dark:text-emerald-300 dark:bg-emerald-900/30 dark:border-emerald-700/50",
     short: "CLICK",
     Icon: MousePointer2,
   },
   fill: {
-    color: "text-amber-700 bg-amber-50 border-amber-200",
+    color: "text-amber-700 bg-amber-100 border-amber-300 dark:text-amber-300 dark:bg-amber-900/30 dark:border-amber-700/50",
     short: "FILL",
     Icon: Type,
   },
   type: {
-    color: "text-amber-700 bg-amber-50 border-amber-200",
+    color: "text-amber-700 bg-amber-100 border-amber-300 dark:text-amber-300 dark:bg-amber-900/30 dark:border-amber-700/50",
     short: "TYPE",
     Icon: Type,
   },
   select: {
-    color: "text-violet-700 bg-violet-50 border-violet-200",
+    color: "text-violet-700 bg-violet-100 border-violet-300 dark:text-violet-300 dark:bg-violet-900/30 dark:border-violet-700/50",
     short: "SELECT",
     Icon: List,
   },
   select_option: {
-    color: "text-violet-700 bg-violet-50 border-violet-200",
+    color: "text-violet-700 bg-violet-100 border-violet-300 dark:text-violet-300 dark:bg-violet-900/30 dark:border-violet-700/50",
     short: "SELECT",
     Icon: List,
   },
   check: {
-    color: "text-teal-700 bg-teal-50 border-teal-200",
+    color: "text-teal-700 bg-teal-100 border-teal-300 dark:text-teal-300 dark:bg-teal-900/30 dark:border-teal-700/50",
     short: "CHECK",
     Icon: Check,
   },
   uncheck: {
-    color: "text-teal-700 bg-teal-50 border-teal-200",
+    color: "text-teal-700 bg-teal-100 border-teal-300 dark:text-teal-300 dark:bg-teal-900/30 dark:border-teal-700/50",
     short: "UNCHECK",
     Icon: X,
   },
   press: {
-    color: "text-pink-700 bg-pink-50 border-pink-200",
+    color: "text-pink-700 bg-pink-100 border-pink-300 dark:text-pink-300 dark:bg-pink-900/30 dark:border-pink-700/50",
     short: "KEY",
     Icon: Hash,
   },
   screenshot: {
-    color: "text-indigo-700 bg-indigo-50 border-indigo-200",
+    color: "text-brand-700 bg-brand-100 border-brand-300 dark:text-brand-300 dark:bg-brand-900/30 dark:border-brand-700/50",
     short: "SNAP",
     Icon: Eye,
   },
@@ -94,7 +94,7 @@ const ACTION_META = {
 function getActionMeta(name) {
   if (!name) {
     return {
-      color: "text-slate-600 bg-slate-100 border-slate-200",
+      color: "text-slate-600 bg-slate-100 border-slate-300 dark:text-slate-400 dark:border-slate-600/50",
       short: "?",
       Icon: Hash,
     };
@@ -104,7 +104,7 @@ function getActionMeta(name) {
 
   if (name.startsWith("assert_") || name.startsWith("verify_")) {
     return {
-      color: "text-purple-700 bg-purple-50 border-purple-200",
+      color: "text-purple-700 bg-purple-100 border-purple-300 dark:text-purple-300 dark:bg-purple-900/30 dark:border-purple-700/50",
       short: "ASSERT",
       Icon: ShieldCheck,
     };
@@ -112,14 +112,14 @@ function getActionMeta(name) {
 
   if (name.startsWith("wait_")) {
     return {
-      color: "text-slate-600 bg-slate-100 border-slate-200",
+      color: "text-slate-600 bg-slate-100 border-slate-300 dark:text-slate-400 dark:border-slate-600/50",
       short: "WAIT",
       Icon: Loader2,
     };
   }
 
   return {
-    color: "text-slate-600 bg-slate-100 border-slate-200",
+    color: "text-slate-600 bg-slate-100 border-slate-300 dark:text-slate-400 dark:border-slate-600/50",
     short: name.slice(0, 6).toUpperCase(),
     Icon: Hash,
   };
@@ -186,8 +186,7 @@ const ASSERT_DEFINITIONS = {
   },
   assert_visible: {
     title: "Element is visible",
-    description:
-      "Checks whether a target element is visible on the screen.",
+    description: "Checks whether a target element is visible on the screen.",
     example:
       "Example: after login, the avatar, account menu, profile block, or logout button should be visible.",
   },
@@ -200,8 +199,7 @@ const ASSERT_DEFINITIONS = {
   },
   verify_element_visible: {
     title: "Verify element is visible",
-    description:
-      "Verifies that a target element is visible on the page.",
+    description: "Verifies that a target element is visible on the page.",
     example:
       "Example: verify that a logout button appears after successful authentication.",
   },
@@ -214,15 +212,13 @@ const ASSERT_DEFINITIONS = {
   },
   assert_input_value: {
     title: "Input value check",
-    description:
-      "Checks whether an input value equals the expected value.",
+    description: "Checks whether an input value equals the expected value.",
     example:
       "Example: the email field should contain the expected email address.",
   },
   verify_input_value: {
     title: "Verify input value",
-    description:
-      "Verifies that an input field contains the expected value.",
+    description: "Verifies that an input field contains the expected value.",
     example:
       "Example: verify that a search box contains the keyword that was typed.",
   },
@@ -247,7 +243,8 @@ function getAssertDefinition(step) {
   if (ASSERT_DEFINITIONS[key]) return ASSERT_DEFINITIONS[key];
 
   if (key.includes("url_changed")) return ASSERT_DEFINITIONS.assert_url_changed;
-  if (key.includes("url_contains")) return ASSERT_DEFINITIONS.assert_url_contains;
+  if (key.includes("url_contains"))
+    return ASSERT_DEFINITIONS.assert_url_contains;
   if (key.includes("url_equals")) return ASSERT_DEFINITIONS.assert_url_equals;
   if (key.includes("url")) return ASSERT_DEFINITIONS.verify_url;
   if (key.includes("text")) return ASSERT_DEFINITIONS.assert_text;
@@ -275,7 +272,9 @@ function labelFromSelector(selector) {
   return (
     selector.match(/\[aria-label=["']?([^"'\]]+)["']?\]/i)?.[1] ||
     selector.match(/\[title=["']?([^"'\]]+)["']?\]/i)?.[1] ||
-    selector.match(/\[data-(?:testid|qa|cy|test)=["']?([^"'\]]+)["']?\]/i)?.[1] ||
+    selector.match(
+      /\[data-(?:testid|qa|cy|test)=["']?([^"'\]]+)["']?\]/i,
+    )?.[1] ||
     selector.match(/\[name=["']?([^"'\]]+)["']?\]/i)?.[1] ||
     selector.match(/^#([a-zA-Z_-][a-zA-Z0-9_-]*)$/)?.[1] ||
     null
@@ -566,7 +565,14 @@ function PickPanel({ scriptId, stepIndex, params, onApply, onClose }) {
 
 // ── Fix with AI panel ──────────────────────────────────────────────────────────
 
-function FixPanel({ scriptId, stepIndex, params, currentStep, onApply, onClose }) {
+function FixPanel({
+  scriptId,
+  stepIndex,
+  params,
+  currentStep,
+  onApply,
+  onClose,
+}) {
   const [phase, setPhase] = useState("loading");
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -893,7 +899,9 @@ function GuidedStepRow({
     ]);
 
     const stripped = Object.fromEntries(
-      Object.entries(step.actionInput || {}).filter(([k]) => !locatorKeys.has(k)),
+      Object.entries(step.actionInput || {}).filter(
+        ([k]) => !locatorKeys.has(k),
+      ),
     );
 
     onUpdate({ ...step, actionInput: { ...stripped, ...patch } });
@@ -908,14 +916,14 @@ function GuidedStepRow({
   return (
     <div
       className={`border-b border-slate-100 transition-colors last:border-b-0 ${
-        expanded ? "bg-slate-50/70" : "hover:bg-slate-50/40"
+        expanded ? "bg-slate-50/70 dark:bg-white/10" : "hover:bg-slate-50/40 dark:hover:bg-white/5"
       }`}
     >
       <div className="flex items-center gap-2 px-3 py-2.5">
         <div
           className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
             isAssertion
-              ? "bg-purple-100 text-purple-600"
+              ? "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
               : "bg-slate-100 text-slate-500"
           }`}
         >
@@ -961,8 +969,8 @@ function GuidedStepRow({
               onClick={openFix}
               className={`flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
                 fixOpen
-                  ? "border-violet-300 bg-violet-100 text-violet-700"
-                  : "border-transparent text-slate-400 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-600"
+                  ? "border-violet-300 bg-violet-100 text-violet-700 dark:border-violet-600/50 dark:bg-violet-900/30 dark:text-violet-300"
+                  : "border-transparent text-slate-400 hover:border-violet-200 dark:hover:border-violet-700/40 hover:bg-violet-50 dark:hover:bg-violet-900/20 hover:text-violet-600 dark:hover:text-violet-400"
               }`}
             >
               <Sparkles className="size-2.5" />
@@ -974,7 +982,7 @@ function GuidedStepRow({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                className="rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 dark:hover:bg-surface-2 hover:text-slate-600"
               >
                 <MoreHorizontal className="size-3.5" />
               </button>
@@ -1059,7 +1067,7 @@ function GuidedStepRow({
             />
 
             {isAssertion && (
-              <span className="rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-600">
+              <span className="rounded-full border border-purple-200 dark:border-purple-700/40 bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 text-[10px] font-semibold text-purple-600 dark:text-purple-400">
                 Assertion
               </span>
             )}
@@ -1118,16 +1126,14 @@ const QUICK_ACTIONS = [
   {
     actionName: "navigate",
     label: "Navigate",
-    description:
-      "Open a specific URL before continuing the test flow.",
+    description: "Open a specific URL before continuing the test flow.",
     note: "Example: navigate to the login page before entering credentials.",
     defaultInput: { url: "" },
   },
   {
     actionName: "press",
     label: "Press key",
-    description:
-      "Press a keyboard key during the test flow.",
+    description: "Press a keyboard key during the test flow.",
     note: "Example: press Enter after typing a search keyword.",
     defaultInput: { key: "Enter" },
   },
@@ -1190,7 +1196,9 @@ function AddStepPanel({ nextStepNo, onAdd, onClose }) {
     onClose();
   }
 
-  const chosenIsAssertion = chosen ? isAssertionAction(chosen.actionName) : false;
+  const chosenIsAssertion = chosen
+    ? isAssertionAction(chosen.actionName)
+    : false;
 
   return (
     <div className="space-y-3 border-t border-slate-100 bg-slate-50/60 px-3 py-3">
@@ -1222,11 +1230,11 @@ function AddStepPanel({ nextStepNo, onAdd, onClose }) {
               className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold transition-colors ${
                 isChosen
                   ? isAssert
-                    ? "border-purple-300 bg-purple-100 text-purple-700"
-                    : "border-indigo-300 bg-indigo-100 text-indigo-700"
+                    ? "border-purple-300 bg-purple-100 text-purple-700 dark:border-purple-600/50 dark:bg-purple-900/30 dark:text-purple-300"
+                    : "border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-600/50 dark:bg-brand-900/30 dark:text-brand-300"
                   : isAssert
-                    ? "border-purple-200 bg-purple-50 text-purple-600 hover:border-purple-300 hover:bg-purple-100"
-                    : "border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:text-indigo-600"
+                    ? "border-purple-200 bg-purple-50 text-purple-600 hover:border-purple-300 hover:bg-purple-100 dark:border-purple-700/40 dark:bg-purple-900/15 dark:text-purple-400 dark:hover:bg-purple-900/30"
+                    : "border-slate-200 bg-white text-slate-500 hover:border-brand-200 hover:text-brand-600 dark:hover:border-brand-700/40 dark:hover:text-brand-400"
               }`}
             >
               {q.label}
@@ -1239,7 +1247,7 @@ function AddStepPanel({ nextStepNo, onAdd, onClose }) {
         <div
           className={`rounded-lg border px-3 py-2 text-xs leading-relaxed ${
             chosenIsAssertion
-              ? "border-purple-200 bg-purple-50 text-purple-700"
+              ? "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-700/40 dark:bg-purple-900/15 dark:text-purple-300"
               : "border-slate-200 bg-white text-slate-500"
           }`}
         >
@@ -1251,13 +1259,9 @@ function AddStepPanel({ nextStepNo, onAdd, onClose }) {
             )}
 
             <div className="min-w-0 flex-1">
-              <p className="font-semibold">
-                {chosen.label}
-              </p>
+              <p className="font-semibold">{chosen.label}</p>
 
-              <p className="mt-0.5">
-                {chosen.description}
-              </p>
+              <p className="mt-0.5">{chosen.description}</p>
 
               {chosen.note && (
                 <p
@@ -1293,7 +1297,7 @@ function AddStepPanel({ nextStepNo, onAdd, onClose }) {
             setChosen(matchedQuickAction || null);
           }}
           placeholder="e.g. click, fill, navigate…"
-          className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs outline-none transition-colors focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100"
+          className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs outline-none transition-colors focus:border-brand-300 focus:ring-1 focus:ring-brand-100"
         />
       </div>
 
@@ -1303,18 +1307,16 @@ function AddStepPanel({ nextStepNo, onAdd, onClose }) {
             <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-purple-500" />
 
             <div className="min-w-0 flex-1">
-              <p className="font-semibold">
-                Custom assertion step
-              </p>
+              <p className="font-semibold">Custom assertion step</p>
 
               <p className="mt-0.5">
-                This assertion checks whether an expected condition is true during replay.
-                If the condition is false, the test step fails.
+                This assertion checks whether an expected condition is true
+                during replay. If the condition is false, the test step fails.
               </p>
 
               <p className="mt-1 text-[11px] text-purple-500">
-                Example: check that a URL changed, a text appears, an element is visible,
-                or an input value matches the expected value.
+                Example: check that a URL changed, a text appears, an element is
+                visible, or an input value matches the expected value.
               </p>
             </div>
           </div>
@@ -1339,7 +1341,7 @@ function AddStepPanel({ nextStepNo, onAdd, onClose }) {
           className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold text-white transition-colors disabled:opacity-40 ${
             isAssertionAction(actionName)
               ? "bg-purple-600 hover:bg-purple-700"
-              : "bg-indigo-600 hover:bg-indigo-700"
+              : "bg-brand-600 hover:bg-brand-700"
           }`}
         >
           <Plus className="size-3" />
@@ -1352,10 +1354,17 @@ function AddStepPanel({ nextStepNo, onAdd, onClose }) {
 
 // ── Guided Mode view ───────────────────────────────────────────────────────────
 
-function GuidedMode({ steps, scriptId, params, onUpdate, onDelete, onMove, onAddStep }) {
+function GuidedMode({
+  steps,
+  scriptId,
+  params,
+  onUpdate,
+  onDelete,
+  onMove,
+  onAddStep,
+}) {
   const [addOpen, setAddOpen] = useState(false);
-  const nextStepNo =
-    steps.reduce((m, s) => Math.max(m, s.stepNo ?? 0), 0) + 1;
+  const nextStepNo = steps.reduce((m, s) => Math.max(m, s.stepNo ?? 0), 0) + 1;
 
   if (!steps.length) {
     return (
@@ -1366,7 +1375,7 @@ function GuidedMode({ steps, scriptId, params, onUpdate, onDelete, onMove, onAdd
           <button
             type="button"
             onClick={() => setAddOpen(true)}
-            className="mx-auto mt-2 flex items-center gap-1.5 text-xs text-indigo-500 transition-colors hover:text-indigo-700"
+            className="mx-auto mt-2 flex items-center gap-1.5 text-xs text-brand-500 transition-colors hover:text-brand-700"
           >
             <Plus className="size-3.5" />
             Add first step
@@ -1420,7 +1429,7 @@ function GuidedMode({ steps, scriptId, params, onUpdate, onDelete, onMove, onAdd
           <button
             type="button"
             onClick={() => setAddOpen(true)}
-            className="flex items-center gap-1.5 rounded border border-dashed border-slate-200 px-3 py-1.5 text-[11px] font-medium text-slate-400 transition-colors hover:border-indigo-300 hover:text-indigo-600"
+            className="flex items-center gap-1.5 rounded border border-dashed border-slate-200 px-3 py-1.5 text-[11px] font-medium text-slate-400 transition-colors hover:border-brand-300 hover:text-brand-600"
           >
             <Plus className="size-3.5" />
             Add step
@@ -1433,7 +1442,14 @@ function GuidedMode({ steps, scriptId, params, onUpdate, onDelete, onMove, onAdd
 
 // ── Advanced Mode view ─────────────────────────────────────────────────────────
 
-function AdvancedMode({ steps, rawJson, jsonError, onJsonChange, scriptId, params }) {
+function AdvancedMode({
+  steps,
+  rawJson,
+  jsonError,
+  onJsonChange,
+  scriptId,
+  params,
+}) {
   const [runResult, setRunResult] = useState({});
   const textareaRef = useRef(null);
 
@@ -1484,25 +1500,31 @@ function AdvancedMode({ steps, rawJson, jsonError, onJsonChange, scriptId, param
             return (
               <div
                 key={i}
-                className="group flex items-center gap-1.5 px-2 py-2 transition-colors hover:bg-slate-50"
+                className="group flex items-center gap-1.5 px-2 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-white/5"
               >
                 <span
                   className={`flex size-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
                     isAssertion
-                      ? "bg-purple-100 text-purple-600"
+                      ? "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
                       : "bg-slate-100 text-slate-500"
                   }`}
                 >
                   {step.stepNo ?? i + 1}
                 </span>
 
-                <span className={`shrink-0 rounded border px-1 py-px text-[9px] font-bold ${color}`}>
+                <span
+                  className={`shrink-0 rounded border px-1 py-px text-[9px] font-bold ${color}`}
+                >
                   {step.actionName?.slice(0, 7) || "?"}
                 </span>
 
                 <span
                   className="min-w-0 flex-1 truncate text-[10px] text-slate-400"
-                  title={isAssertion ? `${stepLabel(step)} — ${getAssertDefinition(step).description}` : stepLabel(step)}
+                  title={
+                    isAssertion
+                      ? `${stepLabel(step)} — ${getAssertDefinition(step).description}`
+                      : stepLabel(step)
+                  }
                 >
                   {stepLabel(step).slice(0, 18)}
                 </span>
@@ -1675,7 +1697,7 @@ export default function ReplayScriptEditor({
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/80 px-4 py-2">
+      <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-2">
         {developerMode && (
           <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
             <button
@@ -1683,7 +1705,7 @@ export default function ReplayScriptEditor({
               onClick={switchToGuided}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all ${
                 mode === "guided"
-                  ? "bg-slate-900 text-white shadow-sm"
+                  ? "bg-[var(--brand-primary)] dark:bg-white/15 text-white shadow-sm"
                   : "text-slate-400 hover:text-slate-700"
               }`}
             >
@@ -1696,7 +1718,7 @@ export default function ReplayScriptEditor({
               onClick={switchToAdvanced}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all ${
                 mode === "advanced"
-                  ? "bg-slate-900 text-white shadow-sm"
+                  ? "bg-[var(--brand-primary)] dark:bg-white/15 text-white shadow-sm"
                   : "text-slate-400 hover:text-slate-700"
               }`}
             >

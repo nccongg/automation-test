@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { CustomSelect } from "@/components/ui/custom-select";
 import { SELECTOR_TYPES } from "./ObjectFormDrawer";
+
+const SELECTOR_OPTIONS = SELECTOR_TYPES.map((t) => ({ value: t.value, label: t.label }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -28,15 +31,12 @@ function SelectorRow({ row, index, onChange, onDelete, isOnly }) {
   return (
     <div className="flex items-center gap-2">
       <GripVertical className="size-3.5 text-slate-300 shrink-0" />
-      <select
+      <CustomSelect
         value={row.type}
-        onChange={(e) => onChange(index, "type", e.target.value)}
-        className="w-28 shrink-0 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      >
-        {SELECTOR_TYPES.map((t) => (
-          <option key={t.value} value={t.value}>{t.label}</option>
-        ))}
-      </select>
+        onValueChange={(val) => onChange(index, "type", val)}
+        options={SELECTOR_OPTIONS}
+        className="w-28 shrink-0"
+      />
       <Input
         value={row.value}
         onChange={(e) => onChange(index, "value", e.target.value)}
@@ -173,25 +173,23 @@ export default function ObjectEditPanel({ object, onSave, onCancel }) {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional note"
               rows={2}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
             />
           </div>
 
           {/* Default selector */}
           <div className="space-y-1.5">
             <Label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Default Selector</Label>
-            <select
+            <CustomSelect
               value={primaryType}
-              onChange={(e) => setSelectorMethod(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            >
-              {rows.filter((r) => r.value.trim()).map((r) => (
-                <option key={r.type} value={r.type}>
-                  {SELECTOR_TYPES.find((t) => t.value === r.type)?.label ?? r.type}
-                  {" — "}{r.value.slice(0, 40)}
-                </option>
-              ))}
-            </select>
+              onValueChange={setSelectorMethod}
+              options={rows.filter((r) => r.value.trim()).map((r) => ({
+                value: r.type,
+                label: SELECTOR_TYPES.find((t) => t.value === r.type)?.label ?? r.type,
+                sublabel: r.value.slice(0, 40),
+              }))}
+              className="w-full"
+            />
             <p className="text-[10px] text-slate-400">Used first during replay. Others tried as fallback.</p>
           </div>
 
@@ -219,7 +217,7 @@ export default function ObjectEditPanel({ object, onSave, onCancel }) {
               <button
                 type="button"
                 onClick={addRow}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 py-2 text-xs text-slate-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 py-2 text-xs text-slate-500 hover:border-brand-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
               >
                 <Plus className="size-3.5" /> Add fallback locator
               </button>
@@ -260,7 +258,7 @@ export default function ObjectEditPanel({ object, onSave, onCancel }) {
           <Button type="button" variant="outline" onClick={onCancel} disabled={saving} size="sm">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+          <Button type="submit" disabled={saving} size="sm" className="bg-brand-600 hover:bg-brand-700 text-white">
             {saving ? "Saving…" : isNew ? "Create Object" : "Save Changes"}
           </Button>
         </div>
