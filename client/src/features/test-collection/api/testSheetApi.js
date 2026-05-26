@@ -48,8 +48,18 @@ export async function reorderSheetItems(sheetId, orders) {
 
 // ─── Run ──────────────────────────────────────────────────────────────────────
 
-export async function runTestSheet(sheetId, testCaseIds) {
-  const body = testCaseIds ? { testCaseIds } : {};
+export async function getSuiteRunOptions(sheetId) {
+  const response = await apiClient.get(`/test-suites/${sheetId}/run-options`);
+  return normalize(response);
+}
+
+export async function runTestSheet(sheetId, payload = {}) {
+  let body = payload;
+
+  if (Array.isArray(payload)) {
+    body = { testCaseIds: payload };
+  }
+
   const response = await apiClient.post(`/test-suites/${sheetId}/run`, body);
   return normalize(response);
 }
