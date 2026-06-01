@@ -45,8 +45,18 @@ async function generateFromGemini(messages, opts = {}) {
   }
 
   const chat = model.startChat({ history });
-  const result = await chat.sendMessage(lastTurn.content);
-  return result.response.text();
+  let result;
+  try {
+    result = await chat.sendMessage(lastTurn.content);
+  } catch (err) {
+    console.error("[llm/gemini] sendMessage failed:", err?.message ?? err);
+    console.error("[llm/gemini] status:", err?.status, "| code:", err?.code);
+    throw err;
+  }
+
+  const text = result.response.text();
+  console.log("[llm/gemini] raw response (first 300 chars):", text?.slice(0, 300));
+  return text;
 }
 
 module.exports = { generateFromGemini };

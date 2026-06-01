@@ -211,10 +211,22 @@ Analyze the run and return JSON.`,
     },
   ];
 
-  const raw = await generateFromLLM(messages, { maxOutputTokens: 512 });
+  let raw;
+  try {
+    raw = await generateFromLLM(messages, { maxOutputTokens: 512 });
+  } catch (err) {
+    console.error("[llm] generateRunAnalysis: LLM call threw:", err?.message ?? err);
+    return {
+      conclusion: "Analysis could not be generated — the LLM returned an unexpected response.",
+      suggestions: [],
+    };
+  }
+
+  console.log("[llm] generateRunAnalysis raw:", raw?.slice(0, 300));
   const parsed = cleanJSON(raw);
 
   if (!parsed || typeof parsed.conclusion !== "string") {
+    console.error("[llm] generateRunAnalysis: cleanJSON failed or missing conclusion. raw:", raw?.slice(0, 500));
     return {
       conclusion: "Analysis could not be generated — the LLM returned an unexpected response.",
       suggestions: [],
@@ -287,10 +299,22 @@ Analyze the sheet run and return JSON.`,
     },
   ];
 
-  const raw = await generateFromLLM(messages, { maxOutputTokens: 512 });
+  let raw;
+  try {
+    raw = await generateFromLLM(messages, { maxOutputTokens: 512 });
+  } catch (err) {
+    console.error("[llm] generateSheetRunAnalysis: LLM call threw:", err?.message ?? err);
+    return {
+      conclusion: "Analysis could not be generated — the LLM returned an unexpected response.",
+      suggestions: [],
+    };
+  }
+
+  console.log("[llm] generateSheetRunAnalysis raw:", raw?.slice(0, 300));
   const parsed = cleanJSON(raw);
 
   if (!parsed || typeof parsed.conclusion !== "string") {
+    console.error("[llm] generateSheetRunAnalysis: cleanJSON failed or missing conclusion. raw:", raw?.slice(0, 500));
     return {
       conclusion: "Analysis could not be generated — the LLM returned an unexpected response.",
       suggestions: [],
