@@ -213,7 +213,7 @@ Analyze the run and return JSON.`,
 
   let raw;
   try {
-    raw = await generateFromLLM(messages, { maxOutputTokens: 512 });
+    raw = await generateFromLLM(messages, { maxOutputTokens: 1024 });
   } catch (err) {
     console.error("[llm] generateRunAnalysis: LLM call threw:", err?.message ?? err);
     return {
@@ -222,7 +222,7 @@ Analyze the run and return JSON.`,
     };
   }
 
-  console.log("[llm] generateRunAnalysis raw:", raw?.slice(0, 300));
+  console.log("[llm] generateRunAnalysis raw:", raw);
   const parsed = cleanJSON(raw);
 
   if (!parsed || typeof parsed.conclusion !== "string") {
@@ -301,7 +301,7 @@ Analyze the sheet run and return JSON.`,
 
   let raw;
   try {
-    raw = await generateFromLLM(messages, { maxOutputTokens: 512 });
+    raw = await generateFromLLM(messages, { maxOutputTokens: 1024 });
   } catch (err) {
     console.error("[llm] generateSheetRunAnalysis: LLM call threw:", err?.message ?? err);
     return {
@@ -310,7 +310,7 @@ Analyze the sheet run and return JSON.`,
     };
   }
 
-  console.log("[llm] generateSheetRunAnalysis raw:", raw?.slice(0, 300));
+  console.log("[llm] generateSheetRunAnalysis raw:", raw);
   const parsed = cleanJSON(raw);
 
   if (!parsed || typeof parsed.conclusion !== "string") {

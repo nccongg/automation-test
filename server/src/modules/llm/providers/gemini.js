@@ -55,7 +55,7 @@ async function generateFromGemini(messages, opts = {}) {
   }
 
   const text = result.response.text();
-  console.log("[llm/gemini] raw response (first 300 chars):", text?.slice(0, 300));
+  console.log("[llm/gemini] raw response:", text);
   return text;
 }
 
