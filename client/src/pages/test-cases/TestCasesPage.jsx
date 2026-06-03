@@ -1,8 +1,5 @@
 import { useState } from "react";
-import {
-  Search,
-  FolderPlus,
-} from "lucide-react";
+import { FolderPlus } from "lucide-react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { useTestCases } from "@/features/test-cases/hooks/useTestCases";
 import {
@@ -132,10 +129,11 @@ export default function TestCasesPage() {
 
   const { refetch: refetchCases } = useTestCases(projectId);
 
-  const [searchTerm, setSearchTerm] = useState("");
   const [runError, setRunError] = useState("");
   const [suiteDialog, setSuiteDialog] = useState(null);
   const [createCollection, setCreateCollection] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [candidatesTarget, setCandidatesTarget] = useState(null);
 
   async function handleCollectionCreated() {
     await onCollectionsUpdated?.();
@@ -150,7 +148,7 @@ export default function TestCasesPage() {
 
   return (
     <>
-      <div className="overflow-hidden rounded-xl bg-card">
+      <div className="rounded-xl bg-card">
         {/* Page header */}
         <div className="flex items-start justify-between gap-4 border-b border-border px-8 py-7">
           <div className="min-w-0">
@@ -173,29 +171,34 @@ export default function TestCasesPage() {
           </div>
         </div>
 
-        {/* Search bar */}
-        <div className="border-b border-border px-8 py-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search test cases…"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </div>
-
-        {/* AI Workbench */}
-        <AIWorkbenchDrawer
-          inline
-          open={true}
-          onClose={() => {}}
-          projectId={projectId}
-          onSaved={handleAISaved}
-        />
       </div>
+
+      {/* AI Workbench — animated border card */}
+      <div className="relative mt-6 rounded-xl p-[1.5px]">
+        <div
+          className={`${aiGenerating ? "ai-border-active" : "ai-border-idle"} absolute inset-0 rounded-xl`}
+          style={{ filter: "blur(10px)", opacity: aiGenerating ? 0.75 : 0.45 }}
+          aria-hidden="true"
+        />
+        <div
+          className={`${aiGenerating ? "ai-border-active" : "ai-border-idle"} absolute inset-0 rounded-xl`}
+          aria-hidden="true"
+        />
+        <div className="relative overflow-hidden rounded-xl bg-card">
+          <AIWorkbenchDrawer
+            inline
+            open={true}
+            onClose={() => {}}
+            projectId={projectId}
+            onSaved={handleAISaved}
+            onGeneratingChange={setAiGenerating}
+            candidatesTarget={candidatesTarget}
+          />
+        </div>
+      </div>
+
+      {/* Portal target — candidates section renders here, outside the animated border */}
+      <div ref={setCandidatesTarget} />
 
       <ErrorPopup open={!!runError} onClose={() => setRunError("")} />
 

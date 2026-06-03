@@ -151,7 +151,7 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
         <button
           type="button"
           onClick={() => !editing && setOpen((o) => !o)}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           {open ? (
             <ChevronDown className="size-3" />
@@ -165,38 +165,37 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
           </span>
         </button>
         {!editing ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="xs"
             onClick={startEdit}
-            className="flex items-center gap-1 rounded-[4px] px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-primary/5 hover:text-primary transition-all"
+            className="text-muted-foreground hover:text-primary"
           >
             <Pencil className="size-2.5" />
             Edit
-          </button>
+          </Button>
         ) : (
           <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={saveSteps}
-              disabled={saving}
-              className="flex items-center gap-1 rounded-[4px] bg-[linear-gradient(180deg,#60a5fa_0%,#2563eb_100%)] px-2 py-0.5 text-[10px] font-bold text-white disabled:opacity-50 transition-all"
-            >
+            <Button type="button" size="xs" onClick={saveSteps} disabled={saving}>
               {saving ? (
-                <span className="size-2.5 animate-spin rounded-full border border-white/40 border-t-white" />
+                <Loader2 className="size-2.5 animate-spin" />
               ) : (
                 <Check className="size-2.5" />
               )}
               Save
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
+              size="xs"
               onClick={cancelEdit}
               disabled={saving}
-              className="flex items-center gap-1 rounded-[4px] px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-surface-2 transition-colors"
+              className="text-muted-foreground"
             >
               <X className="size-2.5" />
               Cancel
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -237,7 +236,7 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
                 type="button"
                 onClick={() => removeStep(i)}
                 disabled={saving}
-                className="mt-2 shrink-0 text-muted-foreground/30 hover:text-destructive transition-colors"
+                className="mt-2 shrink-0 cursor-pointer text-muted-foreground/30 hover:text-destructive transition-colors"
               >
                 <X className="size-3.5" />
               </button>
@@ -247,7 +246,7 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
             type="button"
             onClick={addStep}
             disabled={saving}
-            className="flex items-center gap-1.5 px-1 py-0.5 text-[11px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+            className="flex cursor-pointer items-center gap-1.5 px-1 py-0.5 text-[11px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
           >
             <span className="flex size-[18px] items-center justify-center rounded-full border border-dashed border-border text-xs">
               +
@@ -263,15 +262,9 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
 // ── Last run verdict chip ─────────────────────────────────────────────────────
 
 function VerdictChip({ verdict }) {
-  const colors = {
-    pass: "border-success text-success",
-    pass_with_warning: "border-amber-500 text-amber-500",
-    fail: "border-destructive text-destructive",
-    error: "border-orange-500 text-orange-500",
-  };
   return (
     <span
-      className={`rounded-[6px] border px-1.5 py-0.5 text-[10px] font-normal ${colors[verdict] || "border-border text-muted-foreground"}`}
+      className={`rounded-[6px] border px-1.5 py-0.5 text-[10px] font-normal ${VERDICT_BADGE[verdict] || "border-border text-muted-foreground"}`}
     >
       {VERDICT_LABEL[verdict] ?? verdict}
     </span>
@@ -517,7 +510,6 @@ export default function TestCaseDetailPage() {
   const passCount = runs.filter(
     (r) => r.verdict === "pass" || r.verdict === "pass_with_warning",
   ).length;
-  const failCount = runs.filter((r) => r.verdict === "fail").length;
   const passRate =
     runs.length > 0 ? Math.round((passCount / runs.length) * 100) : null;
   const lastRun = runs[0] ?? null;
@@ -531,7 +523,7 @@ export default function TestCaseDetailPage() {
       {/* Back */}
       <button
         onClick={() => navigate(`/projects/${projectId}/test-cases`)}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="flex cursor-pointer items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="size-4" />
         All Test Cases
@@ -592,13 +584,13 @@ export default function TestCaseDetailPage() {
                   />
                   <button
                     onClick={saveTitle}
-                    className="shrink-0 text-primary hover:text-primary/80"
+                    className="shrink-0 cursor-pointer text-primary hover:text-primary/80"
                   >
                     <Check className="size-4" />
                   </button>
                   <button
                     onClick={() => setEditingTitle(false)}
-                    className="shrink-0 text-muted-foreground"
+                    className="shrink-0 cursor-pointer text-muted-foreground"
                   >
                     <X className="size-4" />
                   </button>
@@ -633,13 +625,13 @@ export default function TestCaseDetailPage() {
                   />
                   <button
                     onClick={saveGoal}
-                    className="mt-1 shrink-0 text-primary"
+                    className="mt-1 shrink-0 cursor-pointer text-primary"
                   >
                     <Check className="size-3.5" />
                   </button>
                   <button
                     onClick={() => setEditingGoal(false)}
-                    className="mt-1 shrink-0 text-muted-foreground"
+                    className="mt-1 shrink-0 cursor-pointer text-muted-foreground"
                   >
                     <X className="size-3.5" />
                   </button>
@@ -813,7 +805,7 @@ export default function TestCaseDetailPage() {
               <span className="flex-1 text-sm text-red-400">{headerError}</span>
               <button
                 onClick={() => setHeaderError("")}
-                className="text-red-400/50 hover:text-red-400"
+                className="cursor-pointer text-red-400/50 hover:text-red-400"
               >
                 <X className="size-3.5" />
               </button>
@@ -974,36 +966,37 @@ export default function TestCaseDetailPage() {
                     {globalOffset + 1}–{Math.min(globalOffset + RUN_PAGE_SIZE, runs.length)} of {runs.length} runs
                   </p>
                   <div className="flex items-center gap-1.5">
-                    <button
+                    <Button
                       type="button"
+                      variant="secondary"
                       onClick={() => setRunPage((p) => Math.max(1, p - 1))}
                       disabled={runPage === 1}
-                      className="flex h-[38px] w-[38px] items-center justify-center rounded-[6px] bg-surface shadow-[0px_4px_14px_rgba(0,0,0,0.2)] text-muted-foreground hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+                      className="h-[38px] w-[38px] p-0 text-muted-foreground"
                     >
                       ←
-                    </button>
+                    </Button>
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                      <button
+                      <Button
                         key={page}
                         type="button"
+                        variant={runPage === page ? "default" : "secondary"}
                         onClick={() => setRunPage(page)}
-                        className={`h-[38px] min-w-[38px] rounded-[6px] px-2 text-[13px] font-medium transition-colors ${
-                          runPage === page
-                            ? "bg-[linear-gradient(180deg,#60a5fa_0%,#2563eb_100%)] text-white shadow-[0px_4px_14px_rgba(0,0,0,0.2)]"
-                            : "bg-surface shadow-[0px_4px_14px_rgba(0,0,0,0.2)] text-muted-foreground hover:bg-surface-2"
+                        className={`h-[38px] min-w-[38px] px-2 text-[13px] font-medium ${
+                          runPage === page ? "" : "text-muted-foreground"
                         }`}
                       >
                         {page}
-                      </button>
+                      </Button>
                     ))}
-                    <button
+                    <Button
                       type="button"
+                      variant="secondary"
                       onClick={() => setRunPage((p) => Math.min(totalPages, p + 1))}
                       disabled={runPage === totalPages}
-                      className="flex h-[38px] w-[38px] items-center justify-center rounded-[6px] bg-surface shadow-[0px_4px_14px_rgba(0,0,0,0.2)] text-muted-foreground hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+                      className="h-[38px] w-[38px] p-0 text-muted-foreground"
                     >
                       →
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -1040,7 +1033,7 @@ export default function TestCaseDetailPage() {
                       key={batch.id}
                       type="button"
                       onClick={() => navigate(`/projects/${projectId}/test-runs/batches/${batch.id}`)}
-                      className={`group flex w-full items-center gap-4 px-8 transition-colors hover:bg-muted/60 ${rowBg}`}
+                      className={`group flex w-full cursor-pointer items-center gap-4 px-8 transition-colors hover:bg-muted/60 ${rowBg}`}
                       style={{ minHeight: 46 }}
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-3">

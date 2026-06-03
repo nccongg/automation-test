@@ -694,7 +694,7 @@ async function analyzeSheetRun(runId) {
     })
   );
 
-  return generateSheetRunAnalysis({
+  const analysis = await generateSheetRunAnalysis({
     sheetName: run.sheetName || "Test Sheet",
     totalCases: run.totalCases || 0,
     passed: run.passed || 0,
@@ -702,6 +702,16 @@ async function analyzeSheetRun(runId) {
     errored: run.errored || 0,
     items: itemsWithSteps,
   });
+
+  // Persist so the analysis survives reloads / tab switches.
+  await query(
+    `UPDATE public.test_suite_runs
+        SET ai_analysis = $1::jsonb, ai_analysis_at = now()
+      WHERE id = $2`,
+    [JSON.stringify(analysis), runId],
+  );
+
+  return analysis;
 }
 
 module.exports = {

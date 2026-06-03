@@ -1,8 +1,14 @@
 import { useState, useCallback } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import {
-  LayoutList, Sheet, CheckCircle2, XCircle, Clock,
-  Database, ChevronLeft, ChevronRight,
+  LayoutList,
+  Sheet,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Database,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useTestResults } from "@/features/test-results/hooks/useTestResults";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
@@ -29,25 +35,32 @@ function formatDuration(startedAt, finishedAt) {
 /* ─── Verdict Badge ────────────────────────────────────────────────────── */
 
 function VerdictBadge({ verdict, isLive }) {
-  if (isLive) return (
-    <span className="flex items-center gap-1 rounded-[6px] border border-blue-400 px-2 py-0.5 text-xs text-blue-500">
-      <Clock className="size-3 animate-pulse" /> Running
-    </span>
-  );
+  if (isLive)
+    return (
+      <span className="flex items-center gap-1 rounded-[6px] border border-blue-400 px-2 py-0.5 text-xs text-blue-500">
+        <Clock className="size-3 animate-pulse" /> Running
+      </span>
+    );
   const map = {
-    pass:              { label: "Passed",           cls: "border-success text-success" },
-    pass_with_warning: { label: "Pass (no assert)", cls: "border-amber-500 text-amber-500" },
-    fail:              { label: "Failed",            cls: "border-destructive text-destructive" },
-    error:             { label: "Error",             cls: "border-orange-500 text-orange-500" },
+    pass: { label: "Passed", cls: "border-success text-success" },
+    pass_with_warning: {
+      label: "Pass (no assert)",
+      cls: "border-amber-500 text-amber-500",
+    },
+    fail: { label: "Failed", cls: "border-destructive text-destructive" },
+    error: { label: "Error", cls: "border-orange-500 text-orange-500" },
   };
   const v = map[verdict];
-  if (!v) return (
-    <span className="rounded-[6px] border border-border px-2 py-0.5 text-xs text-muted-foreground">
-      Pending
-    </span>
-  );
+  if (!v)
+    return (
+      <span className="rounded-[6px] border border-border px-2 py-0.5 text-xs text-muted-foreground">
+        Pending
+      </span>
+    );
   return (
-    <span className={`rounded-[6px] border px-2 py-0.5 text-xs font-normal ${v.cls}`}>
+    <span
+      className={`rounded-[6px] border px-2 py-0.5 text-xs font-normal ${v.cls}`}
+    >
       {v.label}
     </span>
   );
@@ -57,7 +70,10 @@ function VerdictBadge({ verdict, isLive }) {
 
 function TableHeader({ children }) {
   return (
-    <div className="flex items-center border-b border-border bg-muted/40 px-8" style={{ height: 46 }}>
+    <div
+      className="flex items-center border-b border-border bg-muted/40 px-8"
+      style={{ height: 46 }}
+    >
       {children}
     </div>
   );
@@ -75,11 +91,16 @@ function ColHead({ children, className = "" }) {
 
 function StatStrip({ items }) {
   return (
-    <div className="flex items-center gap-8 border-b border-border bg-muted/40 px-8" style={{ height: 46 }}>
+    <div
+      className="flex items-center gap-8 border-b border-border bg-muted/40 px-8"
+      style={{ height: 46 }}
+    >
       {items.map(({ label, value }) => (
         <div key={label} className="flex items-center gap-1.5">
           <span className="text-[13px] font-bold text-foreground">{value}</span>
-          <span className="text-[13px] tracking-[0.5px] text-muted-foreground">{label}</span>
+          <span className="text-[13px] tracking-[0.5px] text-muted-foreground">
+            {label}
+          </span>
         </div>
       ))}
     </div>
@@ -106,9 +127,13 @@ function RunRow({ run, projectId, rowIndex }) {
             <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
           </span>
         )}
-        <p className="truncate text-[14px] text-foreground">{run.projectName}</p>
+        <p className="truncate text-[14px] text-foreground">
+          {run.projectName}
+        </p>
       </div>
-      <span className="w-44 shrink-0 text-right text-[13px] text-muted-foreground">{run.executedAt}</span>
+      <span className="w-44 shrink-0 text-right text-[13px] text-muted-foreground">
+        {run.executedAt}
+      </span>
       <span className="w-32 shrink-0 flex justify-end">
         <VerdictBadge verdict={run.verdict} isLive={isLive} />
       </span>
@@ -131,9 +156,11 @@ function SheetRunRow({ run, onClick, rowIndex }) {
 
   const sheetVerdict = isLive
     ? null
-    : failed > 0 && passed === 0 ? "fail"
-    : failed > 0 ? "pass_with_warning"
-    : "pass";
+    : failed > 0 && passed === 0
+      ? "fail"
+      : failed > 0
+        ? "pass_with_warning"
+        : "pass";
 
   return (
     <button
@@ -150,10 +177,13 @@ function SheetRunRow({ run, onClick, rowIndex }) {
         )}
         <p className="truncate text-[14px] text-foreground">{run.sheetName}</p>
         <span className="shrink-0 text-[13px] text-muted-foreground">
-          {total} case{total !== 1 ? "s" : ""}{duration ? ` · ${duration}` : ""}
+          {total} case{total !== 1 ? "s" : ""}
+          {duration ? ` · ${duration}` : ""}
         </span>
       </div>
-      <span className="w-44 shrink-0 text-right text-[13px] text-muted-foreground">{formatDateTime(run.createdAt)}</span>
+      <span className="w-44 shrink-0 text-right text-[13px] text-muted-foreground">
+        {formatDateTime(run.createdAt)}
+      </span>
       <span className="w-20 shrink-0 flex items-center justify-end gap-2 text-[13px]">
         <span className="text-success">{passed} ✓</span>
         {failed > 0 && <span className="text-destructive">{failed} ✗</span>}
@@ -185,7 +215,8 @@ function DatasetRunRow({ batch, onClick, rowIndex }) {
           {batch.test_case_title ?? `Test Case #${batch.test_case_id}`}
         </p>
         <span className="shrink-0 text-[13px] text-muted-foreground">
-          {batch.dataset_name ?? `Dataset #${batch.dataset_id}`} · Batch #{batch.id}
+          {batch.dataset_name ?? `Dataset #${batch.dataset_id}`} · Batch #
+          {batch.id}
         </span>
       </div>
       <span className="w-44 shrink-0 text-right text-[13px] text-muted-foreground">
@@ -197,9 +228,13 @@ function DatasetRunRow({ batch, onClick, rowIndex }) {
         <span className="text-muted-foreground">/ {batch.total_rows ?? 0}</span>
       </span>
       <span className="w-24 shrink-0 flex justify-end">
-        <span className={`rounded-[6px] border px-2 py-0.5 text-xs font-normal ${
-          isCompleted ? "border-success text-success" : "border-blue-400 text-blue-500"
-        }`}>
+        <span
+          className={`rounded-[6px] border px-2 py-0.5 text-xs font-normal ${
+            isCompleted
+              ? "border-success text-success"
+              : "border-blue-400 text-blue-500"
+          }`}
+        >
           {batch.status}
         </span>
       </span>
@@ -219,9 +254,19 @@ function Pagination({ page, totalPages, total, pageSize, onPageChange }) {
   const to = Math.min(page * pageSize, total);
 
   const getPages = () => {
-    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    if (totalPages <= 7)
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
     if (page <= 4) return [1, 2, 3, 4, 5, "…", totalPages];
-    if (page >= totalPages - 3) return [1, "…", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    if (page >= totalPages - 3)
+      return [
+        1,
+        "…",
+        totalPages - 4,
+        totalPages - 3,
+        totalPages - 2,
+        totalPages - 1,
+        totalPages,
+      ];
     return [1, "…", page - 1, page, page + 1, "…", totalPages];
   };
 
@@ -240,7 +285,12 @@ function Pagination({ page, totalPages, total, pageSize, onPageChange }) {
         </button>
         {getPages().map((p, i) =>
           p === "…" ? (
-            <span key={`ellipsis-${i}`} className="px-1 text-[13px] text-muted-foreground">…</span>
+            <span
+              key={`ellipsis-${i}`}
+              className="px-1 text-[13px] text-muted-foreground"
+            >
+              …
+            </span>
           ) : (
             <button
               key={p}
@@ -253,7 +303,7 @@ function Pagination({ page, totalPages, total, pageSize, onPageChange }) {
             >
               {p}
             </button>
-          )
+          ),
         )}
         <button
           onClick={() => onPageChange(page + 1)}
@@ -270,8 +320,8 @@ function Pagination({ page, totalPages, total, pageSize, onPageChange }) {
 /* ─── Tabs ────────────────────────────────────────────────────────────── */
 
 const TABS = [
-  { id: "cases",    label: "Test Cases",   icon: LayoutList },
-  { id: "sheets",   label: "Test Sheets",  icon: Sheet },
+  { id: "cases", label: "Test Cases", icon: LayoutList },
+  { id: "sheets", label: "Test Suite", icon: Sheet },
   { id: "datasets", label: "Dataset Runs", icon: Database },
 ];
 
@@ -293,10 +343,13 @@ export default function TestResultsPage() {
     error,
   } = useTestResults(projectId ?? project?.id);
 
-  const handlePageChange = useCallback((newPage) => {
-    setPage(newPage);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [setPage]);
+  const handlePageChange = useCallback(
+    (newPage) => {
+      setPage(newPage);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [setPage],
+  );
 
   const pid = projectId ?? project?.id;
 
@@ -309,12 +362,17 @@ export default function TestResultsPage() {
   }
 
   if (error) {
-    return <ErrorPopup open={true} onClose={() => window.location.reload()} onRetry={() => window.location.reload()} />;
+    return (
+      <ErrorPopup
+        open={true}
+        onClose={() => window.location.reload()}
+        onRetry={() => window.location.reload()}
+      />
+    );
   }
 
   return (
     <div className="overflow-hidden rounded-xl bg-card">
-
       {/* Page header */}
       <div className="flex items-start justify-between gap-4 border-b border-border px-8 py-7">
         <div className="min-w-0">
@@ -334,21 +392,32 @@ export default function TestResultsPage() {
       {/* Tabs */}
       <div className="flex border-b border-border">
         {TABS.map(({ id, label, icon: Icon }) => {
-          const count = id === "cases" ? pagination.total : id === "sheets" ? sheetRuns.length : datasetBatches.length;
+          const count =
+            id === "cases"
+              ? pagination.total
+              : id === "sheets"
+                ? sheetRuns.length
+                : datasetBatches.length;
           const isActive = activeTab === id;
           return (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
               className={`relative flex h-[50px] items-center gap-2 px-6 text-[16px] font-bold tracking-[0.5px] transition-colors ${
-                isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                isActive
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Icon className="size-4" />
               {label}
-              <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
-                isActive ? "bg-muted text-muted-foreground" : "bg-muted/60 text-muted-foreground"
-              }`}>
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
+                  isActive
+                    ? "bg-muted text-muted-foreground"
+                    : "bg-muted/60 text-muted-foreground"
+                }`}
+              >
                 {count}
               </span>
               {isActive && (
@@ -362,12 +431,14 @@ export default function TestResultsPage() {
       {/* ── Test Cases tab ─────────────────────────────────────────────── */}
       {activeTab === "cases" && (
         <>
-          <StatStrip items={[
-            { label: "Total Runs", value: summary.totalRuns },
-            { label: "Passed",     value: summary.passed },
-            { label: "Failed",     value: summary.failed },
-            { label: "Pass Rate",  value: summary.passRate },
-          ]} />
+          <StatStrip
+            items={[
+              { label: "Total Runs", value: summary.totalRuns },
+              { label: "Passed", value: summary.passed },
+              { label: "Failed", value: summary.failed },
+              { label: "Pass Rate", value: summary.passRate },
+            ]}
+          />
 
           <TableHeader>
             <ColHead className="flex-1">Test Case</ColHead>
@@ -378,13 +449,22 @@ export default function TestResultsPage() {
 
           {individualRuns.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-16 text-center">
-              <p className="text-[14px] font-medium text-muted-foreground">No test case runs yet</p>
-              <p className="text-[13px] text-muted-foreground/60">Run a test case to see results here</p>
+              <p className="text-[14px] font-medium text-muted-foreground">
+                No test case runs yet
+              </p>
+              <p className="text-[13px] text-muted-foreground/60">
+                Run a test case to see results here
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-border">
               {individualRuns.map((run, index) => (
-                <RunRow key={`run-${run.id}`} run={run} projectId={pid} rowIndex={index} />
+                <RunRow
+                  key={`run-${run.id}`}
+                  run={run}
+                  projectId={pid}
+                  rowIndex={index}
+                />
               ))}
             </div>
           )}
@@ -402,12 +482,23 @@ export default function TestResultsPage() {
       {/* ── Test Sheets tab ─────────────────────────────────────────────── */}
       {activeTab === "sheets" && (
         <>
-          <StatStrip items={[
-            { label: "Sheet Runs",   value: sheetRuns.length },
-            { label: "Passed",       value: sheetRuns.reduce((s, r) => s + (r.passed ?? 0), 0) },
-            { label: "Failed",       value: sheetRuns.reduce((s, r) => s + (r.failed ?? 0), 0) },
-            { label: "Total Cases",  value: sheetRuns.reduce((s, r) => s + (r.totalCases ?? 0), 0) },
-          ]} />
+          <StatStrip
+            items={[
+              { label: "Sheet Runs", value: sheetRuns.length },
+              {
+                label: "Passed",
+                value: sheetRuns.reduce((s, r) => s + (r.passed ?? 0), 0),
+              },
+              {
+                label: "Failed",
+                value: sheetRuns.reduce((s, r) => s + (r.failed ?? 0), 0),
+              },
+              {
+                label: "Total Cases",
+                value: sheetRuns.reduce((s, r) => s + (r.totalCases ?? 0), 0),
+              },
+            ]}
+          />
 
           <TableHeader>
             <ColHead className="flex-1">Sheet Name</ColHead>
@@ -419,8 +510,12 @@ export default function TestResultsPage() {
 
           {sheetRuns.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-16 text-center">
-              <p className="text-[14px] font-medium text-muted-foreground">No test sheet runs yet</p>
-              <p className="text-[13px] text-muted-foreground/60">Run a test sheet to see results here</p>
+              <p className="text-[14px] font-medium text-muted-foreground">
+                No test sheet runs yet
+              </p>
+              <p className="text-[13px] text-muted-foreground/60">
+                Run a test sheet to see results here
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -430,7 +525,9 @@ export default function TestResultsPage() {
                   <SheetRunRow
                     key={`sheet-${run.id}`}
                     run={run}
-                    onClick={() => navigate(`/projects/${pid}/test-runs/sheet/${run.id}`)}
+                    onClick={() =>
+                      navigate(`/projects/${pid}/test-runs/sheet/${run.id}`)
+                    }
                     rowIndex={index}
                   />
                 ))}
@@ -442,11 +539,25 @@ export default function TestResultsPage() {
       {/* ── Dataset Runs tab ────────────────────────────────────────────── */}
       {activeTab === "datasets" && (
         <>
-          <StatStrip items={[
-            { label: "Batches",      value: datasetBatches.length },
-            { label: "Passed Rows",  value: datasetBatches.reduce((s, b) => s + (b.passed_rows ?? 0), 0) },
-            { label: "Failed Rows",  value: datasetBatches.reduce((s, b) => s + (b.failed_rows ?? 0), 0) },
-          ]} />
+          <StatStrip
+            items={[
+              { label: "Batches", value: datasetBatches.length },
+              {
+                label: "Passed Rows",
+                value: datasetBatches.reduce(
+                  (s, b) => s + (b.passed_rows ?? 0),
+                  0,
+                ),
+              },
+              {
+                label: "Failed Rows",
+                value: datasetBatches.reduce(
+                  (s, b) => s + (b.failed_rows ?? 0),
+                  0,
+                ),
+              },
+            ]}
+          />
 
           <TableHeader>
             <ColHead className="flex-1">Test Case</ColHead>
@@ -459,8 +570,12 @@ export default function TestResultsPage() {
           {datasetBatches.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-16 text-center">
               <Database className="mx-auto size-8 text-muted-foreground/30" />
-              <p className="text-[14px] font-medium text-muted-foreground">No dataset runs yet</p>
-              <p className="text-[13px] text-muted-foreground/60">Run a dataset batch from a test case to see results here</p>
+              <p className="text-[14px] font-medium text-muted-foreground">
+                No dataset runs yet
+              </p>
+              <p className="text-[13px] text-muted-foreground/60">
+                Run a dataset batch from a test case to see results here
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -468,7 +583,9 @@ export default function TestResultsPage() {
                 <DatasetRunRow
                   key={batch.id}
                   batch={batch}
-                  onClick={() => navigate(`/projects/${pid}/test-runs/batches/${batch.id}`)}
+                  onClick={() =>
+                    navigate(`/projects/${pid}/test-runs/batches/${batch.id}`)
+                  }
                   rowIndex={index}
                 />
               ))}
@@ -476,7 +593,6 @@ export default function TestResultsPage() {
           )}
         </>
       )}
-
     </div>
   );
 }

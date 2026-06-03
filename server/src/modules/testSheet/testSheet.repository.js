@@ -437,7 +437,8 @@ async function findSheetRunById(runId) {
        tsr.errored,
        tsr.started_at AS "startedAt",
        tsr.completed_at AS "completedAt",
-       tsr.created_at AS "createdAt"
+       tsr.created_at AS "createdAt",
+       tsr.ai_analysis AS "aiAnalysis"
      FROM test_suite_runs tsr
      JOIN test_suites ts ON ts.id = tsr.test_suite_id
      WHERE tsr.id = $1

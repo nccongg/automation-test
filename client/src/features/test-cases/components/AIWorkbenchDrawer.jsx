@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   X,
@@ -18,6 +19,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { FormInput, FormTextarea, FormError } from "@/shared/components/ui/FormField";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   generateTestCase,
   saveTestCases,
@@ -281,16 +284,14 @@ function CandidateCard({
       : `rounded-xl border transition-colors ${borderClass}`
     }>
       <div className={`flex items-start gap-2 ${isInline ? "px-8 py-3" : "p-4 pb-2"}`}>
-        <button
+        <Button
+          variant="ghost"
+          size="icon-xs"
           onClick={() => onUpdate({ expanded: !expanded })}
-          className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
+          className="mt-0.5 text-muted-foreground hover:text-foreground"
         >
-          {expanded ? (
-            <ChevronUp className="size-4" />
-          ) : (
-            <ChevronDown className="size-4" />
-          )}
-        </button>
+          {expanded ? <ChevronUp /> : <ChevronDown />}
+        </Button>
 
         <div className="min-w-0 flex-1">
           {editing ? (
@@ -309,39 +310,38 @@ function CandidateCard({
 
         <div className="flex shrink-0 items-center gap-1.5">
           {isSaved && (
-            <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+            <Badge className="bg-emerald-100 font-semibold text-emerald-700">
               <CheckCircle2 className="size-3" />
               Saved
-            </span>
+            </Badge>
           )}
 
           {isDone && runVerdict && verdictStyle && (
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${verdictStyle.badge}`}
-            >
+            <Badge className={`font-semibold ${verdictStyle.badge}`}>
               {verdictStyle.label}
-            </span>
+            </Badge>
           )}
 
           {isRunning && (
-            <span className="flex items-center gap-1 rounded-full bg-brand-100 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700">
+            <Badge className="bg-brand-100 font-semibold text-brand-700">
               <Loader2 className="size-3 animate-spin" />
               {runPhase === "saving"
                 ? "Preparing…"
                 : runPhase === "starting"
                   ? "Starting…"
                   : "Running…"}
-            </span>
+            </Badge>
           )}
 
           {!isSaved && !isRunning && !editing && (
-            <button
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={startEdit}
-              className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
               title="Edit"
             >
               <Pencil className="size-3.5" />
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -370,19 +370,13 @@ function CandidateCard({
               </div>
 
               <div className="flex gap-2">
-                <button
-                  onClick={applyEdit}
-                  className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
-                >
+                <Button size="sm" onClick={applyEdit}>
                   Apply
-                </button>
+                </Button>
 
-                <button
-                  onClick={cancelEdit}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
-                >
+                <Button variant="outline" size="sm" onClick={cancelEdit}>
                   Cancel
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
@@ -419,70 +413,70 @@ function CandidateCard({
             <div className="flex flex-wrap gap-2 pt-1">
               {!isSaved && (
                 <>
-                  <button
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleRunDraft}
                     disabled={isRunning}
-                    className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isRunning ? (
-                      <Loader2 className="size-3 animate-spin" />
+                      <Loader2 className="animate-spin" />
                     ) : runPhase === "done" ? (
-                      <RotateCcw className="size-3" />
+                      <RotateCcw />
                     ) : (
-                      <Play className="size-3" />
+                      <Play />
                     )}
                     {runPhase === "done" ? "Run Again" : "Run Draft"}
-                  </button>
+                  </Button>
 
-                  <button
+                  <Button
+                    size="sm"
                     onClick={handleSaveToLibrary}
                     disabled={saving || isRunning}
-                    className="flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {saving ? (
-                      <Loader2 className="size-3 animate-spin" />
-                    ) : (
-                      <Save className="size-3" />
-                    )}
+                    {saving ? <Loader2 className="animate-spin" /> : <Save />}
                     Save to Library
-                  </button>
+                  </Button>
                 </>
               )}
 
               {runId && (
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() =>
                     navigate(`/projects/${projectId}/test-runs/${runId}`)
                   }
-                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
-                  <ExternalLink className="size-3" />
+                  <ExternalLink />
                   Open Full Result
-                </button>
+                </Button>
               )}
 
               {isSaved && savedTestCaseId && (
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() =>
                     navigate(
                       `/projects/${projectId}/test-cases/${savedTestCaseId}`,
                     )
                   }
-                  className="flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-100"
                 >
-                  <ExternalLink className="size-3" />
+                  <ExternalLink />
                   View Detail
-                </button>
+                </Button>
               )}
 
               {!isRunning && (
-                <button
+                <Button
+                  variant="ds-outlined-destructive"
+                  size="sm"
                   onClick={onDiscard}
-                  className="flex items-center gap-1.5 rounded-lg border border-red-100 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-50 hover:text-red-600"
                 >
-                  <Trash2 className="size-3" />
+                  <Trash2 />
                   {isSaved ? "Remove" : "Discard"}
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -559,6 +553,8 @@ export default function AIWorkbenchDrawer({
   projectId,
   onSaved,
   inline = false,
+  onGeneratingChange,
+  candidatesTarget = null,
 }) {
   const [prompt, setPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -633,6 +629,7 @@ export default function AIWorkbenchDrawer({
     if (!prompt.trim() || generating || !projectId) return;
 
     setGenerating(true);
+    onGeneratingChange?.(true);
     setGenError("");
 
     try {
@@ -653,6 +650,7 @@ export default function AIWorkbenchDrawer({
       setGenError(e?.message || "Failed to generate test cases.");
     } finally {
       setGenerating(false);
+      onGeneratingChange?.(false);
     }
   }
 
@@ -760,12 +758,14 @@ export default function AIWorkbenchDrawer({
         </div>
 
         {!inline && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="text-muted-foreground"
           >
-            <X className="size-4" />
-          </button>
+            <X />
+          </Button>
         )}
       </div>
 
@@ -799,23 +799,16 @@ export default function AIWorkbenchDrawer({
               Enter to generate · Shift+Enter for new line
             </p>
 
-            <button
+            <Button
               onClick={handleGenerate}
               disabled={!prompt.trim() || generating || loadingLatest}
-              className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {generating ? (
-                <>
-                  <Loader2 className="size-3.5 animate-spin" />
-                  Generating…
-                </>
+                <><Loader2 className="animate-spin" />Generating…</>
               ) : (
-                <>
-                  <Sparkles className="size-3.5" />
-                  Generate
-                </>
+                <><Sparkles />Generate</>
               )}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -844,24 +837,25 @@ export default function AIWorkbenchDrawer({
                     All saved
                   </span>
                 ) : (
-                  <button
+                  <Button
+                    size="sm"
                     onClick={handleSaveAll}
                     disabled={anyRunning || allSaved}
-                    className="flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <Save className="size-3" />
+                    <Save />
                     Save All ({unsavedCount})
-                  </button>
+                  </Button>
                 )}
 
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleClearCandidates}
                   disabled={anyRunning}
-                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <RefreshCw className="size-3" />
+                  <RefreshCw />
                   Clear
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -914,10 +908,139 @@ export default function AIWorkbenchDrawer({
   );
 
   if (inline) {
-    return (
-      <div id="ai-test-case-generator">
-        {content}
+    const candidatesSection = hasResults ? (
+      <div className="mt-4 overflow-hidden rounded-xl bg-card">
+        <div className="flex items-center justify-between border-b border-border px-8 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {candidates.length} candidate{candidates.length !== 1 ? "s" : ""} generated
+            {unsavedCount > 0 && ` · ${unsavedCount} unsaved`}
+          </p>
+          <div className="flex items-center gap-2">
+            {allSaved ? (
+              <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
+                <CheckCircle2 className="size-3.5" />
+                All saved
+              </span>
+            ) : (
+              <Button
+                size="sm"
+                onClick={handleSaveAll}
+                disabled={anyRunning || allSaved}
+              >
+                <Save />
+                Save All ({unsavedCount})
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearCandidates}
+              disabled={anyRunning}
+            >
+              <RefreshCw />
+              Clear
+            </Button>
+          </div>
+        </div>
+        <div className="divide-y divide-border">
+          {candidates.map((c, index) => (
+            <CandidateCard
+              key={c.id}
+              candidate={c}
+              state={c}
+              batchId={batchId}
+              projectId={projectId}
+              onUpdate={(updates) => updateCandidate(c.id, updates)}
+              onSaved={onSaved}
+              onDiscard={() => handleDiscard(c.id)}
+              rowIndex={index}
+              isInline
+            />
+          ))}
+        </div>
       </div>
+    ) : null;
+
+    return (
+      <>
+        <div id="ai-test-case-generator">
+          {/* Header */}
+          <div className="flex shrink-0 items-center justify-between border-b py-4 px-8">
+            <div className="flex items-center gap-2">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-brand-100">
+                <Sparkles className="size-4 text-brand-600" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">AI Test Case Generator</h2>
+                <p className="text-xs text-muted-foreground">Generate, validate, then save to library</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Input area */}
+          <div className={`space-y-3 py-4 px-8 ${loadingLatest && !hasResults ? "border-b" : ""}`}>
+            <FormTextarea
+              ref={textareaRef}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleGenerate();
+                }
+              }}
+              placeholder={"Describe what you want to test…\n\nE.g. Login with valid and invalid credentials, check error messages and redirect on success."}
+              rows={4}
+              disabled={generating}
+              className="py-2.5 disabled:opacity-60"
+            />
+            {genError && (
+              <div className="flex items-center gap-2 rounded border border-destructive/20 bg-destructive/5 px-3 py-2.5">
+                <AlertCircle className="size-4 shrink-0 text-destructive" />
+                <p className="text-xs text-destructive">{genError}</p>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Enter to generate · Shift+Enter for new line
+              </p>
+              <Button
+                onClick={handleGenerate}
+                disabled={!prompt.trim() || generating || loadingLatest}
+              >
+                {generating ? (
+                  <><Loader2 className="animate-spin" />Generating…</>
+                ) : (
+                  <><Sparkles />Generate</>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Loading state */}
+          {loadingLatest && !hasResults && (
+            <div className="flex items-center gap-2 px-8 py-3 border-b">
+              <Loader2 className="size-3.5 animate-spin text-brand-400" />
+              <p className="text-xs text-muted-foreground">Loading latest AI candidates…</p>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="shrink-0 border-t py-3 px-8">
+            <p className="text-[11px] text-muted-foreground">
+              Candidates are stored in the database until you{" "}
+              <strong>Save to Library</strong>. Unsaved AI candidates are cleared
+              when generating a new batch.
+            </p>
+          </div>
+        </div>
+
+        {/* Candidates section — portaled outside the border wrapper */}
+        {candidatesSection &&
+          (candidatesTarget
+            ? createPortal(candidatesSection, candidatesTarget)
+            : candidatesSection)}
+      </>
     );
   }
 

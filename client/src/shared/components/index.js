@@ -10,6 +10,7 @@ export { default as PageHeader } from './common/PageHeader';
 
 export { default as ScreenshotList } from './common/ScreenshotList';
 export { default as ImageLightbox } from './common/ImageLightbox';
+export { default as StepResult } from './common/StepResult';
 
 // Layout components
 export { default as Layout } from './layout/Layout';

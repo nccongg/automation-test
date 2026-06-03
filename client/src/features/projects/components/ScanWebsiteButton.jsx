@@ -114,19 +114,18 @@ export default function ScanWebsiteButton({ projectId, align = 'right' }) {
         )}
 
         {isScanning && (
-          <Button type="button" variant="outline" size="sm" onClick={handleStop} disabled={stopping}
-            className="text-red-600 border-red-300 hover:bg-red-50">
-            {stopping && <Loader2 className="size-4 mr-2 animate-spin" />}
+          <Button type="button" variant="ds-outlined-destructive" onClick={handleStop} disabled={stopping}>
+            {stopping ? <Loader2 className="animate-spin" /> : null}
             {stopping ? 'Stopping…' : 'Stop'}
           </Button>
         )}
 
-        <Button type="button" variant="outline" size="sm" onClick={handleTrigger}
+        <Button type="button" variant="outline" onClick={handleTrigger}
           disabled={triggering || isScanning}
           title="Crawl the site so AI can use real page structure when generating test cases">
           {triggering || isScanning
-            ? <Loader2 className="size-4 mr-2 animate-spin" />
-            : <ScanLine className="size-4 mr-2" />}
+            ? <Loader2 className="animate-spin" />
+            : <ScanLine />}
           {isScanning ? 'Scanning…' : scan?.status === 'completed' ? 'Re-scan' : 'Scan Website'}
         </Button>
       </div>
@@ -134,8 +133,8 @@ export default function ScanWebsiteButton({ projectId, align = 'right' }) {
       {error && <p className="text-xs text-red-600">{error}</p>}
 
       {open && scan && (
-        <div className={`absolute ${panelSide} top-full mt-2 z-50 w-96 rounded-xl border bg-white shadow-xl text-sm overflow-hidden`}>
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
+        <div className={`absolute ${panelSide} top-full mt-2 z-50 w-96 rounded-xl border border-border bg-card shadow-xl text-sm overflow-hidden`}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
             <div className="flex items-center gap-2 font-semibold text-foreground">
               {cfg && <cfg.icon className={`size-4 ${cfg.className.split(' ')[0]} ${cfg.spin ? 'animate-spin' : ''}`} />}
               {isScanning ? 'Scanning in progress…'
@@ -148,7 +147,7 @@ export default function ScanWebsiteButton({ projectId, align = 'right' }) {
           </div>
 
           {(pages.length > 0 || scan.finishedAt) && (
-            <div className="flex gap-4 px-4 py-2 border-b text-xs text-muted-foreground bg-slate-50/60">
+            <div className="flex gap-4 px-4 py-2 border-b border-border text-xs text-muted-foreground bg-muted/30">
               <span><strong className="text-foreground">{pages.length}</strong> pages crawled</span>
               {scan.finishedAt && (
                 <span>
@@ -167,7 +166,7 @@ export default function ScanWebsiteButton({ projectId, align = 'right' }) {
                 {isScanning ? 'Waiting for first page…' : 'No pages recorded.'}
               </div>
             ) : pages.map((p, i) => (
-              <div key={i} className={`flex items-start gap-2 px-4 py-2 hover:bg-slate-50 ${depthStyle(p.depth)}`}>
+              <div key={i} className={`flex items-start gap-2 px-4 py-2 hover:bg-muted/50 ${depthStyle(p.depth)}`}>
                 <CheckCircle2 className="size-3.5 mt-0.5 shrink-0 text-emerald-500" />
                 <div className="min-w-0">
                   <div className="truncate text-xs font-medium text-foreground">{p.title || '(no title)'}</div>
@@ -183,21 +182,21 @@ export default function ScanWebsiteButton({ projectId, align = 'right' }) {
           </div>
 
           {scan.status === 'cancelled' && (
-            <div className="px-4 py-3 border-t bg-slate-50 text-xs text-slate-600">
+            <div className="px-4 py-3 border-t border-border bg-muted/50 text-xs text-muted-foreground">
               Scan was stopped.{' '}
               <button type="button" onClick={() => { setOpen(false); handleTrigger(); }}
                 className="font-medium underline hover:no-underline">Re-scan</button>
             </div>
           )}
           {scan.status === 'completed' && (
-            <div className="px-4 py-3 border-t bg-emerald-50 text-xs text-emerald-700">
+            <div className="px-4 py-3 border-t border-border bg-emerald-50 text-xs text-emerald-700">
               AI will use this data the next time you generate test cases.
               <button type="button" onClick={() => { setOpen(false); handleTrigger(); }}
                 className="ml-2 font-medium underline hover:no-underline">Re-scan</button>
             </div>
           )}
           {scan.status === 'failed' && (
-            <div className="px-4 py-3 border-t bg-red-50 text-xs text-red-700">
+            <div className="px-4 py-3 border-t border-border bg-destructive/5 text-xs text-destructive">
               {scan.errorMessage || 'Scan failed.'}{' '}
               <button type="button" onClick={() => { setOpen(false); handleTrigger(); }}
                 className="font-medium underline hover:no-underline">Try again</button>

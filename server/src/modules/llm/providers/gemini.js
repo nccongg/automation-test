@@ -54,7 +54,13 @@ async function generateFromGemini(messages, opts = {}) {
     throw err;
   }
 
-  const text = result.response.text();
+  // Filter out thinking parts (part.thought === true) — getText() concatenates them all,
+  // which corrupts the JSON output when gemini-2.5-flash thinking is enabled.
+  const parts = result.response.candidates?.[0]?.content?.parts ?? [];
+  const outputParts = parts.filter((p) => !p.thought && p.text);
+  const text = outputParts.length > 0
+    ? outputParts.map((p) => p.text).join("")
+    : result.response.text();
   console.log("[llm/gemini] raw response:", text);
   return text;
 }

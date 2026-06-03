@@ -277,11 +277,21 @@ async function analyzeTestRun(runId, userId) {
   );
   const tc = tcResult.rows[0] || {};
 
-  return generateRunAnalysis({
+  const analysis = await generateRunAnalysis({
     goal: tc.goal || tc.title || "Unknown",
     verdict: run.verdict || run.status,
     steps,
   });
+
+  // Persist so the analysis survives reloads / tab switches.
+  await query(
+    `UPDATE public.test_runs
+        SET ai_analysis = $1::jsonb, ai_analysis_at = now()
+      WHERE id = $2`,
+    [JSON.stringify(analysis), runId],
+  );
+
+  return analysis;
 }
 
 async function batchReplayTestRun({

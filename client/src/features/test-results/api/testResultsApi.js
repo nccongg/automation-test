@@ -186,6 +186,7 @@ export async function getTestRunDetail(runId) {
 
   return {
     run: payload?.run || null,
+    analysis: payload?.run?.ai_analysis || null,
     attempts,
     datasetBindings,
     steps: steps.map((step) => {

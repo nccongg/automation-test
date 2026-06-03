@@ -1,7 +1,11 @@
 import { useState } from "react";
 import ImageLightbox from "./ImageLightbox";
 
-export default function ScreenshotList({ screenshots, stepNo }) {
+export default function ScreenshotList({
+  screenshots,
+  stepNo,
+  gridClassName = "mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4",
+}) {
   const [lightboxSrc, setLightboxSrc] = useState(null);
 
   const valid = screenshots?.filter((s) => s.imageUrl) ?? [];
@@ -9,21 +13,21 @@ export default function ScreenshotList({ screenshots, stepNo }) {
 
   return (
     <>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className={gridClassName}>
         {valid.map((shot) => (
           <button
             key={shot.id}
             type="button"
             onClick={() => setLightboxSrc(shot.imageUrl)}
-            className="group relative block overflow-hidden rounded-lg border border-slate-200 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+            className="group relative block aspect-video w-full cursor-pointer overflow-hidden rounded-lg border border-border bg-muted/40 shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <img
               src={shot.imageUrl}
               alt={`Step ${stepNo} screenshot`}
-              className="h-28 w-44 object-cover transition-opacity group-hover:opacity-80"
+              className="h-full w-full object-cover object-top transition-transform group-hover:scale-[1.02]"
             />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors rounded-lg">
-              <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-slate-700 text-xs font-medium px-2 py-1 rounded-md transition-opacity">
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/30">
+              <span className="rounded-md bg-background/90 px-2 py-1 text-xs font-medium text-foreground opacity-0 transition-opacity group-hover:opacity-100">
                 View
               </span>
             </div>

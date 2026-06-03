@@ -213,7 +213,7 @@ Analyze the run and return JSON.`,
 
   let raw;
   try {
-    raw = await generateFromLLM(messages, { maxOutputTokens: 1024 });
+    raw = await generateFromLLM(messages, { maxOutputTokens: 4096 });
   } catch (err) {
     console.error("[llm] generateRunAnalysis: LLM call threw:", err?.message ?? err);
     return {
@@ -301,7 +301,7 @@ Analyze the sheet run and return JSON.`,
 
   let raw;
   try {
-    raw = await generateFromLLM(messages, { maxOutputTokens: 1024 });
+    raw = await generateFromLLM(messages, { maxOutputTokens: 4096 });
   } catch (err) {
     console.error("[llm] generateSheetRunAnalysis: LLM call threw:", err?.message ?? err);
     return {

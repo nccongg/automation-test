@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Plus, Trash2, Upload, CheckCircle2, Table2, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 function detectDelimiter(headerLine) {
   const tabCount = (headerLine.match(/\t/g) || []).length;
@@ -119,20 +120,18 @@ export default function DatasetTable({
           <p className="mt-1 text-xs text-muted-foreground/60">Add a row or import a CSV file to get started</p>
           <div className="mt-5 flex items-center justify-center gap-2">
             <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImportCsv} />
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3.5 py-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-all"
+              className="gap-1.5"
             >
               <Upload className="size-3.5" /> Import CSV
-            </button>
-            <button
-              type="button"
-              onClick={addRow}
-              className="flex items-center gap-1.5 rounded-lg border border-brand-500/25 bg-brand-500/8 px-3.5 py-2 text-xs font-semibold text-brand-400 hover:bg-brand-500/15 transition-all"
-            >
+            </Button>
+            <Button type="button" size="sm" onClick={addRow} className="gap-1.5">
               <Plus className="size-3.5" /> Add row
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -161,20 +160,18 @@ export default function DatasetTable({
           </div>
           <div className="flex items-center gap-1.5">
             <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImportCsv} />
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="xs"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-muted transition-all"
+              className="gap-1.5"
             >
               <Upload className="size-3" /> Import CSV
-            </button>
-            <button
-              type="button"
-              onClick={addRow}
-              className="flex items-center gap-1.5 rounded-lg border border-brand-500/25 bg-brand-500/8 px-3 py-1.5 text-[11px] font-semibold text-brand-400 hover:bg-brand-500/15 transition-all"
-            >
+            </Button>
+            <Button type="button" size="xs" onClick={addRow} className="gap-1.5">
               <Plus className="size-3" /> Add row
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -200,7 +197,7 @@ export default function DatasetTable({
                       <button
                         type="button"
                         onClick={() => deleteColumn(col)}
-                        className="ml-auto rounded p-0.5 text-muted-foreground/30 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                        className="ml-auto cursor-pointer rounded p-0.5 text-muted-foreground/30 hover:bg-red-500/10 hover:text-red-400 transition-colors"
                       >
                         <X className="size-2.5" />
                       </button>
@@ -227,7 +224,7 @@ export default function DatasetTable({
                         placeholder="column name"
                         className="w-full rounded border border-brand-400/40 bg-card px-2 py-0.5 text-[11px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-2 focus:ring-brand-500/15"
                       />
-                      <button type="button" onClick={addColumn} className="shrink-0 text-brand-400 hover:text-brand-300">
+                      <button type="button" onClick={addColumn} className="shrink-0 cursor-pointer text-brand-400 hover:text-brand-300">
                         <Plus className="size-3.5" />
                       </button>
                     </div>
@@ -235,7 +232,7 @@ export default function DatasetTable({
                     <button
                       type="button"
                       onClick={() => setAddingCol(true)}
-                      className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-brand-400 transition-colors"
+                      className="flex cursor-pointer items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-brand-400 transition-colors"
                     >
                       <Plus className="size-3" /> column
                     </button>
@@ -319,7 +316,7 @@ export default function DatasetTable({
                           <button
                             type="button"
                             onClick={() => onSelectRow?.(isSelected ? null : row, isSelected ? null : rowIdx)}
-                            className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-bold transition-all ${
+                            className={`flex cursor-pointer items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-bold transition-all ${
                               isSelected
                                 ? "bg-brand-500 text-white shadow-sm"
                                 : "bg-muted text-muted-foreground hover:bg-brand-500/10 hover:text-brand-400"
@@ -336,7 +333,7 @@ export default function DatasetTable({
                           <button
                             type="button"
                             onClick={() => deleteRow(rowIdx)}
-                            className="rounded-md p-1 text-muted-foreground/30 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                            className="cursor-pointer rounded-md p-1 text-muted-foreground/30 hover:bg-red-500/10 hover:text-red-400 transition-colors"
                           >
                             <Trash2 className="size-3.5" />
                           </button>

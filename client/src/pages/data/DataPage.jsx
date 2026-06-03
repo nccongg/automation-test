@@ -14,9 +14,13 @@ import PageHeader from "@/shared/components/common/PageHeader";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 function NewDatasetDialog({ open, onClose, projectId, onCreated }) {
   const [name, setName] = useState("");
@@ -49,9 +53,12 @@ function NewDatasetDialog({ open, onClose, projectId, onCreated }) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { reset(); onClose(); } }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" aiBorder aiBorderActive={busy}>
         <DialogHeader>
-          <DialogTitle>New Dataset</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="size-4 text-brand-400" />
+            New Dataset
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-1">
           {error && (
@@ -61,68 +68,72 @@ function NewDatasetDialog({ open, onClose, projectId, onCreated }) {
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Name <span className="text-red-400">*</span></label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="dataset-name">
+              Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="dataset-name"
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !prompt.trim()) handleCreate(); }}
               placeholder="e.g. Login scenarios"
               disabled={busy}
-              className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 disabled:opacity-50"
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <div className="space-y-2">
+            <Label htmlFor="dataset-prompt" className="flex items-center gap-1.5">
               <Sparkles className="size-3 text-brand-400" />
               Generate with AI (optional)
-            </label>
+            </Label>
             <textarea
+              id="dataset-prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder={`Describe the data to generate, e.g.\n"5 login scenarios: valid user, wrong password, empty fields..."`}
               rows={3}
               disabled={busy}
-              className="w-full resize-none rounded-lg border border-brand-500/20 bg-brand-500/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 disabled:opacity-50"
+              className="w-full resize-none rounded-md border border-brand-500/20 bg-brand-500/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
             />
             {prompt.trim() && (
               <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground shrink-0">Rows</label>
-                <input
+                <Label htmlFor="dataset-rows" className="shrink-0">Rows</Label>
+                <Input
+                  id="dataset-rows"
                   type="number" min={1} max={50}
                   value={rowCount}
                   onChange={(e) => setRowCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 5)))}
                   disabled={busy}
-                  className="w-16 rounded-lg border border-border bg-transparent px-2 py-1 text-sm text-foreground text-center outline-none focus:ring-2 focus:ring-brand-500/15 disabled:opacity-50"
+                  className="w-16 text-center"
                 />
               </div>
             )}
           </div>
 
-          <div className="flex justify-end gap-2 pt-1">
-            <button
+          <DialogFooter className="pt-1">
+            <Button
               type="button"
+              variant="outline"
               onClick={() => { reset(); onClose(); }}
               disabled={busy}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted disabled:opacity-50 transition-colors"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={handleCreate}
               disabled={!name.trim() || busy}
-              className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition-colors"
+              className="gap-1.5"
             >
               {busy ? (
-                <><span className="size-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />{prompt.trim() ? "Generating…" : "Creating…"}</>
+                <><LoadingSpinner size="sm" />{prompt.trim() ? "Generating…" : "Creating…"}</>
               ) : (
                 prompt.trim() ? <><Sparkles className="size-3.5" />Generate & Create</> : "Create"
               )}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </div>
       </DialogContent>
     </Dialog>
@@ -239,14 +250,10 @@ export default function DataPage() {
           title="Data"
           description="Create and manage datasets for test case variables"
           action={
-            <button
-              type="button"
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 rounded-lg border border-brand-500/25 bg-brand-500/8 px-3 py-2 text-sm font-medium text-brand-400 hover:bg-brand-500/15 transition-colors"
-            >
+            <Button onClick={() => setShowCreate(true)} className="gap-2">
               <Plus className="size-4" />
               New Dataset
-            </button>
+            </Button>
           }
         />
 
@@ -274,8 +281,8 @@ export default function DataPage() {
                         disabled={saving}
                         className="text-lg font-bold text-foreground border-b-2 border-brand-400 bg-transparent outline-none"
                       />
-                      <button onClick={handleSaveName} className="text-brand-400"><Check className="size-4" /></button>
-                      <button onClick={() => setEditingName(false)} className="text-muted-foreground"><X className="size-4" /></button>
+                      <button onClick={handleSaveName} className="cursor-pointer text-brand-400"><Check className="size-4" /></button>
+                      <button onClick={() => setEditingName(false)} className="cursor-pointer text-muted-foreground"><X className="size-4" /></button>
                     </div>
                   ) : (
                     <div className="group flex items-center gap-2 cursor-pointer" onClick={() => { setDraftName(detail.name); setEditingName(true); }}>
@@ -285,14 +292,16 @@ export default function DataPage() {
                   )}
                 </div>
 
-                <button
+                <Button
                   type="button"
+                  variant="ds-outlined-destructive"
+                  size="sm"
                   onClick={handleDeleteCurrent}
-                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-red-500/20 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                  className="shrink-0 gap-1.5"
                 >
                   <Trash2 className="size-3.5" />
                   Delete
-                </button>
+                </Button>
               </div>
 
               {saving && <LoadingSpinner size="sm" />}
@@ -304,7 +313,7 @@ export default function DataPage() {
                   <button
                     type="button"
                     onClick={() => navigate(`/projects/${projectId}/test-cases/${source.id}`)}
-                    className="flex items-center gap-1.5 w-fit rounded-lg border border-brand-500/20 bg-brand-500/8 px-2.5 py-1 text-xs font-medium text-brand-400 hover:bg-brand-500/15 transition-colors"
+                    className="flex w-fit cursor-pointer items-center gap-1.5 rounded-lg border border-brand-500/20 bg-brand-500/8 px-2.5 py-1 text-xs font-medium text-brand-400 hover:bg-brand-500/15 transition-colors"
                   >
                     <Link2 className="size-3 shrink-0" />
                     {detail.description.replace(/\s*\(#\d+\)$/, "")}

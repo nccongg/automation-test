@@ -5,7 +5,7 @@ import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import { getTestRunDetail } from "@/features/test-results/api/testResultsApi";
 import { fmt, duration } from "../utils/testCaseUtils";
 import { VERDICT_LABEL } from "../constants/styles.jsx";
-import StepItem from "./StepItem";
+import StepResult from "@/shared/components/common/StepResult";
 import AiAnalysis from "./AiAnalysis";
 
 const FAILURE_REASON_LABEL = {
@@ -153,7 +153,7 @@ export default function RunRow({ run, projectId, index }) {
               </p>
               <div className="pl-1">
                 {detail.steps.map((step, i) => (
-                  <StepItem
+                  <StepResult
                     key={step.id}
                     step={step}
                     stepIndex={i}
@@ -161,7 +161,7 @@ export default function RunRow({ run, projectId, index }) {
                   />
                 ))}
               </div>
-              <AiAnalysis runId={run.id} isLive={isLive} />
+              <AiAnalysis runId={run.id} isLive={isLive} initialAnalysis={detail?.analysis} />
             </>
           ) : isLive ? (
             <div className="flex items-center gap-2 py-2 text-sm text-blue-500">
