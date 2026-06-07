@@ -123,9 +123,12 @@ app.use((err, req, res, _next) => {
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
 app.listen(env.PORT, () => {
-  console.log(`✅ Server running at http://localhost:${env.PORT}`);
+  console.log(`✅ Server running on port ${env.PORT}`);
   console.log(`   ENV: ${env.NODE_ENV}`);
-  console.log(`   DB:  ${env.DB_HOST}:${env.DB_PORT}/${env.DB_NAME}`);
+  const dbLabel = env.DATABASE_URL
+    ? `DATABASE_URL (Neon/cloud)`
+    : `${env.DB_HOST}:${env.DB_PORT}/${env.DB_NAME}`;
+  console.log(`   DB:  ${dbLabel}`);
   console.log(`   Agent Worker: ${env.AGENT_WORKER_BASE_URL}`);
 });
 

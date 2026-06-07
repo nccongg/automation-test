@@ -1,0 +1,72 @@
+version: '3.8'
+
+# Production Docker Compose
+# Usage:
+#   cp .env.production.example .env
+#   # fill in .env with real values
+#   docker-compose -f docker-compose.prod.yml up -d
+
+services:
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: automation-test-backend:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5000}:${PORT:-5000}"
+    environment:
+      NODE_ENV: production
+      PORT: ${PORT:-5000}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+      LLM_MODEL: ${LLM_MODEL:-gemini-2.5-flash}
+      AGENT_WORKER_BASE_URL: ${AGENT_WORKER_BASE_URL:-http://agent-worker:8001}
+      AGENT_CALLBACK_SECRET: ${AGENT_CALLBACK_SECRET:-}
+      SERVER_BASE_URL: ${SERVER_BASE_URL:-}
+      SCREENSHOTS_DIR: /app/screenshots
+    volumes:
+      - screenshots:/app/screenshots
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:${PORT:-5000}/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  agent-worker:
+    build:
+      context: ./agent-worker
+      dockerfile: Dockerfile
+    image: automation-test-agent-worker:latest
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      NODE_CALLBACK_BASE_URL: ${NODE_CALLBACK_BASE_URL:-http://backend:5000/api}
+      AGENT_CALLBACK_SECRET: ${AGENT_CALLBACK_SECRET:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      EXECUTION_LLM_PROVIDER: ${EXECUTION_LLM_PROVIDER:-gemini}
+      EXECUTION_LLM_MODEL: ${EXECUTION_LLM_MODEL:-gemini-2.5-flash}
+      EXECUTION_HEADLESS: "true"
+      EXECUTION_MAX_STEPS: ${EXECUTION_MAX_STEPS:-20}
+      EXECUTION_TIMEOUT_SECONDS: ${EXECUTION_TIMEOUT_SECONDS:-300}
+      EXECUTION_USE_VISION: ${EXECUTION_USE_VISION:-true}
+      WORKER_MAX_CONCURRENCY: ${WORKER_MAX_CONCURRENCY:-2}
+      SCREENSHOTS_DIR: /app/screenshots
+    volumes:
+      - screenshots:/app/screenshots
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 120s
+
+volumes:
+  screenshots:
+    driver: local

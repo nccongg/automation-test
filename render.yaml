@@ -1,0 +1,84 @@
+
+# Render.com deployment configuration
+# Docs: https://render.com/docs/blueprint-spec
+#
+# NOTE: Agent Worker requires a paid plan (Standard+) because:
+#   - Playwright/Chromium needs at least 512MB RAM (Free plan is 256MB)
+#   - `playwright install --with-deps chromium` needs a paid plan disk
+
+services:
+  # ─── Backend (Node.js) ──────────────────────────────────────────
+  - type: web
+    name: automation-test-backend
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: starter
+    healthCheckPath: /api/health
+    disk:
+      name: screenshots
+      mountPath: /app/screenshots
+      sizeGB: 5
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DATABASE_URL
+        sync: false   # Set manually in Render dashboard
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: LLM_MODEL
+        value: gemini-2.5-flash
+      - key: AGENT_WORKER_BASE_URL
+        sync: false   # Set to agent-worker's Render URL after deploy
+      - key: AGENT_CALLBACK_SECRET
+        generateValue: true
+      - key: SERVER_BASE_URL
+        sync: false   # Set to this service's Render URL after deploy
+      - key: SCREENSHOTS_DIR
+        value: /app/screenshots
+
+  # ─── Agent Worker (Python + Playwright) ─────────────────────────
+  - type: web
+    name: automation-test-agent-worker
+    runtime: docker
+    dockerfilePath: ./agent-worker/Dockerfile
+    dockerContext: ./agent-worker
+    plan: standard   # Needs ≥512MB RAM for Chromium
+    healthCheckPath: /health
+    disk:
+      name: agent-screenshots
+      mountPath: /app/screenshots
+      sizeGB: 5
+    envVars:
+      - key: NODE_CALLBACK_BASE_URL
+        sync: false   # Set to backend Render URL + /api
+      - key: AGENT_CALLBACK_SECRET
+        sync: false   # Must match backend's AGENT_CALLBACK_SECRET
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: EXECUTION_LLM_PROVIDER
+        value: gemini
+      - key: EXECUTION_LLM_MODEL
+        value: gemini-2.5-flash
+      - key: EXECUTION_HEADLESS
+        value: "true"
+      - key: EXECUTION_MAX_STEPS
+        value: "20"
+      - key: EXECUTION_TIMEOUT_SECONDS
+        value: "300"
+      - key: EXECUTION_USE_VISION
+        value: "true"
+      - key: WORKER_MAX_CONCURRENCY
+        value: "2"
+      - key: SCREENSHOTS_DIR
+        value: /app/screenshots

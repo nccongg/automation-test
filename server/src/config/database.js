@@ -3,13 +3,23 @@
 const { Pool } = require('pg');
 const env = require('./env');
 
-const pool = new Pool({
-  host: env.DB_HOST,
-  port: env.DB_PORT,
-  database: env.DB_NAME,
-  user: env.DB_USER,
-  password: env.DB_PASSWORD,
-});
+// When DATABASE_URL is set (Neon, Supabase, Railway, etc.) use connection string with SSL.
+// Otherwise fall back to individual host/port/user/password params.
+const poolConfig = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    }
+  : {
+      host: env.DB_HOST,
+      port: env.DB_PORT,
+      database: env.DB_NAME,
+      user: env.DB_USER,
+      password: env.DB_PASSWORD,
+      ...(env.DB_SSL && { ssl: { rejectUnauthorized: false } }),
+    };
+
+const pool = new Pool(poolConfig);
 
 pool.on('error', (err) => {
   console.error('[DB] Unexpected error on idle client:', err.message);

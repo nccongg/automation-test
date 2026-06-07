@@ -18,17 +18,22 @@ const env = {
   NODE_ENV: process.env.NODE_ENV || "development",
   BODY_LIMIT: process.env.BODY_LIMIT || "10mb",
 
-  // Database
+  // Database — prefer DATABASE_URL (Neon/cloud); fall back to individual params
+  DATABASE_URL: process.env.DATABASE_URL || null,
   DB_HOST: process.env.DB_HOST || "localhost",
   DB_PORT: toInt(process.env.DB_PORT, 5432),
   DB_NAME: process.env.DB_NAME || "automation_test",
   DB_USER: process.env.DB_USER || "postgres",
   DB_PASSWORD: process.env.DB_PASSWORD || "postgres",
+  DB_SSL: toBool(process.env.DB_SSL, false),
 
   // Gemini AI
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
 
-  // Selenium
+  // OpenAI
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
+
+  // Selenium / Screenshots
   SELENIUM_BROWSER: process.env.SELENIUM_BROWSER || "chrome",
   SELENIUM_HEADLESS: toBool(process.env.SELENIUM_HEADLESS, true),
   SCREENSHOTS_DIR: process.env.SCREENSHOTS_DIR || "./screenshots",
@@ -44,6 +49,9 @@ const env = {
     "http://localhost:8001",
 
   AGENT_CALLBACK_SECRET: process.env.AGENT_CALLBACK_SECRET || "",
+
+  // Public server base URL (used for crawl callbacks to server itself)
+  SERVER_BASE_URL: process.env.SERVER_BASE_URL || null,
 };
 
 module.exports = env;
