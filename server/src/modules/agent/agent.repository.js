@@ -100,9 +100,11 @@ async function findExecutionScriptById(executionScriptId) {
       metadata_json
     FROM public.execution_scripts
     WHERE id = $1
-      AND status = 'active'
+      AND status IN ('active', 'ready')
+      AND script_type IN ('strict_replay_json', 'replay')
     LIMIT 1
   `;
+
   const result = await query(sql, [executionScriptId]);
   return result.rows[0] || null;
 }

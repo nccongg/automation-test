@@ -19,6 +19,8 @@ import DatasetPreviewDialog from "@/features/test-collection/components/suite-de
 import RunConfirmDialog from "@/features/test-collection/components/suite-detail/RunConfirmDialog";
 import { getVerifyStatus } from "@/features/test-collection/components/suite-detail/utils";
 
+const AGENT_RUN_VALUE = "agent";
+
 export default function TestSuiteDetailPage() {
   const { projectId, sheetId } = useParams();
   const navigate = useNavigate();
@@ -69,15 +71,18 @@ export default function TestSuiteDetailPage() {
       optionItems.map(async (item) => {
         try {
           const scriptsData = await getTestCaseScripts(item.testCaseId);
-          scriptsMap[item.testCaseId] = Array.isArray(scriptsData) ? scriptsData : [];
+          scriptsMap[item.testCaseId] = Array.isArray(scriptsData)
+            ? scriptsData
+            : [];
           errorMap[item.testCaseId] = "";
         } catch (e) {
           scriptsMap[item.testCaseId] = [];
-          errorMap[item.testCaseId] = e?.message || "Failed to load replay scripts.";
+          errorMap[item.testCaseId] =
+            e?.message || "Failed to load replay scripts.";
         } finally {
           loadingMap[item.testCaseId] = false;
         }
-      })
+      }),
     );
 
     setScriptsByCase({ ...scriptsMap });
@@ -86,18 +91,20 @@ export default function TestSuiteDetailPage() {
 
     setSelectedScriptByCase((prev) => {
       const next = {};
+
       optionItems.forEach((item) => {
         const scripts = scriptsMap[item.testCaseId] ?? [];
         const prevSelected = prev[item.testCaseId];
+
         const prevStillExists =
-          prevSelected &&
+          prevSelected === AGENT_RUN_VALUE ||
           scripts.some((script) => String(script.id) === String(prevSelected));
+
         next[item.testCaseId] = prevStillExists
           ? String(prevSelected)
-          : scripts[0]?.id
-          ? String(scripts[0].id)
-          : "";
+          : AGENT_RUN_VALUE;
       });
+
       return next;
     });
   }, []);
@@ -123,18 +130,20 @@ export default function TestSuiteDetailPage() {
       setRunOptions(optionItems);
 
       const initialDatasetSelection = {};
+
       optionItems.forEach((item) => {
         const defaultDataset = item.availableDatasets?.find((d) => d.isDefault);
         initialDatasetSelection[item.testCaseId] = defaultDataset?.id
           ? String(defaultDataset.id)
           : "";
       });
+
       setSelectedByCase(initialDatasetSelection);
 
       setRecentRuns(
         (runsData ?? [])
           .filter((r) => String(r.testSheetId) === String(sheetId))
-          .slice(0, 5)
+          .slice(0, 5),
       );
 
       await loadScriptsForCases(optionItems);
@@ -158,6 +167,7 @@ export default function TestSuiteDetailPage() {
 
   async function handleRemoveItem(itemId) {
     setRemovingId(itemId);
+
     try {
       await removeSheetItem(sheetId, itemId);
       load();
@@ -170,41 +180,61 @@ export default function TestSuiteDetailPage() {
     setRunConfigWarning("");
 
     if (items.length === 0) {
-      setRunConfigWarning("This suite has no test cases. Please add test cases before running.");
+      setRunConfigWarning(
+        "This suite has no test cases. Please add test cases before running.",
+      );
       return;
     }
+
     if (configLoading) {
-      setRunConfigWarning("Run configuration is still loading. Please wait a moment.");
+      setRunConfigWarning(
+        "Run configuration is still loading. Please wait a moment.",
+      );
       return;
     }
+
     if (configError) {
-      setRunConfigWarning("Run configuration could not be loaded. Please refresh and try again.");
+      setRunConfigWarning(
+        "Run configuration could not be loaded. Please refresh and try again.",
+      );
       return;
     }
 
     const incompatibleConfigs = runOptions.filter((row) => {
+      const selectedScript = selectedScriptByCase[row.testCaseId];
+      const isAgentRun = selectedScript === AGENT_RUN_VALUE;
+
+      if (isAgentRun) return false;
+
       const selectedDatasetId = selectedByCase[row.testCaseId] ?? "";
       if (!selectedDatasetId) return false;
+
       return !getVerifyStatus(row, selectedDatasetId).isCompatible;
     });
 
     if (incompatibleConfigs.length > 0) {
       setRunConfigWarning(
-        `Please choose compatible data for ${incompatibleConfigs.length} test case(s) before running the suite.`
+        `Please choose compatible data for ${incompatibleConfigs.length} test case(s) before running the suite.`,
       );
       return;
     }
 
     const missingConfigs = runOptions.filter((row) => {
+      const selectedScript = selectedScriptByCase[row.testCaseId];
+      const isAgentRun = selectedScript === AGENT_RUN_VALUE;
+
+      if (isAgentRun) return false;
+
       const selectedDatasetId = selectedByCase[row.testCaseId] ?? "";
       const hasDatasetOptions =
-        Array.isArray(row.availableDatasets) && row.availableDatasets.length > 0;
+        Array.isArray(row.availableDatasets) &&
+        row.availableDatasets.length > 0;
+
       if (!hasDatasetOptions) return false;
+
       return !selectedDatasetId;
     });
 
-    // Don't block on un-selected datasets — let the user confirm running those
-    // cases with their default data instead.
     if (missingConfigs.length > 0) {
       setMissingCount(missingConfigs.length);
       setShowRunConfirm(true);
@@ -220,19 +250,30 @@ export default function TestSuiteDetailPage() {
       setRunConfigWarning("");
 
       const runConfig = {
-        items: runOptions.map((row) => ({
-          testCaseId: row.testCaseId,
-          datasetId: selectedByCase[row.testCaseId]
-            ? Number(selectedByCase[row.testCaseId])
-            : null,
-          executionScriptId: selectedScriptByCase[row.testCaseId]
-            ? Number(selectedScriptByCase[row.testCaseId])
-            : null,
-          rowIndex: null,
-        })),
+        items: runOptions.map((row) => {
+          const selectedScript = selectedScriptByCase[row.testCaseId];
+          const isAgentRun = selectedScript === AGENT_RUN_VALUE;
+
+          return {
+            testCaseId: row.testCaseId,
+            runMode: isAgentRun ? "agent" : "replay",
+            datasetId: isAgentRun
+              ? null
+              : selectedByCase[row.testCaseId]
+                ? Number(selectedByCase[row.testCaseId])
+                : null,
+            executionScriptId: isAgentRun
+              ? null
+              : selectedScript
+                ? Number(selectedScript)
+                : null,
+            rowIndex: null,
+          };
+        }),
       };
 
       setRunning(true);
+
       const result = await runTestSheet(sheetId, runConfig);
       const runId = result?.sheetRun?.id;
 
@@ -289,11 +330,25 @@ export default function TestSuiteDetailPage() {
         scriptsErrorByCase={scriptsErrorByCase}
         removingId={removingId}
         onDatasetChange={(testCaseId, val) => {
-          setSelectedByCase((prev) => ({ ...prev, [testCaseId]: val }));
+          setSelectedByCase((prev) => ({
+            ...prev,
+            [testCaseId]: val,
+          }));
           setRunConfigWarning("");
         }}
         onScriptChange={(testCaseId, val) => {
-          setSelectedScriptByCase((prev) => ({ ...prev, [testCaseId]: val }));
+          setSelectedScriptByCase((prev) => ({
+            ...prev,
+            [testCaseId]: val,
+          }));
+
+          if (val === AGENT_RUN_VALUE) {
+            setSelectedByCase((prev) => ({
+              ...prev,
+              [testCaseId]: "",
+            }));
+          }
+
           setRunConfigWarning("");
         }}
         onRemoveItem={handleRemoveItem}

@@ -1004,7 +1004,8 @@ async function getExecutionScriptsByTestCaseId(testCaseId) {
         es.created_at AS "createdAt"
       FROM execution_scripts es
       WHERE es.test_case_id = $1
-        AND es.status = 'active'
+        AND es.status IN ('active', 'ready')
+        AND es.script_type IN ('strict_replay_json', 'replay')
       ORDER BY es.created_at DESC, es.id DESC
     `,
     [testCaseId],
