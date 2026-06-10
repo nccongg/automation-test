@@ -9,9 +9,15 @@
 #   OR pass directly:
 #   DATABASE_URL="postgresql://..." ./migrate-production.sh
 #
-# NOTE: This script applies Automation_testing_DB.sql (schema-only) as the
-# full base schema. The old 001–012 incremental migration files are superseded
-# by this dump. Add new incremental migrations below the base schema step.
+# STRATEGY:
+#   1. Apply Automation_testing_DB.sql (DDL only) as the base schema.
+#      This covers migrations 001–003 plus extra tables not in the migration chain.
+#      001/002/003 have no IF NOT EXISTS so they cannot be re-run safely.
+#   2. Run migrations 004–012 on top (all use IF NOT EXISTS / IF EXISTS guards).
+#
+# FRESH SETUP:
+#   Reset the DB first, then run this script:
+#     psql "$DATABASE_URL" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 
 set -euo pipefail
 
@@ -28,14 +34,40 @@ fi
 echo "🗄️  Running migrations against: ${DATABASE_URL%%@*}@***"
 echo ""
 
-# ── Step 1: Apply full base schema (DDL only, skip COPY data blocks) ──────────
+run_migration() {
+  local file="$1"
+  local label="$2"
+  echo -n "  ▶ $label ... "
+  psql "$DATABASE_URL" -f "$file" --quiet 2>&1 | tail -5
+  echo "  ✅ done"
+}
+
+# ── Step 1: Base schema (covers 001–003 + extra tables) ───────────────────────
 echo "  ▶ Base schema (Automation_testing_DB.sql, schema-only) ..."
 awk '/^COPY /,/^\\.$/{ next } 1' "$BASE_SCHEMA" | psql "$DATABASE_URL" --quiet 2>&1 | tail -5
 echo "  ✅ Base schema done"
 echo ""
 
-# ── Step 2: Incremental migrations added AFTER the base dump ─────────────────
-# Add new migration files here as the schema evolves beyond Automation_testing_DB.sql
+# ── Step 2: Incremental migrations on top of base dump ────────────────────────
+# 001 and 002 are fully covered by the dump.
+# 003 creates test_run_batches + batch_id on test_runs — not in the dump.
+run_migration "$MIGRATIONS_DIR/003_batch_runs.sql"                    "003_batch_runs"
+run_migration "$MIGRATIONS_DIR/004_failure_taxonomy.sql"              "004_failure_taxonomy"
+run_migration "$MIGRATIONS_DIR/add_test_collections.sql"              "add_test_collections"
+run_migration "$MIGRATIONS_DIR/005_collection_hierarchy.sql"          "005_collection_hierarchy"
+run_migration "$MIGRATIONS_DIR/006_add_pass_with_warning_verdict.sql" "006_pass_with_warning_verdict"
+run_migration "$MIGRATIONS_DIR/007_add_is_ai_draft.sql"               "007_add_is_ai_draft"
+run_migration "$MIGRATIONS_DIR/008_add_anchor_results.sql"            "008_add_anchor_results"
+run_migration "$MIGRATIONS_DIR/009_ai_generation_persistence.sql"     "009_ai_generation_persistence"
+run_migration "$MIGRATIONS_DIR/009_test_objects.sql"                  "009_test_objects"
+run_migration "$MIGRATIONS_DIR/010_test_objects_katalon_schema.sql"   "010_test_objects_katalon_schema"
+run_migration "$MIGRATIONS_DIR/011_test_objects_fix_constraints.sql"  "011_test_objects_fix_constraints"
+run_migration "$MIGRATIONS_DIR/012_ai_analysis_persistence.sql"       "012_ai_analysis_persistence"
+
+run_migration "$MIGRATIONS_DIR/013_create_test_suites.sql"            "013_create_test_suites"
+run_migration "$MIGRATIONS_DIR/014_fix_dataset_bindings_columns.sql"  "014_fix_dataset_bindings_columns"
+
+# ── Add new migrations here as the schema evolves ────────────────────────────
 
 echo ""
 echo "✅  All migrations completed successfully."
