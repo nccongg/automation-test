@@ -94,6 +94,32 @@ function getDatasetRows(dataset) {
   return Array.isArray(dataset?.dataJson) ? dataset.dataJson : [];
 }
 
+function getRowsToRun({ runMode, dataset, rowIndex }) {
+  if (runMode === "agent") {
+    return [null];
+  }
+
+  if (!dataset) {
+    return [null];
+  }
+
+  const rows = getDatasetRows(dataset);
+
+  if (!rows.length) {
+    return [null];
+  }
+
+  if (
+    rowIndex !== null &&
+    rowIndex !== undefined &&
+    !Number.isNaN(Number(rowIndex))
+  ) {
+    return [Number(rowIndex)];
+  }
+
+  return rows.map((_, index) => index);
+}
+
 function getDatasetFields(dataset) {
   const schemaFields = getFieldsFromSchema(dataset?.schemaJson);
   if (schemaFields.length > 0) return schemaFields;
@@ -542,8 +568,13 @@ async function runSheet(
       const testCaseId = toInt(config?.testCaseId);
       if (!testCaseId) continue;
 
+      const runMode = config?.runMode === "replay" ? "replay" : "agent";
+
       configByTestCaseId.set(testCaseId, {
-        datasetId: toInt(config?.datasetId),
+        runMode,
+        datasetId: runMode === "agent" ? null : toInt(config?.datasetId),
+        executionScriptId:
+          runMode === "agent" ? null : toInt(config?.executionScriptId),
         rowIndex:
           config?.rowIndex === null || config?.rowIndex === undefined
             ? null
@@ -552,42 +583,86 @@ async function runSheet(
     }
   }
 
+  const expandedRuns = [];
+
+  for (const item of items) {
+    const config = configByTestCaseId.get(Number(item.testCaseId)) || {};
+    const runMode = config.runMode || "agent";
+
+    const selectedDatasetId = config.datasetId || null;
+    const selectedExecutionScriptId = config.executionScriptId || null;
+    const selectedRowIndex = config.rowIndex ?? null;
+
+    let selectedDataset = null;
+
+    if (runMode === "replay") {
+      if (!selectedExecutionScriptId) {
+        throw {
+          status: 400,
+          message: `Replay script is required for test case "${item.title}".`,
+        };
+      }
+
+      if (selectedDatasetId) {
+        selectedDataset = await assertSelectedDatasetCompatible({
+          sheet,
+          item,
+          datasetId: selectedDatasetId,
+        });
+      }
+    }
+
+    const rowIndexes = getRowsToRun({
+      runMode,
+      dataset: selectedDataset,
+      rowIndex: selectedRowIndex,
+    });
+
+    for (const rowIndex of rowIndexes) {
+      expandedRuns.push({
+        item,
+        runMode,
+        datasetId: selectedDatasetId,
+        executionScriptId: selectedExecutionScriptId,
+        rowIndex,
+      });
+    }
+  }
+
   const sheetRun = await repo.createSheetRun({
     testSuiteId: sheetId,
     triggeredBy: userId,
-    totalCases: items.length,
+    totalCases: expandedRuns.length,
   });
 
   const runItems = [];
 
-  for (let i = 0; i < items.length; i += 1) {
-    const item = items[i];
+  for (let i = 0; i < expandedRuns.length; i += 1) {
+    const planned = expandedRuns[i];
+    const item = planned.item;
+
     let testRunId = null;
     let dispatchFailed = false;
 
-    const config = configByTestCaseId.get(Number(item.testCaseId));
-    const selectedDatasetId = config?.datasetId || null;
-    const selectedRowIndex = config?.rowIndex ?? null;
-
-    let selectedDataset = null;
-
-    if (selectedDatasetId) {
-      selectedDataset = await assertSelectedDatasetCompatible({
-        sheet,
-        item,
-        datasetId: selectedDatasetId,
-      });
-    }
-
     try {
-      const runResult = await agentService.startAgentRun({
-        testCaseId: item.testCaseId,
-        triggeredBy: userId,
-        datasetId: selectedDatasetId,
-        datasetRowIndex: selectedRowIndex,
-      });
+      let runResult;
 
-      testRunId = runResult.testRunId;
+      if (planned.runMode === "replay") {
+        runResult = await agentService.replayAgentRun({
+          testCaseId: item.testCaseId,
+          executionScriptId: planned.executionScriptId,
+          datasetId: planned.datasetId,
+          rowIndex: planned.rowIndex,
+          triggeredBy: userId,
+        });
+      } else {
+        runResult = await agentService.startAgentRun({
+          testCaseId: item.testCaseId,
+          triggeredBy: userId,
+        });
+      }
+
+      testRunId = runResult?.testRunId || null;
     } catch (dispatchErr) {
       dispatchFailed = true;
       console.error(
@@ -596,41 +671,16 @@ async function runSheet(
       );
     }
 
-    if (testRunId && selectedDatasetId && selectedDataset) {
-      try {
-        const binding = await repo.findDatasetBinding(
-          item.testCaseId,
-          selectedDatasetId
-        );
-
-        const snapshot = buildDatasetSnapshot({
-          dataset: selectedDataset,
-          binding,
-          rowIndex: selectedRowIndex,
-        });
-
-        await repo.createTestRunDatasetBinding({
-          testRunId,
-          datasetId: selectedDatasetId,
-          alias: binding?.alias || null,
-          rowIndex: selectedRowIndex,
-          rowKey: null,
-          datasetSnapshot: snapshot,
-        });
-      } catch (snapshotErr) {
-        console.error(
-          `[testSheet] Failed to bind dataset ${selectedDatasetId} to testRun ${testRunId}:`,
-          snapshotErr.message
-        );
-      }
-    }
-
     const runItem = await repo.createSheetRunItem({
       testSuiteRunId: sheetRun.id,
       testCaseId: item.testCaseId,
       testRunId,
       itemOrder: i + 1,
       initialStatus: dispatchFailed ? "failed" : "queued",
+      runMode: planned.runMode,
+      datasetId: planned.datasetId,
+      executionScriptId: planned.executionScriptId,
+      datasetRowIndex: planned.rowIndex,
     });
 
     runItems.push(runItem);

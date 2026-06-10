@@ -230,7 +230,8 @@ async function findScriptsByTestCase(testCaseId) {
        created_at AS "createdAt"
      FROM execution_scripts
      WHERE test_case_id = $1
-       AND status = 'active'
+       AND status IN ('active', 'ready')
+       AND script_type IN ('strict_replay_json', 'replay')
      ORDER BY created_at DESC, id DESC`,
     [testCaseId]
   );
@@ -382,18 +383,46 @@ async function createSheetRunItem({
   testRunId,
   itemOrder,
   initialStatus = "queued",
+  runMode = "agent",
+  datasetId = null,
+  executionScriptId = null,
+  datasetRowIndex = null,
 }) {
   const result = await pool.query(
     `INSERT INTO test_suite_run_items
-       (test_suite_run_id, test_case_id, test_run_id, item_order, status)
-     VALUES ($1, $2, $3, $4, $5)
+       (
+         test_suite_run_id,
+         test_case_id,
+         test_run_id,
+         item_order,
+         status,
+         run_mode,
+         dataset_id,
+         execution_script_id,
+         dataset_row_index
+       )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING
        id,
        test_case_id AS "testCaseId",
        test_run_id AS "testRunId",
        item_order AS "itemOrder",
-       status`,
-    [testSuiteRunId, testCaseId, testRunId || null, itemOrder, initialStatus]
+       status,
+       run_mode AS "runMode",
+       dataset_id AS "datasetId",
+       execution_script_id AS "executionScriptId",
+       dataset_row_index AS "datasetRowIndex"`,
+    [
+      testSuiteRunId,
+      testCaseId,
+      testRunId || null,
+      itemOrder,
+      initialStatus,
+      runMode,
+      datasetId,
+      executionScriptId,
+      datasetRowIndex,
+    ]
   );
 
   return result.rows[0];
@@ -457,14 +486,43 @@ async function findSheetRunItems(testSheetRunId) {
        tsri.test_run_id AS "testRunId",
        tsri.item_order AS "itemOrder",
        tsri.status,
+
+       tsri.run_mode AS "runMode",
+       tsri.dataset_id AS "datasetId",
+       tsri.execution_script_id AS "executionScriptId",
+       tsri.dataset_row_index AS "datasetRowIndex",
+
+       td.name AS "datasetName",
+
+       COALESCE(
+         es.metadata_json ->> 'label',
+         es.metadata_json ->> 'name',
+         CASE
+           WHEN es.id IS NOT NULL THEN CONCAT('Script #', es.id)
+           ELSE NULL
+         END
+       ) AS "scriptLabel",
+
        tc.title,
        tc.goal,
        tr.verdict,
        tr.started_at AS "startedAt",
-       tr.finished_at AS "finishedAt"
+       tr.finished_at AS "finishedAt",
+
+       trdb.dataset_snapshot AS "datasetSnapshot",
+       trdb.row_index AS "rowIndex"
+
      FROM test_suite_run_items tsri
-     JOIN test_cases tc ON tc.id = tsri.test_case_id
-     LEFT JOIN test_runs tr ON tr.id = tsri.test_run_id
+     JOIN test_cases tc
+       ON tc.id = tsri.test_case_id
+     LEFT JOIN test_runs tr
+       ON tr.id = tsri.test_run_id
+     LEFT JOIN test_datasets td
+       ON td.id = tsri.dataset_id
+     LEFT JOIN execution_scripts es
+       ON es.id = tsri.execution_script_id
+     LEFT JOIN test_run_dataset_bindings trdb
+       ON trdb.test_run_id = tsri.test_run_id
      WHERE tsri.test_suite_run_id = $1
      ORDER BY tsri.item_order ASC, tsri.id ASC`,
     [testSheetRunId]
