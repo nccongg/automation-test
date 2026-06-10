@@ -7,7 +7,6 @@ import {
   RotateCcw,
   ShieldAlert,
   AlertTriangle,
-  Sparkles,
 } from "lucide-react";
 
 import {
@@ -17,24 +16,107 @@ import {
 
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import PageHeader from "@/shared/components/common/PageHeader";
+import AiAnalysisSection from "@/shared/components/common/AiAnalysisSection";
+
 import { Button } from "@/components/ui/button";
 
 /* ─── Helpers ─────────────────────────────────────────────────────────── */
 
 function formatDuration(startedAt, finishedAt) {
   if (!startedAt || !finishedAt) return "-";
+
   const ms = new Date(finishedAt) - new Date(startedAt);
   if (ms < 0) return "-";
+
   const s = Math.floor(ms / 1000);
   const m = Math.floor(s / 60);
+
   return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
 }
 
 function formatDateTime(dateString) {
   if (!dateString) return "-";
+
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) return "-";
+
   return date.toLocaleString();
+}
+
+function buildDatasetRunAnalysis(batch, runs) {
+  const totalRows = Number(batch?.total_rows ?? runs.length ?? 0);
+  const passedRows = Number(batch?.passed_rows ?? 0);
+  const failedRows = Number(batch?.failed_rows ?? 0);
+  const completedRows = Number(batch?.completed_rows ?? 0);
+
+  const failedRuns = runs.filter((run) => run.verdict === "fail");
+  const errorRuns = runs.filter((run) => run.verdict === "error");
+  const warningRuns = runs.filter((run) => run.verdict === "pass_with_warning");
+
+  const passRate =
+    totalRows > 0 ? Math.round((passedRows / totalRows) * 100) : 0;
+
+  const failureReasons = Object.entries(
+    failedRuns.reduce((acc, run) => {
+      const key = run.failure_reason || "unknown";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {}),
+  ).sort((a, b) => b[1] - a[1]);
+
+  const failedRowsText = failedRuns
+    .map((run) =>
+      run.row_index !== null && run.row_index !== undefined
+        ? `Row ${run.row_index + 1}`
+        : null,
+    )
+    .filter(Boolean)
+    .join(", ");
+
+  const conclusion =
+    failedRows > 0 || errorRuns.length > 0
+      ? `This dataset run needs review. ${failedRows} row(s) failed and ${errorRuns.length} row(s) had errors.`
+      : "This dataset run passed successfully. No failed rows were found.";
+
+  const summary = `This run executed ${totalRows} dataset row(s). ${completedRows} row(s) completed, ${passedRows} passed, ${failedRows} failed, and the pass rate is ${passRate}%.`;
+
+  const keyFindings = [
+    failedRows > 0 && failedRowsText
+      ? `Failed row(s): ${failedRowsText}.`
+      : null,
+    warningRuns.length > 0
+      ? `${warningRuns.length} row(s) passed with warning and may need manual review.`
+      : null,
+    failureReasons.length > 0
+      ? `Main failure reason(s): ${failureReasons
+          .map(([reason, count]) => `${reason} (${count})`)
+          .join(", ")}.`
+      : null,
+  ].filter(Boolean);
+
+  const recommendations = [
+    failedRows > 0
+      ? "Open the failed row details and check the failed step, failure reason, and screenshot evidence."
+      : null,
+    failureReasons.length > 0
+      ? "Review whether the failure is caused by incorrect test data, unstable selectors, or an actual application defect."
+      : null,
+    warningRuns.length > 0
+      ? "Review warning rows manually because they may have passed without a strong assertion."
+      : null,
+    failedRows === 0 && warningRuns.length === 0
+      ? "No immediate action is required for this dataset run."
+      : null,
+  ].filter(Boolean);
+
+  return {
+    conclusion,
+    summary,
+    keyFindings,
+    recommendations,
+    failureReasons,
+    warningCount: warningRuns.length,
+  };
 }
 
 /* ─── Failure taxonomy ────────────────────────────────────────────────── */
@@ -166,119 +248,6 @@ function ProgressBar({ completed, total }) {
   );
 }
 
-/* ─── AI Analysis: only show after clicking Analyze ───────────────────── */
-
-function DatasetAiAnalysisSection({ batch, runs, isLive }) {
-  const [analysis, setAnalysis] = useState(null);
-  const [analyzing, setAnalyzing] = useState(false);
-
-  async function handleAnalyze() {
-    setAnalyzing(true);
-
-    try {
-      const failedRuns = runs.filter((r) => r.verdict === "fail");
-      const warningRuns = runs.filter((r) => r.verdict === "pass_with_warning");
-
-      const failureReasons = Object.entries(
-        failedRuns.reduce((acc, run) => {
-          const key = run.failure_reason || "unknown";
-          acc[key] = (acc[key] || 0) + 1;
-          return acc;
-        }, {})
-      ).sort((a, b) => b[1] - a[1]);
-
-      const result = {
-        conclusion:
-          failedRuns.length > 0
-            ? `This dataset run has ${failedRuns.length} failed row(s). Review the failed step, failure reason, and related test run detail.`
-            : "No failed rows were found in this dataset run.",
-        summary: `This run executed ${batch.total_rows} dataset rows. ${batch.passed_rows} passed and ${batch.failed_rows} failed.`,
-        failureReasons,
-        warningCount: warningRuns.length,
-      };
-
-      setAnalysis(result);
-    } finally {
-      setAnalyzing(false);
-    }
-  }
-
-  return (
-    <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Sparkles className="size-4 text-brand-400" />
-          <h2 className="text-sm font-semibold text-foreground">AI Analysis</h2>
-        </div>
-
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={isLive || analyzing}
-          onClick={handleAnalyze}
-          className="gap-1.5"
-        >
-          {analyzing ? (
-            <>
-              <LoadingSpinner size="sm" />
-              Analyzing...
-            </>
-          ) : analysis ? (
-            "Regenerate"
-          ) : (
-            "Analyze"
-          )}
-        </Button>
-      </div>
-
-      {isLive ? (
-        <p className="text-sm text-muted-foreground">
-          AI analysis will be available after this dataset run is completed.
-        </p>
-      ) : !analysis ? (
-        <div className="rounded-lg border border-border bg-muted/20 px-4 py-5 text-sm text-muted-foreground">
-          Click <span className="font-medium text-foreground">Analyze</span> to
-          generate an AI summary for this dataset run.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <div className="rounded-lg border border-brand-500/20 bg-brand-500/5 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-brand-400">
-              Conclusion
-            </p>
-            <p className="mt-1 text-sm text-foreground">
-              {analysis.conclusion}
-            </p>
-          </div>
-
-          <p className="text-sm text-muted-foreground">{analysis.summary}</p>
-
-          {analysis.failureReasons.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {analysis.failureReasons.map(([reason, count]) => (
-                <span
-                  key={reason}
-                  className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground"
-                >
-                  {reason}: {count}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {analysis.warningCount > 0 && (
-            <p className="text-sm text-amber-500">
-              {analysis.warningCount} row(s) passed with warning and may need
-              manual review.
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ─── Main Page ───────────────────────────────────────────────────────── */
 
 export default function DatasetRunDetailPage() {
@@ -324,9 +293,9 @@ export default function DatasetRunDetailPage() {
     if (!data) return;
 
     const failedIndexes = data.runs
-      .filter((r) => r.verdict === "fail")
-      .map((r) => r.row_index)
-      .filter((i) => i != null);
+      .filter((run) => run.verdict === "fail")
+      .map((run) => run.row_index)
+      .filter((index) => index != null);
 
     if (!failedIndexes.length) return;
 
@@ -375,10 +344,10 @@ export default function DatasetRunDetailPage() {
   const { batch, runs } = data;
 
   const isRunning = batch.status !== "completed";
-  const failedCount = runs.filter((r) => r.verdict === "fail").length;
+  const failedCount = runs.filter((run) => run.verdict === "fail").length;
 
   const columnKeys = (() => {
-    const snap = runs.find((r) => r.dataset_snapshot)?.dataset_snapshot;
+    const snap = runs.find((run) => run.dataset_snapshot)?.dataset_snapshot;
     return snap ? Object.keys(snap) : [];
   })();
 
@@ -440,6 +409,7 @@ export default function DatasetRunDetailPage() {
           <p className="mb-2 text-sm font-medium text-muted-foreground">
             Progress
           </p>
+
           <ProgressBar
             completed={batch.completed_rows}
             total={batch.total_rows}
@@ -447,13 +417,25 @@ export default function DatasetRunDetailPage() {
         </div>
       )}
 
-      <DatasetAiAnalysisSection batch={batch} runs={runs} isLive={isRunning} />
+      <AiAnalysisSection
+        onAnalyze={() =>
+          Promise.resolve(buildDatasetRunAnalysis(batch, runs ?? []))
+        }
+        isLive={isRunning}
+        initialAnalysis={batch.aiAnalysis ?? batch.ai_analysis ?? null}
+        description={
+          isRunning
+            ? "Analysis will be available once the dataset run completes."
+            : 'Click "Generate Analysis" to get an AI-powered conclusion and actionable suggestions based on all dataset row results.'
+        }
+      />
 
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold text-foreground">
             Dataset Run Results
           </h2>
+
           <p className="mt-0.5 text-xs text-muted-foreground">
             Result details for each dataset row
           </p>
@@ -546,7 +528,9 @@ export default function DatasetRunDetailPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() =>
-                          navigate(`/projects/${projectId}/test-runs/${run.run_id}`)
+                          navigate(
+                            `/projects/${projectId}/test-runs/${run.run_id}`,
+                          )
                         }
                       >
                         Detail

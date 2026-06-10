@@ -55,16 +55,49 @@ function getRunTypeLabel(item) {
   return "Agent";
 }
 
+function getDatasetRowLabel(item) {
+  const rawIndex =
+    item.datasetRowIndex ??
+    item.dataset_row_index ??
+    item.rowIndex ??
+    item.row_index;
+
+  if (rawIndex === null || rawIndex === undefined || rawIndex === "") {
+    return null;
+  }
+
+  const rowIndex = Number(rawIndex);
+
+  if (!Number.isInteger(rowIndex) || rowIndex < 0) {
+    return null;
+  }
+
+  return `Row ${rowIndex + 1}`;
+}
+
 function getDatasetLabel(item) {
+  const runType = getRunTypeLabel(item);
+
+  if (runType === "Agent") {
+    return "Not required";
+  }
+
   const datasetId = item.datasetId ?? item.dataset_id;
 
-  return (
+  const datasetName =
     item.datasetName ??
     item.dataset_name ??
     item.testDataName ??
     item.test_data_name ??
-    (datasetId ? `Dataset #${datasetId}` : "—")
-  );
+    (datasetId ? `Dataset #${datasetId}` : "—");
+
+  const rowLabel = getDatasetRowLabel(item);
+
+  if (!rowLabel || datasetName === "—") {
+    return datasetName;
+  }
+
+  return `${datasetName} · ${rowLabel}`;
 }
 
 function getScriptLabelForItem(item) {
@@ -120,7 +153,14 @@ const ITEM_STATUS_BADGE = {
 
 /* ─── Test Case Item Row ──────────────────────────────────────────────────── */
 
-function TestCaseItem({ item, idx, isExpanded, onToggle, stepData }) {
+function TestCaseItem({
+  item,
+  idx,
+  isExpanded,
+  onToggle,
+  onOpenDetail,
+  stepData,
+}) {
   const isLive = item.status === "running" || item.status === "queued";
   const hasRun = !!item.testRunId;
 
@@ -134,7 +174,7 @@ function TestCaseItem({ item, idx, isExpanded, onToggle, stepData }) {
         className="grid items-center gap-4 px-6 py-4 transition-colors hover:bg-muted/30"
         style={{
           gridTemplateColumns:
-            "32px minmax(220px,1.5fr) 120px 180px 180px 100px 100px 90px",
+            "32px minmax(220px,1.5fr) 120px 230px 180px 100px 100px 90px",
         }}
       >
         <span className="text-center font-mono text-xs text-muted-foreground">
@@ -142,14 +182,25 @@ function TestCaseItem({ item, idx, isExpanded, onToggle, stepData }) {
         </span>
 
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             {VERDICT_ICON[item.verdict] ?? (
               <div className="size-4 shrink-0 rounded-full border-2 border-border" />
             )}
 
-            <p className="truncate font-medium text-foreground">
-              {item.title}
-            </p>
+            {item.testRunId ? (
+              <button
+                type="button"
+                onClick={() => onOpenDetail(item)}
+                className="truncate text-left font-medium text-foreground transition-colors hover:text-brand-500 hover:underline"
+                title="Open test run detail"
+              >
+                {item.title}
+              </button>
+            ) : (
+              <p className="truncate font-medium text-foreground">
+                {item.title}
+              </p>
+            )}
           </div>
 
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -169,9 +220,9 @@ function TestCaseItem({ item, idx, isExpanded, onToggle, stepData }) {
 
         <p
           className="truncate text-sm text-muted-foreground"
-          title={runType === "Agent" ? "Not required" : datasetLabel}
+          title={datasetLabel}
         >
-          {runType === "Agent" ? "Not required" : datasetLabel}
+          {datasetLabel}
         </p>
 
         <p
@@ -307,6 +358,12 @@ export default function TestSuiteRunDetailPage() {
       }));
     }
   };
+
+  function handleOpenTestRunDetail(item) {
+    if (!item?.testRunId) return;
+
+    navigate(`/projects/${projectId}/test-runs/${item.testRunId}`);
+  }
 
   useEffect(() => {
     if (!expandedItemId || !data?.items) return;
@@ -487,7 +544,7 @@ export default function TestSuiteRunDetailPage() {
             className="grid items-center gap-4 border-b border-border bg-muted/40 px-6 py-3"
             style={{
               gridTemplateColumns:
-                "32px minmax(220px,1.5fr) 120px 180px 180px 100px 100px 90px",
+                "32px minmax(220px,1.5fr) 120px 230px 180px 100px 100px 90px",
             }}
           >
             <span />
@@ -534,6 +591,7 @@ export default function TestSuiteRunDetailPage() {
                   idx={idx}
                   isExpanded={expandedItemId === item.id}
                   onToggle={handleToggleItem}
+                  onOpenDetail={handleOpenTestRunDetail}
                   stepData={item.testRunId ? itemDetails[item.testRunId] : null}
                 />
               ))
