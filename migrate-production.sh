@@ -66,6 +66,7 @@ run_migration "$MIGRATIONS_DIR/012_ai_analysis_persistence.sql"       "012_ai_an
 
 run_migration "$MIGRATIONS_DIR/013_create_test_suites.sql"            "013_create_test_suites"
 run_migration "$MIGRATIONS_DIR/014_fix_dataset_bindings_columns.sql"  "014_fix_dataset_bindings_columns"
+run_migration "$MIGRATIONS_DIR/015_add_evidence_file_data.sql"        "015_add_evidence_file_data"
 
 # ── Add new migrations here as the schema evolves ────────────────────────────
 

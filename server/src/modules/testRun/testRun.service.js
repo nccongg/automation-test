@@ -204,7 +204,9 @@ async function getTestRunDetail(runId, userId) {
   );
 
   const evidences = await query(
-    `SELECT *
+    `SELECT id, test_run_id, test_run_attempt_id, run_step_log_id, evidence_type,
+            file_path, storage_provider, mime_type, file_size_bytes, checksum,
+            page_url, artifact_group, captured_at, created_at, content_json
        FROM public.evidences
       WHERE test_run_id = $1`,
     [id],
@@ -214,7 +216,9 @@ async function getTestRunDetail(runId, userId) {
 
   const mappedEvidences = (evidences.rows || []).map((ev) => {
     let imageUrl = null;
-    if (ev.evidence_type === "screenshot" && ev.file_path) {
+    if (ev.evidence_type === "screenshot" && ev.storage_provider === "db") {
+      imageUrl = `/screenshots/db/${ev.id}`;
+    } else if (ev.evidence_type === "screenshot" && ev.file_path) {
       const filePathStr = String(ev.file_path);
       const marker = "screenshots";
       const parts = filePathStr.split(/[\\/]screenshots[\\/]/);
@@ -230,8 +234,6 @@ async function getTestRunDetail(runId, userId) {
         }
         imageUrl = `/screenshots/${pathAfter.replace(/\\/g, "/")}`;
       }
-
-      console.log(`[DEBUG] Mapping evidence ${ev.id}: ${ev.file_path} -> ${imageUrl}`);
     }
 
     return { ...ev, imageUrl };

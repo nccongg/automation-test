@@ -812,13 +812,20 @@ async function handleStepCallback(payload) {
     anchorResults: payload.anchorResults || null,
   });
 
-  if (payload.screenshotPath) {
+  if (payload.screenshotPath || payload.screenshotData) {
+    const fileData = payload.screenshotData
+      ? Buffer.from(payload.screenshotData, "base64")
+      : null;
+
     await agentRepository.insertEvidence({
       testRunId: payload.testRunId,
       attemptId: payload.attemptId,
       runStepLogId: stepLog.id,
       evidenceType: "screenshot",
       filePath: payload.screenshotPath,
+      fileData,
+      mimeType: fileData ? payload.screenshotMimeType || "image/png" : null,
+      fileSizeBytes: fileData ? fileData.length : null,
       pageUrl: payload.currentUrl || null,
       artifactGroup: "step",
       capturedAt: new Date(),

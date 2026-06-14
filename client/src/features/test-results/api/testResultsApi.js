@@ -90,33 +90,17 @@ function normalizeApiPayload(response) {
   return response?.data?.data ?? response?.data ?? response ?? null;
 }
 
-function normalizeScreenshotUrl(filePath) {
-  if (!filePath) return "";
+function normalizeScreenshotUrl(imageUrl) {
+  if (!imageUrl) return "";
 
-  if (/^https?:\/\//i.test(filePath)) {
-    return filePath;
+  if (/^https?:\/\//i.test(imageUrl)) {
+    return imageUrl;
   }
 
-  const marker = "screenshots";
-  const normalizedPath = filePath.replace(/\\/g, "/");
-  const index = normalizedPath.indexOf(marker);
+  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+  const baseUrl = apiUrl.replace(/\/api\/?$/, "");
 
-  if (index !== -1) {
-    let pathAfter = normalizedPath.substring(index + marker.length);
-    if (pathAfter.startsWith("/")) {
-      pathAfter = pathAfter.substring(1);
-    }
-
-    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
-    let baseUrl = apiUrl.replace(/\/api\/?$/, "");
-    if (baseUrl.includes(":8001")) {
-      baseUrl = baseUrl.replace(":8001", ":3001");
-    }
-
-    return `${baseUrl}/screenshots/${pathAfter}`;
-  }
-
-  return "";
+  return `${baseUrl}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
 }
 
 export async function getTestResults(projectId, { page = 1, pageSize = 20 } = {}) {
@@ -196,7 +180,7 @@ export async function getTestRunDetail(runId) {
           id: evidence.id,
           filePath: evidence.file_path,
           fileName: (evidence.file_path || "").split(/[\\/]/).pop(),
-          imageUrl: normalizeScreenshotUrl(evidence.file_path),
+          imageUrl: normalizeScreenshotUrl(evidence.imageUrl),
           pageUrl: evidence.page_url || "",
           capturedAt: formatDateTime(evidence.captured_at),
         }));

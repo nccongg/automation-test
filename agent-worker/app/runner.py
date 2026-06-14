@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
 import logging
@@ -297,6 +298,35 @@ def safe_to_jsonable(value: Any) -> Any:
     if hasattr(value, "__dict__"):
         return safe_to_jsonable(vars(value))
     return str(value)
+
+
+_SCREENSHOT_MIME_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+}
+
+
+def encode_screenshot_file(path: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """Read a screenshot off disk and base64-encode it for the callback payload.
+
+    The agent-worker's disk isn't shared with the backend (separate
+    containers/services in production), so the bytes travel with the
+    callback instead of a local file path.
+    """
+    if not path:
+        return None, None
+    try:
+        file_path = Path(path)
+        if not file_path.exists():
+            return None, None
+        data = file_path.read_bytes()
+        mime_type = _SCREENSHOT_MIME_TYPES.get(file_path.suffix.lower(), "image/png")
+        return base64.b64encode(data).decode("ascii"), mime_type
+    except Exception:
+        logger.warning("Failed to read screenshot for upload: %s", path, exc_info=True)
+        return None, None
 
 
 def normalize_action_item(item: Any) -> Dict[str, Any]:
@@ -1033,6 +1063,8 @@ async def publish_llm_steps(run_req: RunRequest, history: Any, screenshots_dir: 
                 exists = False
             logger.info("LLM step %s screenshot exists=%s", i + 1, exists)
 
+        screenshot_data, screenshot_mime = encode_screenshot_file(screenshot_path)
+
         await post_step_event(
             {
                 "testRunId": run_req.testRunId,
@@ -1050,6 +1082,8 @@ async def publish_llm_steps(run_req: RunRequest, history: Any, screenshots_dir: 
                 "modelOutputJson": model_output,
                 "durationMs": None,
                 "screenshotPath": screenshot_path,
+                "screenshotData": screenshot_data,
+                "screenshotMimeType": screenshot_mime,
             }
         )
 
@@ -2041,6 +2075,8 @@ async def execute_replay_run(run_req: RunRequest) -> None:
                         step.stepNo, anchor.type, anchor.value, ar.message,
                     )
 
+            screenshot_data, screenshot_mime = encode_screenshot_file(result.screenshot_path)
+
             await post_step_event(
                 {
                     "testRunId": run_req.testRunId,
@@ -2058,6 +2094,8 @@ async def execute_replay_run(run_req: RunRequest) -> None:
                     "modelOutputJson": None,
                     "durationMs": result.duration_ms,
                     "screenshotPath": result.screenshot_path,
+                    "screenshotData": screenshot_data,
+                    "screenshotMimeType": screenshot_mime,
                     "failureReason": result.failure_reason,
                     "anchorResults": anchor_results if anchor_results else None,
                 }

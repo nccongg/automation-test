@@ -18,6 +18,7 @@ const swaggerSpec = require("./config/swagger");
 
 const env = require("./config/env");
 const routes = require("./routes");
+const agentRepository = require("./modules/agent/agent.repository");
 
 const app = express();
 
@@ -96,6 +97,28 @@ app.get("/screenshots/:fileName", (req, res) => {
 
 // Keep static mapping too, useful if screenshots are copied into server/screenshots
 app.use("/screenshots", express.static(screenshotsDir));
+
+// Screenshots stored as bytea in the database (Neon) — survives across
+// services/containers that don't share a filesystem.
+app.get("/screenshots/db/:evidenceId", async (req, res) => {
+  try {
+    const evidenceId = Number(req.params.evidenceId);
+    if (!Number.isInteger(evidenceId) || evidenceId <= 0) {
+      return res.status(400).json({ status: "error", message: "Invalid evidence id" });
+    }
+
+    const evidence = await agentRepository.getEvidenceImage(evidenceId);
+    if (!evidence || !evidence.file_data) {
+      return res.status(404).json({ status: "error", message: "Screenshot not found" });
+    }
+
+    res.set("Content-Type", evidence.mime_type || "image/png");
+    return res.send(evidence.file_data);
+  } catch (err) {
+    console.error("[screenshots] db lookup failed:", err);
+    return res.status(500).json({ status: "error", message: "Failed to load screenshot" });
+  }
+});
 
 // ─── Swagger UI ───────────────────────────────────────────────────────────────
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));

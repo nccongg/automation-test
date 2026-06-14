@@ -259,10 +259,15 @@ async function insertEvidence({
   runStepLogId = null,
   evidenceType = 'screenshot',
   filePath = null,
+  fileData = null,
+  mimeType = null,
+  fileSizeBytes = null,
   pageUrl = null,
   capturedAt = null,
   artifactGroup = null,
 }) {
+  const storageProvider = fileData ? 'db' : 'local';
+
   const sql = `
     INSERT INTO public.evidences (
       test_run_id,
@@ -270,13 +275,16 @@ async function insertEvidence({
       run_step_log_id,
       evidence_type,
       file_path,
+      file_data,
+      mime_type,
+      file_size_bytes,
       storage_provider,
       page_url,
       artifact_group,
       captured_at
     )
-    VALUES ($1, $2, $3, $4, $5, 'local', $6, $7, COALESCE($8, NOW()))
-    RETURNING *
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, NOW()))
+    RETURNING id
   `;
   const result = await query(sql, [
     testRunId,
@@ -284,11 +292,26 @@ async function insertEvidence({
     runStepLogId,
     evidenceType,
     filePath,
+    fileData,
+    mimeType,
+    fileSizeBytes,
+    storageProvider,
     pageUrl,
     artifactGroup,
     capturedAt,
   ]);
   return result.rows[0];
+}
+
+async function getEvidenceImage(evidenceId) {
+  const result = await query(
+    `SELECT file_data, mime_type
+       FROM public.evidences
+      WHERE id = $1
+        AND storage_provider = 'db'`,
+    [evidenceId],
+  );
+  return result.rows[0] || null;
 }
 
 async function updateAttemptFinal({
@@ -838,6 +861,7 @@ module.exports = {
   createTestRunAttempt,
   insertOrUpdateRunStepLog,
   insertEvidence,
+  getEvidenceImage,
   updateAttemptFinal,
   updateRunFinal,
   findRunById,
