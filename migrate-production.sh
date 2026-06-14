@@ -70,5 +70,10 @@ run_migration "$MIGRATIONS_DIR/015_add_evidence_file_data.sql"        "015_add_e
 
 # ── Add new migrations here as the schema evolves ────────────────────────────
 
+# ── Step 3: Resync sequences ──────────────────────────────────────────────────
+# Step 1 re-applies stale `setval(...)` calls from the dump, which can rewind
+# sequences behind the live MAX(id) on a re-run. Always fix up afterwards.
+run_migration "$MIGRATIONS_DIR/fix_sequences.sql"                     "fix_sequences"
+
 echo ""
 echo "✅  All migrations completed successfully."
