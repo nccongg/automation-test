@@ -65,8 +65,11 @@ run_migration "$MIGRATIONS_DIR/011_test_objects_fix_constraints.sql"  "011_test_
 run_migration "$MIGRATIONS_DIR/012_ai_analysis_persistence.sql"       "012_ai_analysis_persistence"
 
 run_migration "$MIGRATIONS_DIR/013_create_test_suites.sql"            "013_create_test_suites"
+run_migration "$MIGRATIONS_DIR/add_suite_run_item_execution_metadata.sql" "add_suite_run_item_execution_metadata"
 run_migration "$MIGRATIONS_DIR/014_fix_dataset_bindings_columns.sql"  "014_fix_dataset_bindings_columns"
 run_migration "$MIGRATIONS_DIR/015_add_evidence_file_data.sql"        "015_add_evidence_file_data"
+run_migration "$MIGRATIONS_DIR/016_add_test_run_dataset_bindings_columns.sql" "016_add_test_run_dataset_bindings_columns"
+run_migration "$MIGRATIONS_DIR/017_add_test_suite_runs_ai_analysis.sql"       "017_add_test_suite_runs_ai_analysis"
 
 # ── Add new migrations here as the schema evolves ────────────────────────────
 

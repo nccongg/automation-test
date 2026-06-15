@@ -19,6 +19,7 @@ async function generateFromLLM(messages, opts = {}) {
     maxOutputTokens: opts.maxOutputTokens,
     maxTokens: opts.maxOutputTokens,
     temperature: opts.temperature,
+    thinkingBudget: opts.thinkingBudget,
   };
 
   switch (provider) {
@@ -492,7 +493,7 @@ Generate ${rowCount} rows and return JSON.`,
     },
   ];
 
-  const raw = await generateFromLLM(messages, { maxOutputTokens: 2048 });
+  const raw = await generateFromLLM(messages, { maxOutputTokens: 8192 });
   const parsed = cleanJSON(raw);
 
   if (!parsed || !Array.isArray(parsed.rows) || parsed.rows.length === 0) {

@@ -30,6 +30,10 @@ async function generateFromGemini(messages, opts = {}) {
     generationConfig: {
       maxOutputTokens: opts.maxOutputTokens ?? 4096,
       temperature: opts.temperature ?? 0.2,
+      // Disable gemini-2.5-flash "thinking". Thinking tokens are billed against
+      // maxOutputTokens, so leaving it on truncates the actual JSON output mid-object
+      // (e.g. dataset generation). Pass thinkingBudget via opts to re-enable.
+      thinkingConfig: { thinkingBudget: opts.thinkingBudget ?? 0 },
     },
   });
 
