@@ -15,6 +15,7 @@ import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import EmptyState from "@/shared/components/common/EmptyState";
 import PageHeader from "@/shared/components/common/PageHeader";
 import CreateProjectDialog from "@/features/projects/components/CreateProjectDialog";
+import { Button } from "@/components/ui/button";
 
 export default function ProjectsPage() {
   const [createOpen, setCreateOpen] = useState(false);
@@ -50,14 +51,10 @@ export default function ProjectsPage() {
         title="Projects"
         description="Manage your testing projects and recent runs"
         action={
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white shadow-[var(--brand-primary-shadow)] hover:bg-[var(--brand-primary-hover)]"
-            onClick={() => setCreateOpen(true)}
-          >
+          <Button type="button" onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" />
             New Project
-          </button>
+          </Button>
         }
       />
 

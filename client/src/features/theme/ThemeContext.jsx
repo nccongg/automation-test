@@ -18,7 +18,7 @@ function applyTheme(theme) {
 
 export function ThemeProvider({ children }) {
   const [theme, setThemeState] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY) || "dark";
+    return localStorage.getItem(STORAGE_KEY) || "system";
   });
 
   useEffect(() => {
