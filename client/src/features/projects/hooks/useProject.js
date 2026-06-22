@@ -19,7 +19,7 @@ export function useProject(overrideProjectId) {
   const effectiveProjectId = overrideProjectId || projectId;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -32,7 +32,7 @@ export function useProject(overrideProjectId) {
         setData(res);
       } catch (e) {
         if (!mounted) return;
-        setError(e?.message || 'Failed to load project details.');
+        setError(e || new Error('Failed to load project details.'));
       } finally {
         if (!mounted) return;
         setLoading(false);

@@ -10,7 +10,7 @@ import {
 } from "@/features/test-collection/api/testSheetApi";
 import { getTestCaseScripts } from "@/features/test-cases/api/testCasesApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorPopup from "@/shared/components/common/ErrorPopup";
+import ErrorState from "@/shared/components/common/ErrorState";
 import SuiteHeader from "@/features/test-collection/components/suite-detail/SuiteHeader";
 import RunConfigTable from "@/features/test-collection/components/suite-detail/RunConfigTable";
 import RecentRunsList from "@/features/test-collection/components/suite-detail/RecentRunsList";
@@ -30,7 +30,7 @@ export default function TestSuiteDetailPage() {
   const [recentRuns, setRecentRuns] = useState([]);
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [running, setRunning] = useState(false);
@@ -113,7 +113,7 @@ export default function TestSuiteDetailPage() {
     try {
       setLoading(true);
       setConfigLoading(true);
-      setError("");
+      setError(null);
       setConfigError("");
       setRunConfigWarning("");
 
@@ -148,7 +148,7 @@ export default function TestSuiteDetailPage() {
 
       await loadScriptsForCases(optionItems);
     } catch (e) {
-      setError(e?.message || "Failed to load sheet.");
+      setError(e || new Error("Failed to load sheet."));
       setConfigError(e?.message || "Failed to load run configuration.");
     } finally {
       setLoading(false);
@@ -298,7 +298,7 @@ export default function TestSuiteDetailPage() {
   }
 
   if (error) {
-    return <ErrorPopup open={true} onClose={load} onRetry={load} />;
+    return <ErrorState error={error} onRetry={load} />;
   }
 
   const existingIds = new Set(items.map((i) => i.testCaseId));

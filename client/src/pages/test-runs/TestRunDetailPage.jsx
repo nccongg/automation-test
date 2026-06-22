@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, ShieldAlert, Sparkles, Lightbulb } from "lucide-react";
 import { getTestRunDetail, analyzeTestRun } from "@/features/test-results/api/testResultsApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorPopup from "@/shared/components/common/ErrorPopup";
+import ErrorState from "@/shared/components/common/ErrorState";
 import StepResult from "@/shared/components/common/StepResult";
 import AiAnalysisSection from "@/shared/components/common/AiAnalysisSection";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +37,7 @@ export default function TestRunDetailPage() {
 
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -57,7 +57,7 @@ export default function TestRunDetailPage() {
         }
       } catch (e) {
         if (!mounted) return;
-        setError(e?.message || "Failed to load test run.");
+        setError(e || new Error("Failed to load test run."));
         setLoading(false);
       }
     }
@@ -80,7 +80,7 @@ export default function TestRunDetailPage() {
   }
 
   if (error) {
-    return <ErrorPopup open={true} onClose={() => window.history.back()} />;
+    return <ErrorState error={error} />;
   }
 
   const run = detail?.run;

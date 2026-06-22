@@ -17,7 +17,7 @@ import {
 
 import PageHeader from "@/shared/components/common/PageHeader";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorPopup from "@/shared/components/common/ErrorPopup";
+import ErrorState from "@/shared/components/common/ErrorState";
 import StepResult from "@/shared/components/common/StepResult";
 import AiAnalysisSection from "@/shared/components/common/AiAnalysisSection";
 
@@ -405,7 +405,7 @@ export default function TestSuiteRunDetailPage() {
   }
 
   if (error) {
-    return <ErrorPopup open={true} onClose={() => window.history.back()} />;
+    return <ErrorState error={error} />;
   }
 
   const run = data?.run;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import ErrorState from "@/shared/components/common/ErrorState";
 import {
   ArrowLeft,
   Check,
@@ -285,7 +286,7 @@ export default function TestCaseDetailPage() {
   const [scriptsLoading, setScriptsLoading] = useState(false);
   const [scriptsError, setScriptsError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
 
   // Inline editing
   const [editingTitle, setEditingTitle] = useState(false);
@@ -313,7 +314,7 @@ export default function TestCaseDetailPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError("");
+    setError(null);
     setScriptsLoading(true);
     setScriptsError("");
     try {
@@ -334,7 +335,7 @@ export default function TestCaseDetailPage() {
         setScriptsError(scriptErr?.message || "Failed to load scripts.");
       }
     } catch (e) {
-      setError(e?.message || "Failed to load test case.");
+      setError(e || new Error("Failed to load test case."));
     } finally {
       setLoading(false);
       setScriptsLoading(false);
@@ -495,16 +496,13 @@ export default function TestCaseDetailPage() {
         <LoadingSpinner size="lg" label="Loading…" />
       </div>
     );
-  if (error || !tc)
+  if (error)
     return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
-        <p className="text-sm text-red-500">
-          {error || "Test case not found."}
-        </p>
-        <Button variant="outline" onClick={() => navigate(-1)}>
-          Go back
-        </Button>
-      </div>
+      <ErrorState error={error} onRetry={load} onBack={() => navigate(-1)} />
+    );
+  if (!tc)
+    return (
+      <ErrorState error={{ status: 404 }} onBack={() => navigate(-1)} />
     );
 
   const passCount = runs.filter(

@@ -48,14 +48,19 @@ async function request(path, options = {}) {
     }
 
     if (!res.ok) {
-      throw new Error(data.message || `Request failed (${res.status})`);
+      const error = new Error(data.message || `Request failed (${res.status})`);
+      error.status = res.status;
+      error.data = data;
+      throw error;
     }
 
     return data;
   } catch (error) {
     // Re-throw with more context
     if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
-      throw new Error('Network error: Unable to reach the server');
+      const networkError = new Error('Network error: Unable to reach the server');
+      networkError.status = 0; // 0 = no response / network failure
+      throw networkError;
     }
     throw error;
   }

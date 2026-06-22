@@ -6,7 +6,7 @@ const POLL_INTERVAL_MS = 3000;
 export function useTestSheetRun(runId) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
   const intervalRef = useRef(null);
 
   useEffect(() => {
@@ -19,7 +19,7 @@ export function useTestSheetRun(runId) {
       try {
         const result = await getSheetRunDetail(runId);
         setData(result);
-        setError("");
+        setError(null);
 
         // Stop polling when completed/failed/cancelled
         const status = result?.run?.status;
@@ -27,7 +27,7 @@ export function useTestSheetRun(runId) {
           clearInterval(intervalRef.current);
         }
       } catch (e) {
-        setError(e?.message || "Failed to load run detail.");
+        setError(e || new Error("Failed to load run detail."));
         clearInterval(intervalRef.current);
       } finally {
         setLoading(false);

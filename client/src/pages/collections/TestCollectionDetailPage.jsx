@@ -18,7 +18,7 @@ import {
 } from "@/features/test-collection/api/testCollectionApi";
 import { getTestCases } from "@/features/test-cases/api/testCasesApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorPopup from "@/shared/components/common/ErrorPopup";
+import ErrorState from "@/shared/components/common/ErrorState";
 import EmptyState from "@/shared/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -139,7 +139,7 @@ export default function TestCollectionDetailPage() {
   const [collection, setCollection] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [removingId, setRemovingId] = useState(null);
 
@@ -152,12 +152,12 @@ export default function TestCollectionDetailPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
+      setError(null);
       const data = await getCollection(collectionId);
       setCollection(data);
       setItems(data?.items ?? []);
     } catch (e) {
-      setError(e?.message || "Failed to load collection.");
+      setError(e || new Error("Failed to load collection."));
     } finally {
       setLoading(false);
     }
@@ -214,7 +214,7 @@ export default function TestCollectionDetailPage() {
   }
 
   if (error) {
-    return <ErrorPopup open={true} onClose={load} onRetry={load} />;
+    return <ErrorState error={error} onRetry={load} />;
   }
 
   const c = getColor(collection?.color);

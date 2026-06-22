@@ -20,7 +20,7 @@ import AddToCollectionDialog from "@/features/test-collection/components/AddToCo
 import { listDatasets } from "@/features/datasets/api/datasetsApi";
 import { getTestObjects } from "@/features/object-repository/api/objectRepositoryApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
-import ErrorPopup from "@/shared/components/common/ErrorPopup";
+import ErrorState from "@/shared/components/common/ErrorState";
 import UpdateProjectDialog from "@/features/projects/components/UpdateProjectDialog";
 import {
   BarChart3,
@@ -479,17 +479,11 @@ export default function ProjectDetailPage() {
   }
 
   if (error) {
-    return (
-      <ErrorPopup
-        open
-        onClose={() => window.location.reload()}
-        onRetry={() => window.location.reload()}
-      />
-    );
+    return <ErrorState error={error} onRetry={() => window.location.reload()} />;
   }
 
   if (!data) {
-    return <ErrorPopup open onClose={() => window.history.back()} />;
+    return <ErrorState error={{ status: 404 }} />;
   }
 
   return (
