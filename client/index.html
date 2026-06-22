@@ -2,15 +2,72 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AutoTesting</title>
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+
+    <!-- Primary meta -->
+    <title>AutoTesting — AI Browser Test Automation</title>
+    <meta
+      name="description"
+      content="AutoTesting is an AI-powered platform for authoring, running, and analyzing automated browser tests with autonomous agents."
+    />
+    <meta name="theme-color" content="#7C5CFF" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="AutoTesting" />
+    <meta property="og:title" content="AutoTesting — AI Browser Test Automation" />
+    <meta
+      property="og:description"
+      content="Author, run, and analyze automated browser tests with AI agents."
+    />
+    <meta property="og:image" content="/favicon.svg" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="AutoTesting — AI Browser Test Automation" />
+    <meta
+      name="twitter:description"
+      content="Author, run, and analyze automated browser tests with AI agents."
+    />
+    <meta name="twitter:image" content="/favicon.svg" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <style>
+      /* App boot splash — shown until React mounts, then replaced */
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #ffffff;
+        z-index: 9999;
+      }
+      @media (prefers-color-scheme: dark) {
+        #app-splash { background: #0b0b0f; }
+      }
+      #app-splash .ring {
+        width: 38px;
+        height: 38px;
+        border-radius: 9999px;
+        border: 3px solid rgba(124, 92, 255, 0.2);
+        border-top-color: #7c5cff;
+        animation: app-splash-spin 0.7s linear infinite;
+      }
+      @keyframes app-splash-spin { to { transform: rotate(360deg); } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-splash"><div class="ring"></div></div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

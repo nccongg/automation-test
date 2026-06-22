@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useTheme } from "@/features/theme/ThemeContext";
+import useDocumentTitle, { titleFromPathname } from "@/hooks/useDocumentTitle";
 import { useState, useEffect } from "react";
 
 const navItems = [
@@ -85,6 +86,8 @@ export default function Layout() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  useDocumentTitle(titleFromPathname(location.pathname));
 
   // Auto-collapse sidebar when on project detail pages (where there are two sidebars)
   useEffect(() => {

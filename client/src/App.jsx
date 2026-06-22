@@ -30,6 +30,7 @@ import SettingsPage from "@/pages/settings/SettingsPage";
 import ProjectSettingsPage from "@/pages/projects/ProjectSettingsPage";
 import DataPage from "@/pages/data/DataPage";
 import ObjectRepositoryPage from "@/pages/object-repository/ObjectRepositoryPage";
+import NotFoundPage from "@/pages/NotFoundPage";
 
 export default function App() {
   return (
@@ -79,7 +80,7 @@ export default function App() {
         </Route>
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to={ROUTES.LOGIN} replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <Toaster position="top-center" richColors />
     </BrowserRouter>
