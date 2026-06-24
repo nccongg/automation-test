@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { useTestSheets } from "@/features/test-collection/hooks/useTestSheets";
 import { createTestSheet } from "@/features/test-collection/api/testSheetApi";
 import PageHeader from "@/shared/components/common/PageHeader";
-import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import { SkeletonListPage } from "@/shared/components/common/Skeleton";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import { Button } from "@/components/ui/button";
 import {
@@ -94,9 +94,7 @@ export default function TestSuitesPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <LoadingSpinner size="lg" label="Loading test sheets..." />
-      </div>
+      <SkeletonListPage rows={6} />
     );
   }
 

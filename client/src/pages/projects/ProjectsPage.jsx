@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useProjects } from "@/features/projects/hooks/useProjects";
 import ProjectCard from "@/shared/components/project/ProjectCard";
-import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import { SkeletonCardGrid } from "@/shared/components/common/Skeleton";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import EmptyState from "@/shared/components/common/EmptyState";
 import PageHeader from "@/shared/components/common/PageHeader";
@@ -29,8 +29,15 @@ export default function ProjectsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <LoadingSpinner size="lg" label="Loading projects..." />
+      <div className="space-y-8">
+        <PageHeader
+          title="Projects"
+          description="Manage your testing projects and recent runs"
+        />
+        <section className="space-y-5">
+          <h2 className="text-lg font-semibold tracking-tight">Recent Projects</h2>
+          <SkeletonCardGrid count={6} />
+        </section>
       </div>
     );
   }

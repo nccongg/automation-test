@@ -19,7 +19,7 @@ import { getCollectionTree } from "@/features/test-collection/api/testCollection
 import AddToCollectionDialog from "@/features/test-collection/components/AddToCollectionDialog";
 import { listDatasets } from "@/features/datasets/api/datasetsApi";
 import { getTestObjects } from "@/features/object-repository/api/objectRepositoryApi";
-import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import { SkeletonDetail } from "@/shared/components/common/Skeleton";
 import ErrorState from "@/shared/components/common/ErrorState";
 import UpdateProjectDialog from "@/features/projects/components/UpdateProjectDialog";
 import {
@@ -472,9 +472,7 @@ export default function ProjectDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <LoadingSpinner size="lg" label="Loading project..." />
-      </div>
+      <SkeletonDetail />
     );
   }
 

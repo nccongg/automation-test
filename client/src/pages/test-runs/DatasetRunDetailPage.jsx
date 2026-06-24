@@ -15,6 +15,7 @@ import {
 } from "@/features/test-results/api/testResultsApi";
 
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import { SkeletonDetail } from "@/shared/components/common/Skeleton";
 import PageHeader from "@/shared/components/common/PageHeader";
 import AiAnalysisSection from "@/shared/components/common/AiAnalysisSection";
 
@@ -317,9 +318,7 @@ export default function DatasetRunDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
+      <SkeletonDetail />
     );
   }
 

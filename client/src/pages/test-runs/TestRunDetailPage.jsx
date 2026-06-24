@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, ShieldAlert, Sparkles, Lightbulb } from "lucide-react";
 import { getTestRunDetail, analyzeTestRun } from "@/features/test-results/api/testResultsApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import { SkeletonDetail } from "@/shared/components/common/Skeleton";
 import ErrorState from "@/shared/components/common/ErrorState";
 import StepResult from "@/shared/components/common/StepResult";
 import AiAnalysisSection from "@/shared/components/common/AiAnalysisSection";
@@ -73,9 +74,7 @@ export default function TestRunDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <LoadingSpinner size="lg" label="Loading run details..." />
-      </div>
+      <SkeletonDetail />
     );
   }
 

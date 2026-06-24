@@ -1,87 +1,97 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ROUTES } from "@/config/routes";
 import Layout from "@/shared/components/layout/Layout";
 import ProtectedRoute from "@/shared/components/layout/ProtectedRoute";
+import ErrorBoundary from "@/shared/components/common/ErrorBoundary";
+import RouteFallback from "@/shared/components/common/RouteFallback";
 import { Toaster } from "@/components/ui/sonner";
 
+// Pages are code-split: each route loads its own JS chunk on demand, keeping the
+// initial bundle small so first paint is fast.
+
 // Auth pages
-import LoginPage from "@/pages/auth/LoginPage";
-import SignupPage from "@/pages/auth/SignupPage";
-import SignupSuccessPage from "@/pages/auth/SignupSuccessPage";
-import ForgotPasswordPage from "@/pages/auth/ForgotPasswordPage";
-import ForgotPasswordVerifyPage from "@/pages/auth/ForgotPasswordVerifyPage";
-import ResetPasswordPage from "@/pages/auth/ResetPasswordPage";
-import ResetPasswordSuccessPage from "@/pages/auth/ResetPasswordSuccessPage";
+const LoginPage = lazy(() => import("@/pages/auth/LoginPage"));
+const SignupPage = lazy(() => import("@/pages/auth/SignupPage"));
+const SignupSuccessPage = lazy(() => import("@/pages/auth/SignupSuccessPage"));
+const ForgotPasswordPage = lazy(() => import("@/pages/auth/ForgotPasswordPage"));
+const ForgotPasswordVerifyPage = lazy(() => import("@/pages/auth/ForgotPasswordVerifyPage"));
+const ResetPasswordPage = lazy(() => import("@/pages/auth/ResetPasswordPage"));
+const ResetPasswordSuccessPage = lazy(() => import("@/pages/auth/ResetPasswordSuccessPage"));
 
 // Main app pages
-import DashboardPage from "@/pages/dashboard/DashboardPage";
-import ProjectsPage from "@/pages/projects/ProjectsPage";
-import ProjectDetailPage from "@/pages/projects/ProjectDetailPage";
-import TestCasesPage from "@/pages/test-cases/TestCasesPage";
-import TestCaseDetailPage from "@/pages/test-cases/TestCaseDetailPage";
-import TestResultsPage from "@/pages/test-runs/TestResultsPage";
-import TestRunDetailPage from "@/pages/test-runs/TestRunDetailPage";
-import TestSuiteRunDetailPage from "@/pages/test-runs/TestSheetRunDetailPage";
-import DatasetRunDetailPage from "@/pages/test-runs/DatasetRunDetailPage";
-import TestSuitesPage from "@/pages/test-suites/TestSuitesPage";
-import TestSuiteDetailPage from "@/pages/test-suites/TestSuiteDetailPage";
-import TestCollectionDetailPage from "@/pages/collections/TestCollectionDetailPage";
-import SettingsPage from "@/pages/settings/SettingsPage";
-import ProjectSettingsPage from "@/pages/projects/ProjectSettingsPage";
-import DataPage from "@/pages/data/DataPage";
-import ObjectRepositoryPage from "@/pages/object-repository/ObjectRepositoryPage";
-import NotFoundPage from "@/pages/NotFoundPage";
+const DashboardPage = lazy(() => import("@/pages/dashboard/DashboardPage"));
+const ProjectsPage = lazy(() => import("@/pages/projects/ProjectsPage"));
+const ProjectDetailPage = lazy(() => import("@/pages/projects/ProjectDetailPage"));
+const TestCasesPage = lazy(() => import("@/pages/test-cases/TestCasesPage"));
+const TestCaseDetailPage = lazy(() => import("@/pages/test-cases/TestCaseDetailPage"));
+const TestResultsPage = lazy(() => import("@/pages/test-runs/TestResultsPage"));
+const TestRunDetailPage = lazy(() => import("@/pages/test-runs/TestRunDetailPage"));
+const TestSuiteRunDetailPage = lazy(() => import("@/pages/test-runs/TestSheetRunDetailPage"));
+const DatasetRunDetailPage = lazy(() => import("@/pages/test-runs/DatasetRunDetailPage"));
+const TestSuitesPage = lazy(() => import("@/pages/test-suites/TestSuitesPage"));
+const TestSuiteDetailPage = lazy(() => import("@/pages/test-suites/TestSuiteDetailPage"));
+const TestCollectionDetailPage = lazy(() => import("@/pages/collections/TestCollectionDetailPage"));
+const SettingsPage = lazy(() => import("@/pages/settings/SettingsPage"));
+const ProjectSettingsPage = lazy(() => import("@/pages/projects/ProjectSettingsPage"));
+const DataPage = lazy(() => import("@/pages/data/DataPage"));
+const ObjectRepositoryPage = lazy(() => import("@/pages/object-repository/ObjectRepositoryPage"));
+const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Auth routes */}
-        <Route path={ROUTES.LOGIN} element={<LoginPage />} />
-        <Route path={ROUTES.SIGNUP} element={<SignupPage />} />
-        <Route path={ROUTES.SIGNUP_SUCCESS} element={<SignupSuccessPage />} />
-        <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
-        <Route
-          path={ROUTES.FORGOT_PASSWORD_VERIFY}
-          element={<ForgotPasswordVerifyPage />}
-        />
-        <Route path={ROUTES.RESET_PASSWORD} element={<ResetPasswordPage />} />
-        <Route
-          path={ROUTES.RESET_PASSWORD_SUCCESS}
-          element={<ResetPasswordSuccessPage />}
-        />
+      <ErrorBoundary>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            {/* Auth routes */}
+            <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+            <Route path={ROUTES.SIGNUP} element={<SignupPage />} />
+            <Route path={ROUTES.SIGNUP_SUCCESS} element={<SignupSuccessPage />} />
+            <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
+            <Route
+              path={ROUTES.FORGOT_PASSWORD_VERIFY}
+              element={<ForgotPasswordVerifyPage />}
+            />
+            <Route path={ROUTES.RESET_PASSWORD} element={<ResetPasswordPage />} />
+            <Route
+              path={ROUTES.RESET_PASSWORD_SUCCESS}
+              element={<ResetPasswordSuccessPage />}
+            />
 
-        {/* Protected Main routes */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<DashboardPage />} />
-            <Route path="projects" element={<ProjectsPage />} />
-            <Route path="projects/:projectId" element={<ProjectDetailPage />}>
-              <Route index element={<Navigate to="test-cases" replace />} />
-              <Route path="overview" element={<Navigate to="../test-cases" replace />} />
-              <Route path="test-cases" element={<TestCasesPage />} />
-              <Route path="test-cases/:testCaseId" element={<TestCaseDetailPage />} />
-              <Route path="test-runs" element={<TestResultsPage />} />
-              <Route path="test-runs/batches/:batchId" element={<DatasetRunDetailPage />} />
-              <Route path="test-runs/:runId" element={<TestRunDetailPage />} />
-              <Route path="test-runs/sheet/:runId" element={<TestSuiteRunDetailPage />} />
-              {/* Test Suites — execution unit with ordering and batch run */}
-              <Route path="suites" element={<TestSuitesPage />} />
-              <Route path="suites/:sheetId" element={<TestSuiteDetailPage />} />
-              {/* Collections — accessible from Test Cases page tabs */}
-              <Route path="collections" element={<Navigate to="../test-cases" replace />} />
-              <Route path="collections/:collectionId" element={<TestCollectionDetailPage />} />
-              <Route path="data" element={<DataPage />} />
-              <Route path="objects" element={<ObjectRepositoryPage />} />
-              <Route path="settings" element={<ProjectSettingsPage />} />
+            {/* Protected Main routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<DashboardPage />} />
+                <Route path="projects" element={<ProjectsPage />} />
+                <Route path="projects/:projectId" element={<ProjectDetailPage />}>
+                  <Route index element={<Navigate to="test-cases" replace />} />
+                  <Route path="overview" element={<Navigate to="../test-cases" replace />} />
+                  <Route path="test-cases" element={<TestCasesPage />} />
+                  <Route path="test-cases/:testCaseId" element={<TestCaseDetailPage />} />
+                  <Route path="test-runs" element={<TestResultsPage />} />
+                  <Route path="test-runs/batches/:batchId" element={<DatasetRunDetailPage />} />
+                  <Route path="test-runs/:runId" element={<TestRunDetailPage />} />
+                  <Route path="test-runs/sheet/:runId" element={<TestSuiteRunDetailPage />} />
+                  {/* Test Suites — execution unit with ordering and batch run */}
+                  <Route path="suites" element={<TestSuitesPage />} />
+                  <Route path="suites/:sheetId" element={<TestSuiteDetailPage />} />
+                  {/* Collections — accessible from Test Cases page tabs */}
+                  <Route path="collections" element={<Navigate to="../test-cases" replace />} />
+                  <Route path="collections/:collectionId" element={<TestCollectionDetailPage />} />
+                  <Route path="data" element={<DataPage />} />
+                  <Route path="objects" element={<ObjectRepositoryPage />} />
+                  <Route path="settings" element={<ProjectSettingsPage />} />
+                </Route>
+                <Route path="settings" element={<SettingsPage />} />
+              </Route>
             </Route>
-            <Route path="settings" element={<SettingsPage />} />
-          </Route>
-        </Route>
 
-        {/* Fallback */}
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+            {/* Fallback */}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
       <Toaster position="top-center" richColors />
     </BrowserRouter>
   );

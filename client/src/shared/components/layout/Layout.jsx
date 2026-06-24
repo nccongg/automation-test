@@ -19,7 +19,8 @@ import {
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useTheme } from "@/features/theme/ThemeContext";
 import useDocumentTitle, { titleFromPathname } from "@/hooks/useDocumentTitle";
-import { useState, useEffect } from "react";
+import RouteFallback from "@/shared/components/common/RouteFallback";
+import { Suspense, useState, useEffect } from "react";
 
 const navItems = [
   { to: "/", label: "Dashboard", Icon: LayoutDashboard },
@@ -310,7 +311,9 @@ export default function Layout() {
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-2 sm:px-6 sm:py-3 md:px-8 md:py-4">
-          <Outlet />
+          <Suspense fallback={<RouteFallback />}>
+            <Outlet />
+          </Suspense>
         </div>
       </div>
     </div>

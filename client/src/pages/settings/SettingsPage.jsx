@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { useSettings } from '@/features/settings/hooks/useSettings';
-import LoadingSpinner from '@/shared/components/common/LoadingSpinner';
+import { SkeletonDetail } from '@/shared/components/common/Skeleton';
 import ErrorPopup from '@/shared/components/common/ErrorPopup';
 import PageHeader from '@/shared/components/common/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -37,9 +37,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <LoadingSpinner size="lg" label="Loading settings..." />
-      </div>
+      <SkeletonDetail />
     );
   }
 

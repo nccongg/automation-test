@@ -11,7 +11,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useTestResults } from "@/features/test-results/hooks/useTestResults";
-import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import { SkeletonListPage } from "@/shared/components/common/Skeleton";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
 
 /* ─── Helpers ─────────────────────────────────────────────────────────── */
@@ -355,9 +355,7 @@ export default function TestResultsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <LoadingSpinner size="lg" label="Loading results…" />
-      </div>
+      <SkeletonListPage rows={8} />
     );
   }
 

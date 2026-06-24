@@ -17,7 +17,7 @@ import {
   removeCollectionItem,
 } from "@/features/test-collection/api/testCollectionApi";
 import { getTestCases } from "@/features/test-cases/api/testCasesApi";
-import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import { SkeletonListPage } from "@/shared/components/common/Skeleton";
 import ErrorState from "@/shared/components/common/ErrorState";
 import EmptyState from "@/shared/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -207,9 +207,7 @@ export default function TestCollectionDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <LoadingSpinner size="lg" label="Loading collection..." />
-      </div>
+      <SkeletonListPage rows={6} />
     );
   }
 

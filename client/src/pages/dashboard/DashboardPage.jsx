@@ -11,7 +11,7 @@ import { useState } from "react";
 import { useDashboard } from "@/features/dashboard/hooks/useDashboard";
 import KpiCard from "@/features/dashboard/components/KpiCard";
 import ProjectCard from "@/shared/components/project/ProjectCard";
-import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import Skeleton, { SkeletonCardGrid } from "@/shared/components/common/Skeleton";
 import ErrorPopup from "@/shared/components/common/ErrorPopup";
 import PageHeader from "@/shared/components/common/PageHeader";
 import EmptyState from "@/shared/components/common/EmptyState";
@@ -30,8 +30,20 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <LoadingSpinner size="lg" label="Loading dashboard..." />
+      <div className="space-y-8">
+        <PageHeader
+          title="Dashboard"
+          description="Overview of your testing projects and recent activity"
+        />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-2xl" />
+          ))}
+        </div>
+        <section className="space-y-5">
+          <h2 className="text-lg font-semibold tracking-tight">Recent Projects</h2>
+          <SkeletonCardGrid count={3} />
+        </section>
       </div>
     );
   }

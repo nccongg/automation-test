@@ -17,6 +17,7 @@ import {
 
 import PageHeader from "@/shared/components/common/PageHeader";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import { SkeletonDetail } from "@/shared/components/common/Skeleton";
 import ErrorState from "@/shared/components/common/ErrorState";
 import StepResult from "@/shared/components/common/StepResult";
 import AiAnalysisSection from "@/shared/components/common/AiAnalysisSection";
@@ -398,9 +399,7 @@ export default function TestSuiteRunDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <LoadingSpinner size="lg" label="Loading run results..." />
-      </div>
+      <SkeletonDetail />
     );
   }
 

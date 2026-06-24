@@ -22,7 +22,7 @@ import ObjectEditPanel from "@/features/object-repository/components/ObjectEditP
 import { Button } from "@/components/ui/button";
 import { FormLabel, FormValue } from "@/shared/components/ui/FormField";
 import PageHeader from "@/shared/components/common/PageHeader";
-import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import { SkeletonListPage } from "@/shared/components/common/Skeleton";
 import { toast } from "sonner";
 
 // ─── Copy button ──────────────────────────────────────────────────────────────
@@ -387,9 +387,7 @@ export default function ObjectRepositoryPage() {
 
   if (loading)
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <LoadingSpinner size="lg" label="Loading objects…" />
-      </div>
+      <SkeletonListPage rows={6} />
     );
 
   if (error)

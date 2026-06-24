@@ -50,7 +50,7 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import { SkeletonDetail } from "@/shared/components/common/Skeleton";
 import {
   STATUS_STYLE,
   VERDICT_LABEL,
@@ -492,9 +492,7 @@ export default function TestCaseDetailPage() {
 
   if (loading)
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <LoadingSpinner size="lg" label="Loading…" />
-      </div>
+      <SkeletonDetail />
     );
   if (error)
     return (

@@ -9,7 +9,7 @@ import {
   getSuiteRunOptions,
 } from "@/features/test-collection/api/testSheetApi";
 import { getTestCaseScripts } from "@/features/test-cases/api/testCasesApi";
-import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
+import { SkeletonDetail } from "@/shared/components/common/Skeleton";
 import ErrorState from "@/shared/components/common/ErrorState";
 import SuiteHeader from "@/features/test-collection/components/suite-detail/SuiteHeader";
 import RunConfigTable from "@/features/test-collection/components/suite-detail/RunConfigTable";
@@ -291,9 +291,7 @@ export default function TestSuiteDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <LoadingSpinner size="lg" label="Loading sheet..." />
-      </div>
+      <SkeletonDetail />
     );
   }
 
