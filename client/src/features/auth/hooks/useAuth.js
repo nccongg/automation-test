@@ -104,6 +104,133 @@ export function useSignup() {
   return { formData, error, isLoading, handleChange, handleSubmit };
 }
 
+// ── Password reset flow ─────────────────────────────────────────────────────────
+
+// sessionStorage keys used to carry state across the 3 reset steps.
+const RESET_EMAIL_KEY = 'resetEmail';
+const RESET_TOKEN_KEY = 'resetToken';
+
+/**
+ * Step 1 — request an OTP for the given email.
+ * Persists the email so the verify step can reuse it.
+ */
+export function useForgotPassword() {
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    try {
+      await authApi.forgotPassword(email);
+      sessionStorage.setItem(RESET_EMAIL_KEY, email);
+      window.location.href = '/forgot-password/verify';
+    } catch (err) {
+      setError(err.message || 'Could not send reset code. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { email, setEmail, error, isLoading, handleSubmit };
+}
+
+/**
+ * Step 2 — verify the OTP and store the returned reset token.
+ */
+export function useVerifyOtp() {
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const email = sessionStorage.getItem(RESET_EMAIL_KEY) || '';
+
+  const verify = async (otp) => {
+    setError('');
+
+    if (!email) {
+      setError('Your session expired. Please start over.');
+      return;
+    }
+    if (otp.length < 5) {
+      setError('Please enter the full code.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await authApi.verifyOtp(email, otp);
+      sessionStorage.setItem(RESET_TOKEN_KEY, result.data.resetToken);
+      window.location.href = '/reset-password';
+    } catch (err) {
+      setError(err.message || 'Invalid or expired code.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resend = async () => {
+    setError('');
+    if (!email) {
+      setError('Your session expired. Please start over.');
+      return;
+    }
+    try {
+      await authApi.forgotPassword(email);
+    } catch (err) {
+      setError(err.message || 'Could not resend code.');
+    }
+  };
+
+  return { email, error, isLoading, verify, resend };
+}
+
+/**
+ * Step 3 — set a new password using the stored reset token.
+ */
+export function useResetPassword() {
+  const [formData, setFormData] = useState({ password: '', confirmPassword: '' });
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleChange = (field, value) =>
+    setFormData((prev) => ({ ...prev, [field]: value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    const resetToken = sessionStorage.getItem(RESET_TOKEN_KEY);
+    if (!resetToken) {
+      setError('Your session expired. Please start over.');
+      return;
+    }
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await authApi.resetPassword(resetToken, formData.password);
+      sessionStorage.removeItem(RESET_EMAIL_KEY);
+      sessionStorage.removeItem(RESET_TOKEN_KEY);
+      window.location.href = '/reset-password/success';
+    } catch (err) {
+      setError(err.message || 'Could not reset password. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { formData, error, isLoading, handleChange, handleSubmit };
+}
+
 // ── useAuth ───────────────────────────────────────────────────────────────────
 
 /**

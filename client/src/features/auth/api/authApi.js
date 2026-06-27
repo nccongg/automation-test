@@ -39,12 +39,13 @@ export const authApi = {
   },
 
   /**
-   * Verify OTP/verification code
-   * @param {string} code - Verification code
+   * Verify OTP/verification code for password reset
+   * @param {string} email - User email the OTP was sent to
+   * @param {string} otp - Verification code
    * @returns {Promise<{data: {resetToken: string}}>}
    */
-  verifyCode(code) {
-    return apiClient.post('/auth/verify-code', { code });
+  verifyOtp(email, otp) {
+    return apiClient.post('/auth/verify-otp', { email, otp });
   },
 
   /**

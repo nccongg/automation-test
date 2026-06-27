@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
+import { useResetPassword } from "@/features/auth/hooks/useAuth";
 import AuthLayout from "@/shared/components/layout/AuthLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,22 +10,8 @@ import { Label } from "@/components/ui/label";
 export default function ResetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    password: "",
-    confirmPassword: "",
-  });
-
-  const handleChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log("Reset password form:", formData);
-  };
+  const { formData, error, isLoading, handleChange, handleSubmit } =
+    useResetPassword();
 
   return (
     <AuthLayout
@@ -104,11 +91,18 @@ export default function ResetPasswordPage() {
           </div>
         </div>
 
+        {error && (
+          <div className="rounded border border-red-100 bg-red-50 p-3 text-xs text-red-500">
+            {error}
+          </div>
+        )}
+
         <Button
           type="submit"
-          className="h-11 w-full rounded-lg bg-[#1692ff] text-sm font-semibold text-white shadow-[0_4px_12px_rgba(22,146,255,0.3)] hover:bg-[#0f83e8] active:scale-[0.98] transition-all"
+          disabled={isLoading}
+          className="h-11 w-full rounded-lg bg-[#1692ff] text-sm font-semibold text-white shadow-[0_4px_12px_rgba(22,146,255,0.3)] hover:bg-[#0f83e8] active:scale-[0.98] transition-all disabled:opacity-50"
         >
-          Reset password
+          {isLoading ? "Resetting…" : "Reset password"}
         </Button>
       </form>
     </AuthLayout>

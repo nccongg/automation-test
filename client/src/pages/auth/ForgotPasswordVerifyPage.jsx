@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { useVerifyOtp } from "@/features/auth/hooks/useAuth";
 import AuthLayout from "@/shared/components/layout/AuthLayout";
 import { Button } from "@/components/ui/button";
 
@@ -9,6 +10,7 @@ const CODE_LENGTH = 5;
 export default function ForgotPasswordVerifyPage() {
   const [code, setCode] = useState(Array(CODE_LENGTH).fill(""));
   const inputsRef = useRef([]);
+  const { error, isLoading, verify, resend } = useVerifyOtp();
 
   const handleChange = (index, value) => {
     const cleanValue = value.replace(/\D/g, "").slice(-1);
@@ -57,7 +59,7 @@ export default function ForgotPasswordVerifyPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("Verify code:", code.join(""));
+    verify(code.join(""));
   };
 
   return (
@@ -87,17 +89,25 @@ export default function ForgotPasswordVerifyPage() {
           ))}
         </div>
 
+        {error && (
+          <div className="rounded border border-red-100 bg-red-50 p-3 text-center text-xs text-red-500">
+            {error}
+          </div>
+        )}
+
         <Button
           type="submit"
-          className="h-11 w-full rounded-lg bg-[#1692ff] text-sm font-semibold text-white shadow-[0_4px_12px_rgba(22,146,255,0.3)] hover:bg-[#0f83e8] active:scale-[0.98] transition-all"
+          disabled={isLoading}
+          className="h-11 w-full rounded-lg bg-[#1692ff] text-sm font-semibold text-white shadow-[0_4px_12px_rgba(22,146,255,0.3)] hover:bg-[#0f83e8] active:scale-[0.98] transition-all disabled:opacity-50"
         >
-          Verify code
+          {isLoading ? "Verifying…" : "Verify code"}
         </Button>
 
         <p className="text-center text-sm text-slate-500">
           Didn&apos;t receive it?{" "}
           <button
             type="button"
+            onClick={resend}
             className="font-semibold text-[#1692ff] hover:underline"
           >
             Resend code
