@@ -12,6 +12,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
+const rateLimit = require("express-rate-limit");
 
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
@@ -21,6 +22,10 @@ const routes = require("./routes");
 const agentRepository = require("./modules/agent/agent.repository");
 
 const app = express();
+
+// Running behind Cloudflare/Render — trust the first proxy hop so rate-limit
+// and req.ip use the real client IP instead of the proxy address.
+app.set("trust proxy", 1);
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(
@@ -34,6 +39,30 @@ app.use(morgan(env.NODE_ENV === "development" ? "dev" : "combined"));
 
 app.use(express.json({ limit: env.BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: env.BODY_LIMIT }));
+
+// ─── Rate Limiting ────────────────────────────────────────────────────────────
+const rateLimitMessage = {
+  status: "error",
+  message: "Too many requests. Please slow down and try again later.",
+};
+
+// Broad limiter for the whole API surface.
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: rateLimitMessage,
+});
+
+// Strict limiter for auth: brute-force / OTP / email-flood protection.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: rateLimitMessage,
+});
 
 // ─── Static Files / Screenshot Resolver ──────────────────────────────────────
 const screenshotsDir = path.join(__dirname, "../screenshots");
@@ -50,6 +79,14 @@ function safeSendFile(res, filePath) {
 // 2) OS temp folders: browser_use_agent_*/screenshots/<fileName>
 app.get("/screenshots/:fileName", (req, res) => {
   const { fileName } = req.params;
+
+  // Reject path traversal: only allow a bare filename, never a path.
+  if (fileName !== path.basename(fileName)) {
+    return res.status(400).json({
+      status: "error",
+      message: "Invalid screenshot filename",
+    });
+  }
 
   try {
     // Prefer server local screenshots folder first
@@ -121,11 +158,16 @@ app.get("/screenshots/db/:evidenceId", async (req, res) => {
 });
 
 // ─── Swagger UI ───────────────────────────────────────────────────────────────
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-app.get("/api-docs.json", (_req, res) => res.json(swaggerSpec));
+// Only expose the API documentation outside of production to avoid leaking the
+// full endpoint map to the public.
+if (env.NODE_ENV !== "production") {
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.get("/api-docs.json", (_req, res) => res.json(swaggerSpec));
+}
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
-app.use("/api", routes);
+app.use("/api/auth", authLimiter);
+app.use("/api", apiLimiter, routes);
 
 // ─── 404 Handler ──────────────────────────────────────────────────────────────
 app.use((req, res) => {
@@ -138,9 +180,14 @@ app.use((req, res) => {
 // ─── Global Error Handler ─────────────────────────────────────────────────────
 app.use((err, req, res, _next) => {
   console.error("[Error]", err);
-  res.status(err.status || 500).json({
+  const status = err.status || 500;
+  // Surface intentional client-error messages (4xx), but never leak internal
+  // error details on 5xx responses.
+  const message =
+    status >= 500 ? "Internal server error" : err.message || "Request failed";
+  res.status(status).json({
     status: "error",
-    message: err.message || "Internal server error",
+    message,
   });
 });
 

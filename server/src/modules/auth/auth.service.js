@@ -12,6 +12,13 @@ const SALT_ROUNDS = 10;
  * Register a new user.
  */
 async function register({ email, password, name }) {
+  if (!email || !password) {
+    throw { status: 400, message: 'Email and password are required' };
+  }
+  if (password.length < 8) {
+    throw { status: 400, message: 'Password must be at least 8 characters long' };
+  }
+
   const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
   if (existing.rows.length) {
     throw { status: 409, message: 'Email already registered' };
