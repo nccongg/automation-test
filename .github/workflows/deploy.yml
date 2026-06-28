@@ -59,11 +59,12 @@ jobs:
             --memory 4 \
             --ports 8001 \
             --ip-address Public \
+            --location indonesiacentral \
             --os-type Linux \
             --restart-policy Always \
             --environment-variables \
               EXECUTION_HEADLESS=true \
-              EXECUTION_LLM_MODEL=gemini-2.5-flash \
+              EXECUTION_LLM_MODEL=gemini-3.5-flash \
               EXECUTION_LLM_PROVIDER=gemini \
               NODE_CALLBACK_BASE_URL=https://automation-test-83e3.onrender.com/api \
               NODE_ENV=production \
