@@ -59,6 +59,7 @@ jobs:
             --memory 4 \
             --ports 8001 \
             --ip-address Public \
+            --os-type Linux \
             --restart-policy Always \
             --environment-variables \
               EXECUTION_HEADLESS=true \
