@@ -67,6 +67,13 @@ export const authApi = {
   },
 
   /**
+   * Mark onboarding as completed for the current user
+   */
+  completeOnboarding() {
+    return apiClient.patch('/auth/complete-onboarding');
+  },
+
+  /**
    * Logout user (client-side only for now)
    */
   logout() {

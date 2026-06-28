@@ -61,6 +61,7 @@ async function login({ email, password }) {
       id: user.id,
       email: user.email,
       name: user.name,
+      onboarding_completed: user.onboarding_completed ?? false,
     },
   };
 }
@@ -190,10 +191,22 @@ async function resetPassword({ resetToken, newPassword }) {
   return { message: 'Password reset successful' };
 }
 
+async function completeOnboarding(userId) {
+  const result = await query(
+    'UPDATE users SET onboarding_completed = TRUE, updated_at = NOW() WHERE id = $1 RETURNING id',
+    [userId]
+  );
+  if (result.rowCount === 0) {
+    throw { status: 404, message: 'User not found' };
+  }
+  return { message: 'Onboarding completed' };
+}
+
 module.exports = {
   register,
   login,
   forgotPassword,
   verifyOtp,
   resetPassword,
+  completeOnboarding,
 };

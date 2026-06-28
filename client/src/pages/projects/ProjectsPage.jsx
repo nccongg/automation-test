@@ -58,7 +58,7 @@ export default function ProjectsPage() {
         title="Projects"
         description="Manage your testing projects and recent runs"
         action={
-          <Button type="button" onClick={() => setCreateOpen(true)}>
+          <Button type="button" data-tour="btn-new-project" onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" />
             New Project
           </Button>

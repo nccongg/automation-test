@@ -60,6 +60,17 @@ export default function CreateProjectDialog({ open, onOpenChange, onCreated }) {
     cookieName, cookieValue,
   ]);
 
+  // Expose React state setters for ProductTour auto-fill
+  useEffect(() => {
+    if (!open) return;
+    window.__tourFill = {
+      "#project-name": setName,
+      "#project-description": setDescription,
+      "#project-base-url": setBaseUrl,
+    };
+    return () => { delete window.__tourFill; };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     setName("");
@@ -120,6 +131,9 @@ export default function CreateProjectDialog({ open, onOpenChange, onCreated }) {
     try {
       setIsSubmitting(true);
       const created = await createProject(payload);
+      if (document.body.hasAttribute("data-tour-dialog")) {
+        window.dispatchEvent(new CustomEvent("tour:advance"));
+      }
       onCreated?.(created);
       onOpenChange?.(false);
     } catch (err) {
@@ -134,6 +148,11 @@ export default function CreateProjectDialog({ open, onOpenChange, onCreated }) {
       <DialogContent
         showCloseButton={true}
         className="max-w-xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto"
+        onInteractOutside={(e) => {
+          if (document.body.hasAttribute("data-tour-dialog")) {
+            e.preventDefault();
+          }
+        }}
       >
         <DialogHeader>
           <DialogTitle>Create New Project</DialogTitle>
@@ -178,6 +197,10 @@ export default function CreateProjectDialog({ open, onOpenChange, onCreated }) {
               placeholder="https://yoursite.com"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
+              onBlur={() => {
+                const v = baseUrl.trim();
+                if (v && !/^https?:\/\//i.test(v)) setBaseUrl(`https://${v}`);
+              }}
               disabled={isSubmitting}
             />
           </div>
@@ -321,6 +344,7 @@ export default function CreateProjectDialog({ open, onOpenChange, onCreated }) {
             </Button>
             <Button
               type="submit"
+              data-tour="dialog-create-btn"
               disabled={!canSubmit || isSubmitting}
               className="w-full sm:w-auto bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)]"
             >

@@ -47,10 +47,20 @@ async function resetPassword(req, res, next) {
   }
 }
 
+async function completeOnboarding(req, res, next) {
+  try {
+    const data = await authService.completeOnboarding(req.user.userId);
+    res.json({ status: 'ok', data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
   forgotPassword,
   verifyOtp,
   resetPassword,
+  completeOnboarding,
 };

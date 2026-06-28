@@ -2,6 +2,7 @@
 
 const { Router } = require('express');
 const ctrl = require('./auth.controller');
+const authMiddleware = require('../../middleware/auth.middleware');
 
 const router = Router();
 
@@ -165,5 +166,21 @@ router.post('/verify-otp', ctrl.verifyOtp);
  *         description: Invalid or expired token
  */
 router.post('/reset-password', ctrl.resetPassword);
+
+/**
+ * @swagger
+ * /auth/complete-onboarding:
+ *   patch:
+ *     summary: Mark the current user's onboarding as completed
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Onboarding marked as completed
+ *       401:
+ *         description: Unauthorized
+ */
+router.patch('/complete-onboarding', authMiddleware, ctrl.completeOnboarding);
 
 module.exports = router;

@@ -20,12 +20,13 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useTheme } from "@/features/theme/ThemeContext";
 import useDocumentTitle, { titleFromPathname } from "@/hooks/useDocumentTitle";
 import RouteFallback from "@/shared/components/common/RouteFallback";
+import ProductTour from "@/shared/components/common/ProductTour";
 import { Suspense, useState, useEffect } from "react";
 
 const navItems = [
-  { to: "/", label: "Dashboard", Icon: LayoutDashboard },
-  { to: "/projects", label: "Projects", Icon: SquareKanban },
-  { to: "/settings", label: "Settings", Icon: SettingsIcon },
+  { to: "/", label: "Dashboard", Icon: LayoutDashboard, tourId: "nav-dashboard" },
+  { to: "/projects", label: "Projects", Icon: SquareKanban, tourId: "nav-projects" },
+  { to: "/settings", label: "Settings", Icon: SettingsIcon, tourId: "nav-settings" },
 ];
 
 const THEME_CYCLE = ["light", "dark", "system"];
@@ -87,6 +88,10 @@ export default function Layout() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const isDevTour = new URLSearchParams(window.location.search).has("tour");
+  const [showOnboarding, setShowOnboarding] = useState(
+    () => isDevTour || user?.onboarding_completed === false
+  );
 
   useDocumentTitle(titleFromPathname(location.pathname));
 
@@ -104,11 +109,12 @@ export default function Layout() {
     setIsMobileSidebarOpen(false);
   }, [location.pathname]);
 
-  // Determine if sidebar should be collapsed (considering hover state)
-  const showExpanded = isHovering || !isSidebarCollapsed;
+  // Keep sidebar expanded while product tour is active so targets are visible
+  const showExpanded = isHovering || !isSidebarCollapsed || showOnboarding;
 
   return (
     <div className="flex h-full overflow-hidden bg-background">
+      <ProductTour open={showOnboarding} onClose={() => setShowOnboarding(false)} devMode={isDevTour} />
       {/* Mobile Sidebar Overlay */}
       {isMobileSidebarOpen && (
         <div
@@ -150,7 +156,7 @@ export default function Layout() {
               end={item.to === "/"}
               className={({ isActive }) =>
                 [
-                  "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
                     : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground",
@@ -228,14 +234,20 @@ export default function Layout() {
 
         {/* Navigation */}
         <nav className="flex flex-col gap-1 px-3">
+          {showExpanded && (
+            <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/35 select-none">
+              Menu
+            </p>
+          )}
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === "/"}
+              data-tour={item.tourId}
               className={({ isActive }) =>
                 [
-                  "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                  "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
                     : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground",
@@ -243,8 +255,15 @@ export default function Layout() {
                 ].join(" ")
               }
             >
-              <item.Icon className="size-4 shrink-0" />
-              {showExpanded && item.label}
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="absolute -left-3 top-1/2 -translate-y-1/2 h-8 w-1 bg-[var(--brand-primary)] rounded-r-full" />
+                  )}
+                  <item.Icon className="size-4 shrink-0" />
+                  {showExpanded && item.label}
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -257,6 +276,7 @@ export default function Layout() {
             <ThemeToggle collapsed={true} />
           )}
           <div
+            data-tour="user-profile"
             className={`flex items-center gap-3 rounded-2xl border border-sidebar-border bg-background/30 px-3 py-2 ${
               !showExpanded ? "justify-center" : ""
             }`}
