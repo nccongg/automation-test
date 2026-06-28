@@ -55,8 +55,8 @@ jobs:
             --registry-login-server $ACR_LOGIN_SERVER \
             --registry-username "${{ secrets.ACR_USERNAME }}" \
             --registry-password "${{ secrets.ACR_PASSWORD }}" \
-            --cpu 2 \
-            --memory 4 \
+            --cpu 1 \
+            --memory 2 \
             --ports 8001 \
             --ip-address Public \
             --dns-name-label agent-worker-prod \
