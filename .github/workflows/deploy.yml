@@ -1,0 +1,71 @@
+name: Deploy to Azure Container Instance
+
+on:
+  push:
+    branches:
+      - main # đổi thành master nếu repo bạn dùng master
+
+env:
+  ACR_NAME: agentworkeracr
+  ACR_LOGIN_SERVER: agentworkeracr.azurecr.io
+  IMAGE_NAME: agent-worker
+  RESOURCE_GROUP: agent-worker
+  CONTAINER_NAME: agent-worker
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: |
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login \
+            $ACR_LOGIN_SERVER \
+            -u "${{ secrets.ACR_USERNAME }}" \
+            --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:latest ./agent-worker
+
+      - name: Push Docker image
+        run: |
+          docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:latest
+
+      - name: Delete old container
+        run: |
+          az container delete \
+            --resource-group $RESOURCE_GROUP \
+            --name $CONTAINER_NAME \
+            --yes || true
+
+      - name: Create new container
+        run: |
+          az container create \
+            --resource-group $RESOURCE_GROUP \
+            --name $CONTAINER_NAME \
+            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:latest \
+            --registry-login-server $ACR_LOGIN_SERVER \
+            --registry-username "${{ secrets.ACR_USERNAME }}" \
+            --registry-password "${{ secrets.ACR_PASSWORD }}" \
+            --cpu 2 \
+            --memory 4 \
+            --ports 8001 \
+            --ip-address Public \
+            --restart-policy Always \
+            --environment-variables \
+              EXECUTION_HEADLESS=true \
+              EXECUTION_LLM_MODEL=gemini-2.5-flash \
+              EXECUTION_LLM_PROVIDER=gemini \
+              NODE_CALLBACK_BASE_URL=https://automation-test-83e3.onrender.com/api \
+              NODE_ENV=production \
+            --secure-environment-variables \
+              GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
+              AGENT_CALLBACK_SECRET="${{ secrets.AGENT_CALLBACK_SECRET }}"

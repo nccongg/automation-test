@@ -1,0 +1,57 @@
+additional_properties: {}
+apiVersion: 2024-05-01-preview
+extended_location: null
+location: indonesiacentral
+name: agent-worker
+properties:
+  containers:
+    - name: agent-worker
+      properties:
+        configMap:
+          keyValuePairs: {}
+        environmentVariables:
+          - name: EXECUTION_HEADLESS
+            value: "true"
+          - name: EXECUTION_LLM_MODEL
+            value: gemini-2.5-flash
+          - name: EXECUTION_LLM_PROVIDER
+            value: gemini
+          - name: NODE_CALLBACK_BASE_URL
+            value: https://automation-test-83e3.onrender.com/api
+          - name: NODE_ENV
+            value: production
+          - name: GEMINI_API_KEY
+        image: agentworkeracr.azurecr.io/agent-worker:latest
+        ports:
+          - port: 80
+            protocol: TCP
+          - port: 8001
+            protocol: TCP
+        resources:
+          requests:
+            cpu: 2.0
+            memoryInGB: 4.0
+  diagnostics:
+    logAnalytics:
+      logType: ContainerInstanceLogs
+      workspaceId: 1bf58f39-a87a-440b-94e3-556969c6f3c0
+  imageRegistryCredentials:
+    - server: agentworkeracr.azurecr.io
+      username: agentworkeracr
+      password: __ACR_PASSWORD__
+  initContainers: []
+  ipAddress:
+    ports:
+      - port: 80
+        protocol: TCP
+      - port: 8001
+        protocol: TCP
+    type: Public
+  isCreatedFromStandbyPool: false
+  isCustomProvisioningTimeout: false
+  osType: Linux
+  provisioningTimeoutInSeconds: 1800
+  restartPolicy: Always
+  sku: Standard
+tags: {}
+type: Microsoft.ContainerInstance/containerGroups
