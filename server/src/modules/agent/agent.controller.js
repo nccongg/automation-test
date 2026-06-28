@@ -8,7 +8,14 @@ function getUserId(req) {
 
 function verifyCallbackSecret(req) {
   const expected = process.env.AGENT_CALLBACK_SECRET || "";
-  if (!expected) return true;
+  // Fail closed: if no secret is configured, reject all callbacks rather than
+  // accepting forged ones from the public internet.
+  if (!expected) {
+    console.error(
+      "[AgentController] AGENT_CALLBACK_SECRET is not set — rejecting callback.",
+    );
+    return false;
+  }
 
   const actual = req.headers["x-agent-callback-secret"];
   return actual === expected;
@@ -184,7 +191,7 @@ async function handleFastForwardInspect(req, res) {
     }
     const params = req.body?.params && typeof req.body.params === "object" ? req.body.params : {};
     const executeTargetStep = Boolean(req.body?.executeTargetStep);
-    const result = await agentService.fastForwardInspect({ scriptId, targetStepIndex, params, executeTargetStep });
+    const result = await agentService.fastForwardInspect({ scriptId, targetStepIndex, params, executeTargetStep, userId: getUserId(req) });
     return res.json({ status: "ok", data: result });
   } catch (error) {
     console.error("[AgentController.handleFastForwardInspect]", error);
@@ -201,7 +208,7 @@ async function handleSuggestFix(req, res) {
       return res.status(400).json({ status: "error", message: "targetStepIndex is required" });
     }
     const params = req.body?.params && typeof req.body.params === "object" ? req.body.params : {};
-    const result = await agentService.suggestStepFix({ scriptId, targetStepIndex, params });
+    const result = await agentService.suggestStepFix({ scriptId, targetStepIndex, params, userId: getUserId(req) });
     return res.json({ status: "ok", data: result });
   } catch (error) {
     console.error("[AgentController.handleSuggestFix]", error);
@@ -215,7 +222,7 @@ async function deleteScript(req, res) {
     if (!scriptId || !Number.isInteger(scriptId) || scriptId <= 0) {
       return res.status(400).json({ success: false, message: "Invalid script id" });
     }
-    await agentService.deleteExecutionScript({ scriptId });
+    await agentService.deleteExecutionScript({ scriptId, userId: getUserId(req) });
     return res.json({ success: true });
   } catch (error) {
     return sendError(res, error, "Failed to delete script");

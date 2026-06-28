@@ -131,7 +131,7 @@ async function handlePageProgress(
   scanId,
   { url, title, depth, pageIndex, secret },
 ) {
-  if (secret !== CALLBACK_SECRET) {
+  if (!CALLBACK_SECRET || secret !== CALLBACK_SECRET) {
     console.warn(
       `[scan:handlePageProgress] invalid secret for scanId=${scanId}`,
     );
@@ -156,7 +156,7 @@ async function handleCrawlCallback(
   scanId,
   { status, sitemap, interactionMap, errorMessage, secret },
 ) {
-  if (secret !== CALLBACK_SECRET) {
+  if (!CALLBACK_SECRET || secret !== CALLBACK_SECRET) {
     console.warn(
       `[scan:handleCrawlCallback] invalid secret for scanId=${scanId}`,
     );

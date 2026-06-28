@@ -2,8 +2,22 @@
 
 const { Router } = require('express');
 const agentController = require('./agent.controller');
+const authMiddleware = require('../../middleware/auth.middleware');
 
 const router = Router();
+
+/**
+ * Callbacks from Python worker — authenticated via the shared
+ * x-agent-callback-secret header (NOT a user JWT), so they are registered
+ * before the auth middleware below.
+ * POST /api/agent/callbacks/step
+ * POST /api/agent/callbacks/final
+ */
+router.post('/callbacks/step', agentController.handleStepCallback);
+router.post('/callbacks/final', agentController.handleFinalCallback);
+
+// Every route below requires an authenticated user (JWT bearer token).
+router.use(authMiddleware);
 
 /**
  * Start normal agent run
@@ -37,14 +51,6 @@ router.post('/run', agentController.startRun);
  * }
  */
 router.post('/replay', agentController.replayRun);
-
-/**
- * Callbacks from Python worker
- * POST /api/agent/callbacks/step
- * POST /api/agent/callbacks/final
- */
-router.post('/callbacks/step', agentController.handleStepCallback);
-router.post('/callbacks/final', agentController.handleFinalCallback);
 
 /**
  * Parameterize an execution script — replace hardcoded step values with {{var}} templates

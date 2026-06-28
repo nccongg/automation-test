@@ -44,6 +44,36 @@ async function findTestCaseBundle(testCaseId, testCaseVersionId = null) {
   return result.rows[0] || null;
 }
 
+// ─── Ownership lookups ────────────────────────────────────────────────────────
+// Resolve the owning user for a test case (test_cases → projects.user_id).
+async function getTestCaseOwnerId(testCaseId) {
+  const sql = `
+    SELECT p.user_id
+    FROM public.test_cases tc
+    JOIN public.projects p ON p.id = tc.project_id
+    WHERE tc.id = $1
+      AND tc.deleted_at IS NULL
+    LIMIT 1
+  `;
+  const result = await query(sql, [testCaseId]);
+  return result.rows[0]?.user_id ?? null;
+}
+
+// Resolve the owning user for an execution script
+// (execution_scripts → test_cases → projects.user_id).
+async function getExecutionScriptOwnerId(executionScriptId) {
+  const sql = `
+    SELECT p.user_id
+    FROM public.execution_scripts es
+    JOIN public.test_cases tc ON tc.id = es.test_case_id
+    JOIN public.projects p ON p.id = tc.project_id
+    WHERE es.id = $1
+    LIMIT 1
+  `;
+  const result = await query(sql, [executionScriptId]);
+  return result.rows[0]?.user_id ?? null;
+}
+
 async function findRuntimeConfigById(runtimeConfigId) {
   const sql = `
     SELECT
@@ -854,6 +884,8 @@ async function getBatchDetail(batchId) {
 module.exports = {
   query,
   findTestCaseBundle,
+  getTestCaseOwnerId,
+  getExecutionScriptOwnerId,
   findRuntimeConfigById,
   findBrowserProfileById,
   findExecutionScriptById,

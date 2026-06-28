@@ -5,6 +5,29 @@ const env = require("../../config/env");
 
 const AGENT_WORKER_BASE_URL = env.AGENT_WORKER_BASE_URL;
 
+// ─── Ownership guards ─────────────────────────────────────────────────────────
+// These ensure a user can only act on test cases / execution scripts that belong
+// to one of their own projects. Throws 401/403/404 instead of leaking data.
+async function assertTestCaseOwnership(testCaseId, userId) {
+  if (!userId) throw { status: 401, message: "Unauthorized" };
+  const ownerId = await agentRepository.getTestCaseOwnerId(testCaseId);
+  if (ownerId === null) throw { status: 404, message: "Test case not found" };
+  if (Number(ownerId) !== Number(userId)) {
+    throw { status: 403, message: "Forbidden" };
+  }
+}
+
+async function assertScriptOwnership(scriptId, userId) {
+  if (!userId) throw { status: 401, message: "Unauthorized" };
+  const ownerId = await agentRepository.getExecutionScriptOwnerId(scriptId);
+  if (ownerId === null) {
+    throw { status: 404, message: "Execution script not found" };
+  }
+  if (Number(ownerId) !== Number(userId)) {
+    throw { status: 403, message: "Forbidden" };
+  }
+}
+
 const SUPPORTED_WORKER_EXECUTION_MODES = new Set([
   "goal_based_agent",
   "replay_script",
@@ -421,6 +444,8 @@ async function startAgentRun({
   paramsOverride = {},
   triggeredBy = null,
 }) {
+  await assertTestCaseOwnership(testCaseId, triggeredBy);
+
   const bundle = await agentRepository.findTestCaseBundle(
     testCaseId,
     testCaseVersionId,
@@ -584,6 +609,9 @@ async function replayAgentRun({
   params = {},
   triggeredBy = null,
 }) {
+  await assertTestCaseOwnership(testCaseId, triggeredBy);
+  await assertScriptOwnership(executionScriptId, triggeredBy);
+
   const script =
     await agentRepository.findExecutionScriptById(executionScriptId);
   if (!script) throw new Error("Execution script not found");
@@ -945,7 +973,8 @@ async function postToWorkerInspect(payload) {
   }
 }
 
-async function fastForwardInspect({ scriptId, targetStepIndex, params = {}, executeTargetStep = false }) {
+async function fastForwardInspect({ scriptId, targetStepIndex, params = {}, executeTargetStep = false, userId = null }) {
+  await assertScriptOwnership(scriptId, userId);
   const script = await agentRepository.findExecutionScriptById(scriptId);
   if (!script) throw { status: 404, message: "Script not found" };
 
@@ -957,7 +986,8 @@ async function fastForwardInspect({ scriptId, targetStepIndex, params = {}, exec
   return postToWorkerInspect({ steps, targetStepIndex, params, executeTargetStep });
 }
 
-async function suggestStepFix({ scriptId, targetStepIndex, params = {} }) {
+async function suggestStepFix({ scriptId, targetStepIndex, params = {}, userId = null }) {
+  await assertScriptOwnership(scriptId, userId);
   const script = await agentRepository.findExecutionScriptById(scriptId);
   if (!script) throw { status: 404, message: "Script not found" };
 
@@ -1056,6 +1086,8 @@ async function parameterizeExecutionScript({ scriptId, steps, userId }) {
   if (!scriptId) throw { status: 400, message: "scriptId is required" };
   if (!Array.isArray(steps)) throw { status: 400, message: "steps must be an array" };
 
+  await assertScriptOwnership(scriptId, userId);
+
   const script = await agentRepository.findExecutionScriptById(scriptId);
   if (!script) throw { status: 404, message: "Execution script not found" };
 
@@ -1076,7 +1108,8 @@ async function parameterizeExecutionScript({ scriptId, steps, userId }) {
   };
 }
 
-async function deleteExecutionScript({ scriptId }) {
+async function deleteExecutionScript({ scriptId, userId = null }) {
+  await assertScriptOwnership(scriptId, userId);
   const script = await agentRepository.findExecutionScriptById(scriptId);
   if (!script) throw { status: 404, message: "Execution script not found" };
   const deleted = await agentRepository.deactivateExecutionScript(scriptId);
