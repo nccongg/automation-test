@@ -68,4 +68,29 @@ async function softDelete(id) {
   await query(sql, [id]);
 }
 
-module.exports = { listByProject, findById, create, update, softDelete };
+async function insertGenerationLog({
+  projectId,
+  datasetId = null,
+  prompt,
+  rowCount,
+  llmProvider = null,
+  llmModel = null,
+  startedAt,
+  finishedAt,
+  durationMs,
+  success,
+  errorMessage = null,
+}) {
+  const sql = `
+    INSERT INTO public.dataset_generation_logs
+      (project_id, dataset_id, prompt, row_count, llm_provider, llm_model,
+       started_at, finished_at, duration_ms, success, error_message)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+  `;
+  await query(sql, [
+    projectId, datasetId, prompt, rowCount, llmProvider, llmModel,
+    startedAt, finishedAt, durationMs, success, errorMessage,
+  ]);
+}
+
+module.exports = { listByProject, findById, create, update, softDelete, insertGenerationLog };

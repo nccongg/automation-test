@@ -204,11 +204,14 @@ async function generateTestCases(userId, { prompt, projectId }) {
   const scanContext =
     await scanRepository.getLatestCompletedScanByProject(projectIdNum);
 
+  const generationStartedAt = new Date();
   const llmResult = await llmService.generateTestCases(
     userId,
     trimmedPrompt,
     scanContext,
   );
+  const generationFinishedAt = new Date();
+  const generationDurationMs = generationFinishedAt - generationStartedAt;
 
   const rawCases = Array.isArray(llmResult)
     ? llmResult
@@ -229,6 +232,9 @@ async function generateTestCases(userId, { prompt, projectId }) {
       process.env.LLM_PROVIDER ||
       null,
     candidates: normalizedCandidates,
+    generationStartedAt,
+    generationFinishedAt,
+    generationDurationMs,
   });
 }
 

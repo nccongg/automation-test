@@ -69,13 +69,37 @@ async function generateDatasetWithAI({ projectId, prompt, rowCount, scriptSteps,
   if (!projectId) throw { status: 400, message: "projectId is required" };
 
   const { generateDataset } = require("../llm/llm.service");
-  const result = await generateDataset({
-    goal: goal || "",
-    scriptSteps: Array.isArray(scriptSteps) ? scriptSteps : [],
-    userPrompt: prompt.trim(),
-    rowCount: Math.min(Math.max(parseInt(rowCount) || 5, 1), 50),
-    initialRow: (initialRow && typeof initialRow === "object" && !Array.isArray(initialRow)) ? initialRow : null,
-  });
+  const startedAt = new Date();
+  let success = true;
+  let errorMessage = null;
+  let result;
+
+  try {
+    result = await generateDataset({
+      goal: goal || "",
+      scriptSteps: Array.isArray(scriptSteps) ? scriptSteps : [],
+      userPrompt: prompt.trim(),
+      rowCount: Math.min(Math.max(parseInt(rowCount) || 5, 1), 50),
+      initialRow: (initialRow && typeof initialRow === "object" && !Array.isArray(initialRow)) ? initialRow : null,
+    });
+  } catch (err) {
+    success = false;
+    errorMessage = err?.message || String(err);
+    throw err;
+  } finally {
+    const finishedAt = new Date();
+    const durationMs = finishedAt - startedAt;
+    repo.insertGenerationLog({
+      projectId,
+      prompt: prompt.trim(),
+      rowCount: Math.min(Math.max(parseInt(rowCount) || 5, 1), 50),
+      startedAt,
+      finishedAt,
+      durationMs,
+      success,
+      errorMessage,
+    }).catch(() => {});
+  }
 
   return result;
 }

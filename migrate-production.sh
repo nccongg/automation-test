@@ -71,6 +71,8 @@ run_migration "$MIGRATIONS_DIR/015_add_evidence_file_data.sql"        "015_add_e
 run_migration "$MIGRATIONS_DIR/016_add_test_run_dataset_bindings_columns.sql" "016_add_test_run_dataset_bindings_columns"
 run_migration "$MIGRATIONS_DIR/017_add_test_suite_runs_ai_analysis.sql"       "017_add_test_suite_runs_ai_analysis"
 run_migration "$MIGRATIONS_DIR/018_password_reset_otps.sql"                   "018_password_reset_otps"
+run_migration "$MIGRATIONS_DIR/019_add_onboarding_completed.sql"               "019_add_onboarding_completed"
+run_migration "$MIGRATIONS_DIR/020_eval_log_fields.sql"                        "020_eval_log_fields"
 
 # ── Add new migrations here as the schema evolves ────────────────────────────
 

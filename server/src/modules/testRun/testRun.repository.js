@@ -90,6 +90,9 @@ async function createGenerationBatchWithCandidates({
   llmProvider,
   llmModel,
   candidates,
+  generationStartedAt = null,
+  generationFinishedAt = null,
+  generationDurationMs = null,
 }) {
   const client = await pool.connect();
 
@@ -105,10 +108,14 @@ async function createGenerationBatchWithCandidates({
           llm_provider,
           llm_model,
           candidate_count,
-          created_by
+          created_by,
+          generation_started_at,
+          generation_finished_at,
+          generation_duration_ms
         )
-        VALUES ($1, $2, 'generated', $3, $4, $5, $6)
-        RETURNING id, project_id, source_prompt, status, llm_provider, llm_model, candidate_count, created_at
+        VALUES ($1, $2, 'generated', $3, $4, $5, $6, $7, $8, $9)
+        RETURNING id, project_id, source_prompt, status, llm_provider, llm_model, candidate_count, created_at,
+                  generation_started_at, generation_finished_at, generation_duration_ms
       `,
       [
         projectId,
@@ -117,6 +124,9 @@ async function createGenerationBatchWithCandidates({
         llmModel,
         candidates.length,
         userId,
+        generationStartedAt,
+        generationFinishedAt,
+        generationDurationMs,
       ]
     );
 
