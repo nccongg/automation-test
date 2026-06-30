@@ -700,6 +700,7 @@ async function clearUnselectedAiGeneration({ userId, projectId }) {
         WHERE c.batch_id = b.id
           AND b.project_id = $1
           AND b.created_by = $2
+          AND c.is_selected = FALSE
         RETURNING c.id
       `,
       [projectId, userId],
