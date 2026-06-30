@@ -68,6 +68,7 @@ async function generateFromGemini(messages, opts = {}) {
   console.log("[llm/gemini] raw response:", text);
 
   const usage = result.response.usageMetadata;
+  console.log("[gemini] usageMetadata:", JSON.stringify(usage));
   return {
     text,
     inputTokens: usage?.promptTokenCount ?? null,

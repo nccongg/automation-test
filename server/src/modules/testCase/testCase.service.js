@@ -213,6 +213,10 @@ async function generateTestCases(userId, { prompt, projectId }) {
   const generationFinishedAt = new Date();
   const generationDurationMs = generationFinishedAt - generationStartedAt;
 
+  console.log("[generateTestCases] durationMs:", generationDurationMs,
+    "| inputTokens:", llmResult?.inputTokens,
+    "| outputTokens:", llmResult?.outputTokens);
+
   const rawCases = Array.isArray(llmResult)
     ? llmResult
     : Array.isArray(llmResult?.testCases)

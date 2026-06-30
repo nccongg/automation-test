@@ -535,25 +535,15 @@ async function saveCandidatesAsTestCases({
         [versionId, testCaseId],
       );
 
-      if (isAiDraft) {
-        await client.query(
-          `
-            UPDATE test_case_generation_candidates
-            SET is_selected = TRUE,
-                selected_test_case_id = $1
-            WHERE id = $2
-          `,
-          [testCaseId, candidate.id],
-        );
-      } else {
-        await client.query(
-          `
-            DELETE FROM test_case_generation_candidates
-            WHERE id = $1
-          `,
-          [candidate.id],
-        );
-      }
+      await client.query(
+        `
+          UPDATE test_case_generation_candidates
+          SET is_selected = TRUE,
+              selected_test_case_id = $1
+          WHERE id = $2
+        `,
+        [testCaseId, candidate.id],
+      );
 
       saved.push({
         id: testCaseId,
