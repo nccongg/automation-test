@@ -554,9 +554,11 @@ async function recalcSheetRunSummary(testSheetRunId) {
   const result = await pool.query(
     `UPDATE test_suite_runs tsr
      SET
-       passed  = sub.passed,
-       failed  = sub.failed,
-       errored = sub.errored,
+       passed              = sub.passed,
+       failed              = sub.failed,
+       errored             = sub.errored,
+       total_input_tokens  = sub.total_input_tokens,
+       total_output_tokens = sub.total_output_tokens,
        status  = CASE
                    WHEN sub.pending_count = 0 THEN 'completed'
                    ELSE 'running'
@@ -574,7 +576,9 @@ async function recalcSheetRunSummary(testSheetRunId) {
                WHEN tsri.status IN ('failed','cancelled') THEN 1
                ELSE 0
              END) AS errored,
-         SUM(CASE WHEN tsri.status IN ('pending','queued','running') THEN 1 ELSE 0 END) AS pending_count
+         SUM(CASE WHEN tsri.status IN ('pending','queued','running') THEN 1 ELSE 0 END) AS pending_count,
+         SUM(tr.agent_input_tokens)  AS total_input_tokens,
+         SUM(tr.agent_output_tokens) AS total_output_tokens
        FROM test_suite_run_items tsri
        LEFT JOIN test_runs tr ON tr.id = tsri.test_run_id
        WHERE tsri.test_suite_run_id = $1

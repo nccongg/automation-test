@@ -129,6 +129,14 @@ SELECT
     ELSE ''
   END                                                        AS "Total Tokens",
 
+  COALESCE(tr.agent_input_tokens::text, '')                  AS "Agent Input Tokens",
+  COALESCE(tr.agent_output_tokens::text, '')                 AS "Agent Output Tokens",
+  CASE
+    WHEN tr.agent_input_tokens IS NOT NULL AND tr.agent_output_tokens IS NOT NULL
+    THEN (tr.agent_input_tokens + tr.agent_output_tokens)::text
+    ELSE ''
+  END                                                        AS "Agent Total Tokens",
+
   -- Thời gian thực thi test case trên trình duyệt
   CASE
     WHEN tr.started_at IS NOT NULL AND tr.finished_at IS NOT NULL
@@ -397,6 +405,9 @@ COLUMN_DESCRIPTIONS = {
         ("Input Tokens",             "Số token đầu vào (prompt) gửi lên LLM khi sinh test case."),
         ("Output Tokens",            "Số token đầu ra (response) LLM trả về khi sinh test case."),
         ("Total Tokens",             "Tổng Input + Output Tokens. Dùng để ước tính chi phí API và so sánh độ phức tạp giữa các lần sinh."),
+        ("Agent Input Tokens",       "Số token đầu vào LLM dùng trong quá trình agent tự động điều hướng trình duyệt."),
+        ("Agent Output Tokens",      "Số token đầu ra LLM trong quá trình agent chạy."),
+        ("Agent Total Tokens",       "Tổng token agent dùng khi thực thi. Dùng để ước tính chi phí chạy test."),
         ("Execution Time",           "Thời gian agent Selenium thực thi toàn bộ test case trên trình duyệt (tính bằng giây)."),
         ("Total Time",               "Tổng thời gian = Generation Time + Execution Time. Đo toàn bộ chu trình từ lúc nhập prompt đến khi có kết quả kiểm thử."),
         ("Reusable?",                "Test case có thể tái sử dụng không? Yes = pass và đã có execution script; Partial = pass nhưng chưa có script; No = fail."),

@@ -479,6 +479,8 @@ async function startAgentRun({
     testCaseVersionId: bundle.test_case_version_id,
     triggeredBy,
     status: "running",
+    llmProvider: runtimeConfig.llm_provider || null,
+    llmModel: runtimeConfig.llm_model || null,
   });
 
   const attempt = await agentRepository.createTestRunAttempt({
@@ -650,6 +652,8 @@ async function replayAgentRun({
     testCaseVersionId: bundle.test_case_version_id,
     triggeredBy,
     status: "running",
+    llmProvider: runtimeConfig.llm_provider || null,
+    llmModel: runtimeConfig.llm_model || null,
   });
 
   const attempt = await agentRepository.createTestRunAttempt({
@@ -880,6 +884,8 @@ async function handleFinalCallback(payload) {
     executionLog: deepSanitize(payload.executionLog || null),
     evidenceSummary: deepSanitize(payload.evidenceSummary || null),
     errorMessage: sanitizeFreeText(payload.errorMessage || null),
+    agentInputTokens: payload.tokenUsage?.inputTokens ?? null,
+    agentOutputTokens: payload.tokenUsage?.outputTokens ?? null,
   });
 
   try {

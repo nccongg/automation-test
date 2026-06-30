@@ -1397,6 +1397,21 @@ async def execute_llm_run(run_req: RunRequest) -> None:
                 bool(gemini_api_key), len(recorded_script.get("steps") or []),
             )
 
+        usage = getattr(history, "usage", None)
+        token_usage = None
+        if usage is not None:
+            token_usage = {
+                "inputTokens": getattr(usage, "total_prompt_tokens", None),
+                "outputTokens": getattr(usage, "total_completion_tokens", None),
+            }
+        logger.info(
+            "[execute_llm_run] token_usage — history.usage=%r entry_count=%s input=%s output=%s",
+            type(usage).__name__ if usage is not None else None,
+            getattr(usage, "entry_count", None),
+            token_usage.get("inputTokens") if token_usage else None,
+            token_usage.get("outputTokens") if token_usage else None,
+        )
+
         await post_final_event(
             {
                 "testRunId": run_req.testRunId,
@@ -1421,6 +1436,7 @@ async def execute_llm_run(run_req: RunRequest) -> None:
                     "paramsSchema": recorded_script.get("paramsSchema", {}),
                 },
                 "testObjects": test_objects,
+                "tokenUsage": token_usage,
             }
         )
     except Exception as exc:

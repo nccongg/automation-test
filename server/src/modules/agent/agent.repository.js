@@ -144,6 +144,8 @@ async function createTestRun({
   testCaseVersionId,
   triggeredBy = null,
   status = 'running',
+  llmProvider = null,
+  llmModel = null,
 }) {
   const sql = `
     INSERT INTO public.test_runs (
@@ -152,12 +154,14 @@ async function createTestRun({
       status,
       verdict,
       triggered_by,
+      llm_provider,
+      llm_model,
       started_at
     )
-    VALUES ($1, $2, $3, NULL, $4, NOW())
+    VALUES ($1, $2, $3, NULL, $4, $5, $6, NOW())
     RETURNING *
   `;
-  const result = await query(sql, [testCaseId, testCaseVersionId, status, triggeredBy]);
+  const result = await query(sql, [testCaseId, testCaseVersionId, status, triggeredBy, llmProvider, llmModel]);
   return result.rows[0];
 }
 
@@ -382,6 +386,8 @@ async function updateRunFinal({
   executionLog,
   evidenceSummary,
   errorMessage,
+  agentInputTokens = null,
+  agentOutputTokens = null,
 }) {
   const sql = `
     UPDATE public.test_runs
@@ -391,6 +397,8 @@ async function updateRunFinal({
       execution_log = $4::jsonb,
       evidence_summary = $5::jsonb,
       error_message = $6,
+      agent_input_tokens = $7,
+      agent_output_tokens = $8,
       finished_at = NOW()
     WHERE id = $1
     RETURNING *
@@ -402,7 +410,17 @@ async function updateRunFinal({
     executionLog ? JSON.stringify(executionLog) : null,
     evidenceSummary ? JSON.stringify(evidenceSummary) : null,
     errorMessage,
+    agentInputTokens,
+    agentOutputTokens,
   ]);
+
+  if (verdict) {
+    await query(
+      `UPDATE public.test_run_dataset_bindings SET verdict = $1 WHERE test_run_id = $2`,
+      [verdict, testRunId]
+    );
+  }
+
   return result.rows[0] || null;
 }
 

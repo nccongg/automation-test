@@ -535,25 +535,15 @@ async function saveCandidatesAsTestCases({
         [versionId, testCaseId],
       );
 
-      if (isAiDraft) {
-        await client.query(
-          `
-            UPDATE test_case_generation_candidates
-            SET is_selected = TRUE,
-                selected_test_case_id = $1
-            WHERE id = $2
-          `,
-          [testCaseId, candidate.id],
-        );
-      } else {
-        await client.query(
-          `
-            DELETE FROM test_case_generation_candidates
-            WHERE id = $1
-          `,
-          [candidate.id],
-        );
-      }
+      await client.query(
+        `
+          UPDATE test_case_generation_candidates
+          SET is_selected = TRUE,
+              selected_test_case_id = $1
+          WHERE id = $2
+        `,
+        [testCaseId, candidate.id],
+      );
 
       saved.push({
         id: testCaseId,
@@ -710,6 +700,7 @@ async function clearUnselectedAiGeneration({ userId, projectId }) {
         WHERE c.batch_id = b.id
           AND b.project_id = $1
           AND b.created_by = $2
+          AND c.is_selected = FALSE
         RETURNING c.id
       `,
       [projectId, userId],
