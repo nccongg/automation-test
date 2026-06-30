@@ -24,7 +24,7 @@ except ImportError:
 
 try:
     from dotenv import load_dotenv
-    load_dotenv(Path(__file__).parent / ".env")
+    load_dotenv(Path(__file__).parent / "server" / ".env")
 except ImportError:
     pass
 
@@ -46,13 +46,11 @@ def get_conn():
 
 # ── Queries ────────────────────────────────────────────────────────────────────
 
-# Sheet 1: Bảng đánh giá chính theo format thầy
+# Sheet 1: Bảng đánh giá chính
 QUERY_EVAL_LOG = """
 SELECT
-  -- Task ID: tự sinh từ id
   'TC' || LPAD(tc.id::text, 2, '0')                          AS "Task ID",
 
-  -- Module: tự detect từ prompt/goal
   CASE
     WHEN LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%login%'
       OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%sign in%'
@@ -76,13 +74,14 @@ SELECT
     ELSE 'Other'
   END                                                         AS "Module",
 
-  -- Prompt input
-  COALESCE(tra.agent_prompt, tc.goal)                        AS "Prompt Input",
+  -- Prompt gốc người dùng nhập để sinh test case
+  COALESCE(b.source_prompt, '')                              AS "User Prompt",
 
-  -- Generated tree correct: để trống, tự đánh giá
+  -- Test case được sinh ra (goal / agent prompt)
+  COALESCE(tra.agent_prompt, tc.goal)                        AS "Generated Test Case",
+
   COALESCE(tr.generated_tree_correct, '')                    AS "Generated Tree Correct?",
 
-  -- Execution result
   CASE tr.verdict
     WHEN 'pass'              THEN 'Pass'
     WHEN 'pass_with_warning' THEN 'Pass'
@@ -91,7 +90,6 @@ SELECT
     ELSE COALESCE(tr.verdict, '')
   END                                                        AS "Execution Result",
 
-  -- Failure type: map từ technical → semantic
   CASE
     WHEN tr.verdict IN ('pass', 'pass_with_warning') THEN ''
     ELSE COALESCE((
@@ -116,14 +114,22 @@ SELECT
     ), '')
   END                                                        AS "Failure Type",
 
-  -- Generation time: thời gian LLM sinh testcase
+  -- Thời gian LLM sinh test case (từ batch generation)
   CASE
     WHEN b.generation_duration_ms IS NOT NULL
     THEN ROUND(b.generation_duration_ms / 1000.0, 2)::text || 's'
     ELSE ''
   END                                                        AS "Generation Time",
 
-  -- Execution time: thời gian chạy testcase
+  COALESCE(b.input_tokens::text, '')                         AS "Input Tokens",
+  COALESCE(b.output_tokens::text, '')                        AS "Output Tokens",
+  CASE
+    WHEN b.input_tokens IS NOT NULL AND b.output_tokens IS NOT NULL
+    THEN (b.input_tokens + b.output_tokens)::text
+    ELSE ''
+  END                                                        AS "Total Tokens",
+
+  -- Thời gian thực thi test case trên trình duyệt
   CASE
     WHEN tr.started_at IS NOT NULL AND tr.finished_at IS NOT NULL
     THEN ROUND(EXTRACT(EPOCH FROM (tr.finished_at - tr.started_at))::numeric, 1)::text || 's'
@@ -132,7 +138,18 @@ SELECT
     ELSE ''
   END                                                        AS "Execution Time",
 
-  -- Reusable: tự tính từ verdict + có script không
+  -- Tổng thời gian = generation + execution
+  CASE
+    WHEN b.generation_duration_ms IS NOT NULL
+      AND tr.started_at IS NOT NULL AND tr.finished_at IS NOT NULL
+    THEN ROUND(
+      (b.generation_duration_ms / 1000.0
+        + EXTRACT(EPOCH FROM (tr.finished_at - tr.started_at))
+      )::numeric, 1
+    )::text || 's'
+    ELSE ''
+  END                                                        AS "Total Time",
+
   CASE
     WHEN tr.verdict = 'pass'              AND es.id IS NOT NULL THEN 'Yes'
     WHEN tr.verdict = 'pass_with_warning' AND es.id IS NOT NULL THEN 'Partial'
@@ -140,7 +157,6 @@ SELECT
     ELSE 'No'
   END                                                        AS "Reusable?",
 
-  -- Notes
   COALESCE(tr.run_notes,
     CASE
       WHEN tr.verdict IN ('fail','error')
@@ -154,7 +170,6 @@ SELECT
     END
   , '')                                                      AS "Notes",
 
-  -- Meta (ẩn hoặc tham khảo)
   tr.id                                                      AS "Run ID",
   tra.trigger_type                                           AS "Run Type",
   p.name                                                     AS "Project",
@@ -194,6 +209,13 @@ SELECT
     THEN ROUND(b.generation_duration_ms / 1000.0, 2)::text || 's'
     ELSE ''
   END                                                      AS "Duration",
+  COALESCE(b.input_tokens::text, '')                       AS "Input Tokens",
+  COALESCE(b.output_tokens::text, '')                      AS "Output Tokens",
+  CASE
+    WHEN b.input_tokens IS NOT NULL AND b.output_tokens IS NOT NULL
+    THEN (b.input_tokens + b.output_tokens)::text
+    ELSE ''
+  END                                                      AS "Total Tokens",
   p.name                                                   AS "Project",
   b.created_at                                             AS "Created At"
 FROM test_case_generation_batches b
@@ -219,6 +241,13 @@ SELECT
     THEN ROUND(dgl.duration_ms / 1000.0, 2)::text || 's'
     ELSE ''
   END                                                     AS "Duration",
+  COALESCE(dgl.input_tokens::text, '')                     AS "Input Tokens",
+  COALESCE(dgl.output_tokens::text, '')                    AS "Output Tokens",
+  CASE
+    WHEN dgl.input_tokens IS NOT NULL AND dgl.output_tokens IS NOT NULL
+    THEN (dgl.input_tokens + dgl.output_tokens)::text
+    ELSE ''
+  END                                                     AS "Total Tokens",
   CASE WHEN dgl.success THEN 'Success' ELSE 'Failed' END  AS "Result",
   COALESCE(dgl.error_message, '')                         AS "Error",
   dgl.created_at                                          AS "Created At"
@@ -353,6 +382,84 @@ def export_csv(cols, rows, path: str):
             w.writerow(clean_row(row))
 
 
+# ── Column Descriptions ────────────────────────────────────────────────────────
+
+COLUMN_DESCRIPTIONS = {
+    "Evaluation Log": [
+        ("Task ID",                  "Mã định danh test case, sinh tự động theo định dạng TC01, TC02, …"),
+        ("Module",                   "Nhóm chức năng được kiểm thử, tự phát hiện từ nội dung test case (Login, PIM, Leave, Recruitment, Time & Attendance, Admin, Other)."),
+        ("User Prompt",              "Prompt gốc do người dùng nhập vào hệ thống để yêu cầu sinh test case. Đây là đầu vào của LLM."),
+        ("Generated Test Case",      "Nội dung test case (goal/steps) do LLM sinh ra từ User Prompt. Đây là đầu vào thực tế được truyền cho agent khi thực thi."),
+        ("Generated Tree Correct?",  "Đánh giá thủ công: cây hành động do LLM sinh ra có đúng không? (Yes / No / Partial — để trống nếu chưa đánh giá)."),
+        ("Execution Result",         "Kết quả thực thi trên trình duyệt: Pass (thành công) hoặc Fail (thất bại)."),
+        ("Failure Type",             "Loại lỗi khi thất bại: Bad locator (không tìm được phần tử), Timeout (quá thời gian chờ), App error (lỗi ứng dụng), Prompt misunderstanding (agent hiểu sai prompt)."),
+        ("Generation Time",          "Thời gian LLM sinh ra test case từ User Prompt (tính bằng giây). Không có giá trị nếu test case được tạo thủ công."),
+        ("Input Tokens",             "Số token đầu vào (prompt) gửi lên LLM khi sinh test case."),
+        ("Output Tokens",            "Số token đầu ra (response) LLM trả về khi sinh test case."),
+        ("Total Tokens",             "Tổng Input + Output Tokens. Dùng để ước tính chi phí API và so sánh độ phức tạp giữa các lần sinh."),
+        ("Execution Time",           "Thời gian agent Selenium thực thi toàn bộ test case trên trình duyệt (tính bằng giây)."),
+        ("Total Time",               "Tổng thời gian = Generation Time + Execution Time. Đo toàn bộ chu trình từ lúc nhập prompt đến khi có kết quả kiểm thử."),
+        ("Reusable?",                "Test case có thể tái sử dụng không? Yes = pass và đã có execution script; Partial = pass nhưng chưa có script; No = fail."),
+        ("Notes",                    "Ghi chú bổ sung: thông báo lỗi đầu tiên khi fail, hoặc ghi chú thủ công của người dùng."),
+        ("Run ID",                   "ID nội bộ của lần chạy (test_runs.id), dùng để tra cứu chi tiết trong DB."),
+        ("Run Type",                 "Loại trigger: initial (chạy lần đầu), replay (chạy lại), scheduled, …"),
+        ("Project",                  "Tên project chứa test case này."),
+        ("Run Date",                 "Thời điểm bắt đầu thực thi test case (UTC)."),
+    ],
+    "TC Generation Time": [
+        ("Task ID",       "Mã test case được sinh ra từ batch này (TC01, TC02, …)."),
+        ("Test Case",     "Tiêu đề test case được chọn từ batch."),
+        ("Prompt",        "Prompt gốc người dùng nhập để sinh batch test case."),
+        ("LLM Provider",  "Nhà cung cấp LLM được dùng để sinh test case (ví dụ: google)."),
+        ("LLM Model",     "Tên model cụ thể (ví dụ: gemini-2.0-flash)."),
+        ("Candidates",    "Số lượng test case được sinh ra trong một lần gọi LLM."),
+        ("Started At",    "Thời điểm bắt đầu gọi LLM."),
+        ("Finished At",   "Thời điểm LLM trả về kết quả."),
+        ("Duration",      "Thời gian LLM xử lý (Finished At − Started At), tính bằng giây."),
+        ("Input Tokens",  "Số token prompt gửi lên LLM."),
+        ("Output Tokens", "Số token response LLM trả về."),
+        ("Total Tokens",  "Tổng Input + Output Tokens của batch này."),
+        ("Project",       "Tên project."),
+        ("Created At",    "Thời điểm tạo batch."),
+    ],
+    "Dataset Gen Time": [
+        ("Project",       "Tên project."),
+        ("Prompt",        "Prompt dùng để sinh dataset."),
+        ("Row Count",     "Số dòng dữ liệu được sinh ra."),
+        ("LLM Provider",  "Nhà cung cấp LLM."),
+        ("LLM Model",     "Tên model."),
+        ("Started At",    "Thời điểm bắt đầu sinh dataset."),
+        ("Finished At",   "Thời điểm hoàn thành sinh dataset."),
+        ("Duration",      "Thời gian sinh dataset (tính bằng giây)."),
+        ("Input Tokens",  "Số token prompt gửi lên LLM."),
+        ("Output Tokens", "Số token response LLM trả về."),
+        ("Total Tokens",  "Tổng Input + Output Tokens."),
+        ("Result",        "Kết quả: Success hoặc Failed."),
+        ("Error",         "Thông báo lỗi nếu sinh thất bại."),
+        ("Created At",    "Thời điểm tạo log."),
+    ],
+    "Step Failures": [
+        ("Task ID",      "Mã test case."),
+        ("Test Case",    "Tiêu đề test case."),
+        ("Run ID",       "ID lần chạy."),
+        ("Step",         "Số thứ tự bước bị lỗi."),
+        ("Action",       "Hành động agent thực hiện tại bước lỗi (click, type, navigate, …)."),
+        ("Failure Type", "Loại lỗi: Bad locator, Timeout, App error, Prompt misunderstanding."),
+        ("Detail",       "Thông báo lỗi chi tiết từ agent."),
+        ("URL",          "URL trang web tại thời điểm xảy ra lỗi."),
+        ("Run Date",     "Thời điểm chạy test."),
+    ],
+}
+
+def build_column_descriptions():
+    cols = ["Sheet", "Column", "Description"]
+    rows = []
+    for sheet, entries in COLUMN_DESCRIPTIONS.items():
+        for col, desc in entries:
+            rows.append([sheet, col, desc])
+    return cols, rows
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
@@ -369,7 +476,13 @@ def main():
     ext = "xlsx" if args.format == "excel" else "csv"
     out = args.output or f"eval_log_{ts}.{ext}"
 
-    print(f"Connecting to {os.getenv('DB_HOST','localhost')}:{os.getenv('DB_PORT',5432)} ...")
+    db_url = os.getenv("DATABASE_URL")
+    if db_url:
+        from urllib.parse import urlparse
+        parsed = urlparse(db_url)
+        print(f"Connecting to {parsed.hostname} ...")
+    else:
+        print(f"Connecting to {os.getenv('DB_HOST','localhost')}:{os.getenv('DB_PORT',5432)} ...")
     conn = get_conn()
 
     try:
@@ -385,11 +498,13 @@ def main():
         print(f"  Step failures:     {len(fail_rows)} failed steps")
 
         if args.format == "excel":
+            desc_cols, desc_rows = build_column_descriptions()
             export_excel({
-                "Evaluation Log":     (eval_cols,  eval_rows),
-                "TC Generation Time": (gen_cols,   gen_rows),
-                "Dataset Gen Time":   (dgl_cols,   dgl_rows),
-                "Step Failures":      (fail_cols,  fail_rows),
+                "Evaluation Log":      (eval_cols,  eval_rows),
+                "TC Generation Time":  (gen_cols,   gen_rows),
+                "Dataset Gen Time":    (dgl_cols,   dgl_rows),
+                "Step Failures":       (fail_cols,  fail_rows),
+                "Column Descriptions": (desc_cols,  desc_rows),
             }, out)
         else:
             export_csv(eval_cols, eval_rows, out)

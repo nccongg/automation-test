@@ -28,7 +28,11 @@ async function generateFromOpenAI(messages, opts = {}) {
     temperature: opts.temperature ?? 0.2,
   });
 
-  return response.choices[0].message.content.trim();
+  return {
+    text: response.choices[0].message.content.trim(),
+    inputTokens: response.usage?.prompt_tokens ?? null,
+    outputTokens: response.usage?.completion_tokens ?? null,
+  };
 }
 
 module.exports = { generateFromOpenAI };

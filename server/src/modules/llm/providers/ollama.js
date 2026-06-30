@@ -27,7 +27,11 @@ async function generateFromOllama(messages, opts = {}) {
     { timeout: TIMEOUT_MS }
   );
 
-  return String(res.data?.message?.content || "").trim();
+  return {
+    text: String(res.data?.message?.content || "").trim(),
+    inputTokens: res.data?.prompt_eval_count ?? null,
+    outputTokens: res.data?.eval_count ?? null,
+  };
 }
 
 module.exports = { generateFromOllama };

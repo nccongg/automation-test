@@ -3,7 +3,7 @@ name: Deploy to Azure Container Instance
 on:
   push:
     branches:
-      - main # đổi thành master nếu repo bạn dùng master
+      - production/agent-worker # đổi thành master nếu repo bạn dùng master
 
 env:
   ACR_NAME: agentworkeracr

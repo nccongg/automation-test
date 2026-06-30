@@ -68,7 +68,7 @@ async function generateDatasetWithAI({ projectId, prompt, rowCount, scriptSteps,
   if (!prompt?.trim()) throw { status: 400, message: "prompt is required" };
   if (!projectId) throw { status: 400, message: "projectId is required" };
 
-  const { generateDataset } = require("../llm/llm.service");
+  const { generateDataset, DEFAULT_PROVIDER, DEFAULT_MODEL } = require("../llm/llm.service");
   const startedAt = new Date();
   let success = true;
   let errorMessage = null;
@@ -93,11 +93,15 @@ async function generateDatasetWithAI({ projectId, prompt, rowCount, scriptSteps,
       projectId,
       prompt: prompt.trim(),
       rowCount: Math.min(Math.max(parseInt(rowCount) || 5, 1), 50),
+      llmProvider: DEFAULT_PROVIDER,
+      llmModel: DEFAULT_MODEL,
       startedAt,
       finishedAt,
       durationMs,
       success,
       errorMessage,
+      inputTokens: result?.inputTokens ?? null,
+      outputTokens: result?.outputTokens ?? null,
     }).catch(() => {});
   }
 

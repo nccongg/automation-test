@@ -66,7 +66,13 @@ async function generateFromGemini(messages, opts = {}) {
     ? outputParts.map((p) => p.text).join("")
     : result.response.text();
   console.log("[llm/gemini] raw response:", text);
-  return text;
+
+  const usage = result.response.usageMetadata;
+  return {
+    text,
+    inputTokens: usage?.promptTokenCount ?? null,
+    outputTokens: usage?.candidatesTokenCount ?? null,
+  };
 }
 
 module.exports = { generateFromGemini };

@@ -146,8 +146,8 @@ Return ONLY JSON.
   ];
 
   const provider = DEFAULT_PROVIDER;
-  const raw = await generateFromLLM(messages);
-  const parsed = cleanJSON(raw);
+  const { text: rawText, inputTokens, outputTokens } = await generateFromLLM(messages);
+  const parsed = cleanJSON(rawText);
 
   if (!parsed) {
     throw {
@@ -160,6 +160,8 @@ Return ONLY JSON.
     ...parsed,
     llmProvider: provider,
     llmModel: DEFAULT_MODEL,
+    inputTokens,
+    outputTokens,
   };
 }
 
@@ -214,7 +216,7 @@ Analyze the run and return JSON.`,
 
   let raw;
   try {
-    raw = await generateFromLLM(messages, { maxOutputTokens: 4096 });
+    ({ text: raw } = await generateFromLLM(messages, { maxOutputTokens: 4096 }));
   } catch (err) {
     console.error("[llm] generateRunAnalysis: LLM call threw:", err?.message ?? err);
     return {
@@ -302,7 +304,7 @@ Analyze the sheet run and return JSON.`,
 
   let raw;
   try {
-    raw = await generateFromLLM(messages, { maxOutputTokens: 4096 });
+    ({ text: raw } = await generateFromLLM(messages, { maxOutputTokens: 4096 }));
   } catch (err) {
     console.error("[llm] generateSheetRunAnalysis: LLM call threw:", err?.message ?? err);
     return {
@@ -378,7 +380,7 @@ Revise the test case accordingly and return JSON.`,
     },
   ];
 
-  const raw = await generateFromLLM(messages, { maxOutputTokens: 1024 });
+  const { text: raw } = await generateFromLLM(messages, { maxOutputTokens: 1024 });
   const parsed = cleanJSON(raw);
 
   if (!parsed || !parsed.title || !Array.isArray(parsed.steps)) {
@@ -493,7 +495,7 @@ Generate ${rowCount} rows and return JSON.`,
     },
   ];
 
-  const raw = await generateFromLLM(messages, { maxOutputTokens: 8192 });
+  const { text: raw, inputTokens, outputTokens } = await generateFromLLM(messages, { maxOutputTokens: 8192 });
   const parsed = cleanJSON(raw);
 
   if (!parsed || !Array.isArray(parsed.rows) || parsed.rows.length === 0) {
@@ -501,14 +503,14 @@ Generate ${rowCount} rows and return JSON.`,
   }
 
   const columns = templateVars.length > 0 ? templateVars : Object.keys(parsed.rows[0] || {});
-  // Columns are named exactly after template variables → autoMatch handles binding,
-  // no explicit variableMapping needed.
   return {
     analysis: parsed.analysis || {},
     datasetName: String(parsed.datasetName || "AI Generated Dataset").trim(),
     columns,
     rows: parsed.rows,
     variableMapping: {},
+    inputTokens,
+    outputTokens,
   };
 }
 
@@ -520,4 +522,6 @@ module.exports = {
   generateSheetRunAnalysis,
   refineTestCase,
   generateDataset,
+  DEFAULT_PROVIDER,
+  DEFAULT_MODEL,
 };

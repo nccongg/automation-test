@@ -235,6 +235,8 @@ async function generateTestCases(userId, { prompt, projectId }) {
     generationStartedAt,
     generationFinishedAt,
     generationDurationMs,
+    inputTokens: llmResult?.inputTokens ?? null,
+    outputTokens: llmResult?.outputTokens ?? null,
   });
 }
 
