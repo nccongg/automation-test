@@ -67,7 +67,7 @@ jobs:
               EXECUTION_HEADLESS=true \
               EXECUTION_LLM_MODEL=gemini-3.5-flash \
               EXECUTION_LLM_PROVIDER=gemini \
-              NODE_CALLBACK_BASE_URL=https://automation-test-83e3.onrender.com/api \
+              NODE_CALLBACK_BASE_URL=http://backend-api-prod.indonesiacentral.azurecontainer.io:5000/api \
               NODE_ENV=production \
             --secure-environment-variables \
               GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
