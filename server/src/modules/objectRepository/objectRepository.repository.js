@@ -151,7 +151,25 @@ async function upsertObjects(projectId, objects) {
         [projectId, pageKey, obj.name],
       );
 
-      if (existing.rows.length === 0) {
+      let row = existing.rows[0];
+
+      // Same element already stored under another name (e.g. a legacy `_1`
+      // duplicate, or naming drift between runs)? Match by selector
+      // fingerprint on the same page instead of inserting a duplicate.
+      if (!row) {
+        const byFingerprint = await client.query(
+          `SELECT id, status FROM test_objects
+           WHERE project_id = $1
+             AND COALESCE(page_key, '') = COALESCE($2, '')
+             AND selector_collection = $3::jsonb
+           ORDER BY (status = 'confirmed') DESC, id ASC
+           LIMIT 1`,
+          [projectId, pageKey, selectorCollection],
+        );
+        row = byFingerprint.rows[0];
+      }
+
+      if (!row) {
         // New object — insert as auto
         await client.query(
           `INSERT INTO test_objects (
@@ -173,8 +191,6 @@ async function upsertObjects(projectId, objects) {
           ],
         );
       } else {
-        const row = existing.rows[0];
-
         if (row.status === "auto") {
           // Auto object → update locators freely
           await client.query(

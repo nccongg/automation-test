@@ -13,122 +13,22 @@ import {
 import {
   getCollection,
   updateCollection,
-  addCollectionItems,
   removeCollectionItem,
 } from "@/features/test-collection/api/testCollectionApi";
 import { getTestCases } from "@/features/test-cases/api/testCasesApi";
+import AddToCollectionDialog from "@/features/test-collection/components/AddToCollectionDialog";
 import { SkeletonListPage } from "@/shared/components/common/Skeleton";
 import ErrorState from "@/shared/components/common/ErrorState";
 import EmptyState from "@/shared/components/common/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { COLOR_OPTIONS, getColor } from "@/shared/constants/colors";
+import { getColor } from "@/shared/constants/colors";
 
 const STATUS_BADGE = {
   ready:    "bg-emerald-100 text-emerald-700",
   draft:    "bg-slate-100 text-slate-600",
   archived: "bg-amber-100 text-amber-700",
 };
-
-// ─── Add Cases Dialog ─────────────────────────────────────────────────────────
-
-function AddCasesDialog({ open, onClose, onAdded, projectId, existingIds }) {
-  const [allCases, setAllCases] = useState([]);
-  const [selected, setSelected] = useState(new Set());
-  const [saving, setSaving] = useState(false);
-  const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    getTestCases(projectId).then(setAllCases).catch(() => {});
-    setSelected(new Set());
-    setQuery("");
-  }, [open, projectId]);
-
-  function toggle(id) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
-
-  async function handleAdd() {
-    const ids = [...selected];
-    if (ids.length === 0) return;
-    try {
-      setSaving(true);
-      await onAdded(ids);
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const available = allCases
-    .filter((tc) => !existingIds.has(tc.id ?? tc.testCaseId))
-    .filter((tc) =>
-      query.trim() === "" ||
-      tc.title?.toLowerCase().includes(query.toLowerCase()) ||
-      tc.goal?.toLowerCase().includes(query.toLowerCase())
-    );
-
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Add Test Cases to Collection</DialogTitle>
-        </DialogHeader>
-        <input
-          className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-300 mt-2"
-          placeholder="Search by title or goal..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <div className="max-h-72 overflow-y-auto divide-y rounded-lg border mt-2">
-          {available.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground text-center">
-              {allCases.length === 0 ? "Loading..." : "All test cases are already in this collection"}
-            </p>
-          ) : (
-            available.map((tc) => {
-              const id = tc.id ?? tc.testCaseId;
-              return (
-                <label
-                  key={id}
-                  className="flex cursor-pointer items-start gap-3 p-3 hover:bg-slate-50"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selected.has(id)}
-                    onChange={() => toggle(id)}
-                    className="mt-0.5 accent-brand-600"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{tc.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{tc.goal}</p>
-                  </div>
-                </label>
-              );
-            })
-          )}
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={selected.size === 0 || saving} onClick={handleAdd}>
-            {saving ? "Adding..." : `Add ${selected.size > 0 ? selected.size : ""} Case${selected.size !== 1 ? "s" : ""}`}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -138,6 +38,7 @@ export default function TestCollectionDetailPage() {
 
   const [collection, setCollection] = useState(null);
   const [items, setItems] = useState([]);
+  const [allTestCases, setAllTestCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -165,6 +66,11 @@ export default function TestCollectionDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!showAddDialog) return;
+    getTestCases(projectId).then(setAllTestCases).catch(() => {});
+  }, [showAddDialog, projectId]);
+
   function startEditTitle() {
     setDraftTitle(collection?.name ?? "");
     setEditingTitle(true);
@@ -190,11 +96,6 @@ export default function TestCollectionDetailPage() {
     }
   }
 
-  async function handleAddItems(testCaseIds) {
-    await addCollectionItems(collectionId, testCaseIds);
-    load();
-  }
-
   async function handleRemoveItem(itemId) {
     setRemovingId(itemId);
     try {
@@ -216,7 +117,6 @@ export default function TestCollectionDetailPage() {
   }
 
   const c = getColor(collection?.color);
-  const existingIds = new Set(items.map((i) => i.testCaseId));
 
   return (
     <div className="space-y-8">
@@ -338,12 +238,12 @@ export default function TestCollectionDetailPage() {
         )}
       </section>
 
-      <AddCasesDialog
+      <AddToCollectionDialog
         open={showAddDialog}
         onClose={() => setShowAddDialog(false)}
-        onAdded={handleAddItems}
-        projectId={projectId}
-        existingIds={existingIds}
+        collection={collection ? { ...collection, items } : null}
+        testCases={allTestCases}
+        onSaved={load}
       />
     </div>
   );

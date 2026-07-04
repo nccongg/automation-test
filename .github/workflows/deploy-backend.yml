@@ -1,16 +1,18 @@
-name: Deploy to Azure Container Instance
+name: Deploy Backend to Azure Container Instance
 
 on:
   push:
     branches:
-      - production/agent-worker # đổi thành master nếu repo bạn dùng master
+      - production/backend-api # đổi thành branch bạn muốn deploy từ đó
 
 env:
   ACR_NAME: agentworkeracr
   ACR_LOGIN_SERVER: agentworkeracr.azurecr.io
-  IMAGE_NAME: agent-worker
+  IMAGE_NAME: backend-api
   RESOURCE_GROUP: agent-worker
-  CONTAINER_NAME: agent-worker
+  CONTAINER_NAME: backend-api
+  LOCATION: indonesiacentral
+  DNS_LABEL: backend-api-prod
 
 jobs:
   deploy:
@@ -33,7 +35,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:latest ./agent-worker
+          docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:latest ./server
 
       - name: Push Docker image
         run: |
@@ -56,19 +58,37 @@ jobs:
             --registry-username "${{ secrets.ACR_USERNAME }}" \
             --registry-password "${{ secrets.ACR_PASSWORD }}" \
             --cpu 1 \
-            --memory 2 \
-            --ports 8001 \
+            --memory 1.5 \
+            --ports 5000 \
             --ip-address Public \
-            --dns-name-label agent-worker-prod \
-            --location indonesiacentral \
+            --dns-name-label $DNS_LABEL \
+            --location $LOCATION \
             --os-type Linux \
             --restart-policy Always \
             --environment-variables \
-              EXECUTION_HEADLESS=true \
-              EXECUTION_LLM_MODEL=gemini-3.5-flash \
-              EXECUTION_LLM_PROVIDER=gemini \
-              NODE_CALLBACK_BASE_URL=http://backend-api-prod.indonesiacentral.azurecontainer.io:5000/api \
               NODE_ENV=production \
+              PORT=5000 \
+              LLM_PROVIDER=gemini \
+              LLM_MODEL=gemini-3.5-flash \
+              EXECUTION_LLM_PROVIDER=gemini \
+              EXECUTION_LLM_MODEL=gemini-3.5-flash \
+              AGENT_WORKER_BASE_URL=http://agent-worker-prod.indonesiacentral.azurecontainer.io:8001 \
+              SERVER_BASE_URL=http://backend-api-prod.indonesiacentral.azurecontainer.io:5000 \
+              SMTP_HOST=smtp.gmail.com \
+              SMTP_PORT=587 \
+              MAIL_FROM="Automation Test <nchicongit@gmail.com>" \
             --secure-environment-variables \
+              DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+              JWT_SECRET="${{ secrets.JWT_SECRET }}" \
               GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
-              AGENT_CALLBACK_SECRET="${{ secrets.AGENT_CALLBACK_SECRET }}"
+              AGENT_CALLBACK_SECRET="${{ secrets.AGENT_CALLBACK_SECRET }}" \
+              SMTP_USER="${{ secrets.SMTP_USER }}" \
+              SMTP_PASS="${{ secrets.SMTP_PASS }}"
+
+      - name: Wait for container to boot
+        run: sleep 20
+
+      - name: Smoke test /api/health
+        run: |
+          curl -sf "http://${DNS_LABEL}.${LOCATION}.azurecontainer.io:5000/api/health" || \
+            (echo "Health check failed" && exit 1)

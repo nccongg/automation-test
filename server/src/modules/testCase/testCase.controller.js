@@ -67,6 +67,43 @@ async function clearUnselectedAiGeneration(req, res, next) {
   }
 }
 
+async function refineAiCandidate(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const candidateId = Number(req.params.candidateId);
+    const { prompt } = req.body;
+
+    const data = await testCaseService.refineCandidate(
+      userId,
+      candidateId,
+      prompt,
+    );
+
+    res.json({ status: "ok", data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateAiCandidate(req, res, next) {
+  try {
+    const userId = req.user?.userId;
+    const candidateId = Number(req.params.candidateId);
+    const { title, goal, steps, expectedResult } = req.body;
+
+    const data = await testCaseService.updateCandidate(userId, candidateId, {
+      title,
+      goal,
+      steps,
+      expectedResult,
+    });
+
+    res.json({ status: "ok", data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function generateTestCases(req, res, next) {
   try {
     const userId = req.user?.userId;
@@ -276,6 +313,8 @@ module.exports = {
   commitTestCase,
   updateTestCase,
   refineTestCase,
+  refineAiCandidate,
+  updateAiCandidate,
   applyRefinement,
   deleteTestCase,
 };

@@ -16,6 +16,8 @@ import {
   Trash2,
   ExternalLink,
   RotateCcw,
+  Wand2,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FormInput, FormTextarea, FormError } from "@/shared/components/ui/FormField";
@@ -27,6 +29,8 @@ import {
   commitTestCase,
   getLatestAiGeneration,
   clearUnselectedAiGeneration,
+  refineAiCandidate,
+  updateAiCandidate,
 } from "@/features/test-cases/api/testCasesApi";
 import {
   createTestRun,
@@ -72,9 +76,16 @@ function initCandidateState(c) {
 
     expanded: true,
     editing: false,
+    applyingEdit: false,
     editTitle: c.title ?? "",
     editStepsText: steps.join("\n"),
     editExpectedResult: expectedResult,
+
+    aiEditOpen: false,
+    aiPrompt: "",
+    aiRefining: false,
+    aiSuggestion: null,
+    aiError: "",
 
     isSaved: isOfficialSaved,
     draftTestCaseId: selectedIsAiDraft ? selectedTestCaseId : null,
@@ -135,9 +146,15 @@ function CandidateCard({
     expectedResult,
     expanded,
     editing,
+    applyingEdit,
     editTitle,
     editStepsText,
     editExpectedResult,
+    aiEditOpen,
+    aiPrompt,
+    aiRefining,
+    aiSuggestion,
+    aiError,
     isSaved,
     saving,
     draftTestCaseId,
@@ -149,7 +166,7 @@ function CandidateCard({
   } = state;
 
   function startEdit() {
-    onUpdate({ editing: true });
+    onUpdate({ editing: true, aiEditOpen: false, expanded: true });
   }
 
   function cancelEdit() {
@@ -161,18 +178,115 @@ function CandidateCard({
     });
   }
 
-  function applyEdit() {
+  // Persists candidate content on the server, then syncs local card state.
+  // Editing invalidates a previous draft run, so run state is reset too.
+  async function persistCandidate({ newTitle, newSteps, newExpectedResult }) {
+    const updated = await updateAiCandidate(candidate.id, {
+      title: newTitle,
+      steps: newSteps,
+      expectedResult: newExpectedResult,
+    });
+
+    const nextTitle = updated?.title ?? newTitle;
+    const nextSteps = updated ? extractSteps(updated) : newSteps;
+    const nextExpected = updated ? getExpectedResult(updated) : newExpectedResult;
+
+    onUpdate({
+      title: nextTitle,
+      steps: nextSteps,
+      expectedResult: nextExpected,
+      editTitle: nextTitle,
+      editStepsText: nextSteps.join("\n"),
+      editExpectedResult: nextExpected,
+      draftTestCaseId: null,
+      runPhase: "idle",
+      runId: null,
+      runStatus: null,
+      runVerdict: null,
+      runError: null,
+    });
+  }
+
+  async function applyEdit() {
     const newSteps = editStepsText
       .split("\n")
       .map((s) => s.trim())
       .filter(Boolean);
 
+    if (newSteps.length === 0) {
+      toast.error("At least one step is required.");
+      return;
+    }
+
+    onUpdate({ applyingEdit: true });
+
+    try {
+      await persistCandidate({
+        newTitle: editTitle.trim() || title,
+        newSteps,
+        newExpectedResult: editExpectedResult,
+      });
+
+      onUpdate({ editing: false, applyingEdit: false });
+    } catch (e) {
+      onUpdate({ applyingEdit: false });
+      toast.error(e?.message || "Failed to save changes.");
+    }
+  }
+
+  function toggleAiEdit() {
     onUpdate({
-      title: editTitle.trim() || title,
-      steps: newSteps,
-      expectedResult: editExpectedResult,
+      aiEditOpen: !aiEditOpen,
       editing: false,
+      expanded: true,
+      aiError: "",
     });
+  }
+
+  async function handleAiRefine() {
+    if (!aiPrompt.trim() || aiRefining) return;
+
+    onUpdate({ aiRefining: true, aiError: "", aiSuggestion: null });
+
+    try {
+      const suggestion = await refineAiCandidate(candidate.id, aiPrompt.trim());
+      onUpdate({ aiRefining: false, aiSuggestion: suggestion });
+    } catch (e) {
+      onUpdate({
+        aiRefining: false,
+        aiError: e?.message || "Failed to get AI suggestion.",
+      });
+    }
+  }
+
+  async function handleAiApply() {
+    if (!aiSuggestion || applyingEdit) return;
+
+    onUpdate({ applyingEdit: true, aiError: "" });
+
+    try {
+      await persistCandidate({
+        newTitle: aiSuggestion.title,
+        newSteps: (aiSuggestion.steps ?? []).map((s) =>
+          typeof s === "string" ? s : (s?.text ?? s?.description ?? ""),
+        ).filter(Boolean),
+        newExpectedResult: aiSuggestion.expectedResult ?? "",
+      });
+
+      onUpdate({
+        applyingEdit: false,
+        aiEditOpen: false,
+        aiPrompt: "",
+        aiSuggestion: null,
+      });
+
+      toast.success("AI changes applied.");
+    } catch (e) {
+      onUpdate({
+        applyingEdit: false,
+        aiError: e?.message || "Failed to apply AI changes.",
+      });
+    }
   }
 
   async function handleSaveToLibrary() {
@@ -334,14 +448,26 @@ function CandidateCard({
           )}
 
           {!isSaved && !isRunning && !editing && (
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={startEdit}
-              title="Edit"
-            >
-              <Pencil className="size-3.5" />
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={toggleAiEdit}
+                title="Edit with AI"
+                className={aiEditOpen ? "bg-violet-100 text-violet-600 hover:bg-violet-100 hover:text-violet-700 dark:bg-violet-950/40 dark:text-violet-400" : "text-violet-500 hover:text-violet-600"}
+              >
+                <Wand2 className="size-3.5" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={startEdit}
+                title="Edit"
+              >
+                <Pencil className="size-3.5" />
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -370,11 +496,17 @@ function CandidateCard({
               </div>
 
               <div className="flex gap-2">
-                <Button size="sm" onClick={applyEdit}>
+                <Button size="sm" onClick={applyEdit} disabled={applyingEdit}>
+                  {applyingEdit && <Loader2 className="animate-spin" />}
                   Apply
                 </Button>
 
-                <Button variant="outline" size="sm" onClick={cancelEdit}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={cancelEdit}
+                  disabled={applyingEdit}
+                >
                   Cancel
                 </Button>
               </div>
@@ -400,6 +532,121 @@ function CandidateCard({
                 </p>
               )}
             </>
+          )}
+
+          {aiEditOpen && !editing && !isSaved && (
+            <div className="overflow-hidden rounded-lg border border-violet-200 bg-violet-50/40 dark:border-violet-800/40 dark:bg-violet-950/20">
+              <div className="flex items-center gap-1.5 border-b border-violet-100 px-3 py-2 dark:border-violet-800/40">
+                <Wand2 className="size-3 text-violet-500" />
+                <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
+                  Edit with AI
+                </span>
+              </div>
+
+              <div className="space-y-2 p-3">
+                <div className="flex gap-2">
+                  <FormInput
+                    autoFocus
+                    value={aiPrompt}
+                    onChange={(e) => onUpdate({ aiPrompt: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleAiRefine();
+                    }}
+                    placeholder='e.g. "Add a step verifying the error message"'
+                    disabled={aiRefining || applyingEdit}
+                    className="text-xs"
+                  />
+
+                  <Button
+                    size="sm"
+                    onClick={handleAiRefine}
+                    disabled={!aiPrompt.trim() || aiRefining || applyingEdit}
+                    className="shrink-0 bg-violet-600 hover:bg-violet-700"
+                  >
+                    {aiRefining ? (
+                      <><Loader2 className="animate-spin" />Thinking…</>
+                    ) : (
+                      <><Wand2 />Suggest</>
+                    )}
+                  </Button>
+                </div>
+
+                {aiError && <p className="text-xs text-red-600">{aiError}</p>}
+
+                {aiSuggestion && (
+                  <div className="overflow-hidden rounded-lg border border-violet-200 bg-card dark:border-violet-800/40">
+                    <div className="flex items-center justify-between gap-2 border-b border-violet-100 bg-violet-50 px-3 py-1.5 dark:border-violet-800/40 dark:bg-violet-950/30">
+                      <span className="text-[11px] font-semibold text-violet-600 dark:text-violet-300">
+                        AI Suggestion
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onUpdate({ aiSuggestion: null })}
+                          disabled={applyingEdit}
+                          className="h-6 px-2 text-[11px] text-muted-foreground"
+                        >
+                          <RotateCcw className="size-2.5" />
+                          Discard
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          onClick={handleAiApply}
+                          disabled={applyingEdit}
+                          className="h-6 bg-violet-600 px-2 text-[11px] hover:bg-violet-700"
+                        >
+                          {applyingEdit ? (
+                            <><Loader2 className="size-2.5 animate-spin" />Applying…</>
+                          ) : (
+                            <><Check className="size-2.5" />Apply</>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 p-3">
+                      {aiSuggestion.title !== title && (
+                        <div className="space-y-0.5">
+                          <p className="text-xs text-muted-foreground line-through">
+                            {title}
+                          </p>
+                          <p className="text-xs font-semibold text-foreground">
+                            {aiSuggestion.title}
+                          </p>
+                        </div>
+                      )}
+
+                      {(aiSuggestion.steps ?? []).length > 0 && (
+                        <ol className="space-y-1">
+                          {aiSuggestion.steps.map((step, i) => (
+                            <li
+                              key={i}
+                              className="flex gap-2 text-xs text-muted-foreground"
+                            >
+                              <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[9px] font-bold text-violet-500 dark:bg-violet-950/40">
+                                {i + 1}
+                              </span>
+                              {typeof step === "string"
+                                ? step
+                                : (step?.text ?? step?.description ?? "")}
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+
+                      {aiSuggestion.expectedResult && (
+                        <p className="text-xs font-medium text-emerald-700">
+                          Expected: {aiSuggestion.expectedResult}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           {isDone && runError && (

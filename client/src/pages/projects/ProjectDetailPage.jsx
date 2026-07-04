@@ -15,7 +15,12 @@ import {
 import { useProject } from "@/features/projects/hooks/useProject";
 import { useTestCases } from "@/features/test-cases/hooks/useTestCases";
 import { useTestSheets } from "@/features/test-collection/hooks/useTestSheets";
-import { getCollectionTree } from "@/features/test-collection/api/testCollectionApi";
+import {
+  getCollectionTree,
+  addCollectionItems,
+  removeCollectionItem,
+} from "@/features/test-collection/api/testCollectionApi";
+import { toast } from "sonner";
 import AddToCollectionDialog from "@/features/test-collection/components/AddToCollectionDialog";
 import { listDatasets } from "@/features/datasets/api/datasetsApi";
 import { getTestObjects } from "@/features/object-repository/api/objectRepositoryApi";
@@ -181,16 +186,44 @@ function CollectionNode({
   toggleCollection,
   activeTestCaseId,
   onAddTestCases,
+  dnd,
   depth = 0,
 }) {
   const isOpen = expandedCollections.has(node.id);
   const itemCount = (node.items ?? []).length;
   const childCount = (node.children ?? []).length;
 
+  const isDropTarget = dnd.dropTargetId === node.id;
+  const canDrop =
+    dnd.dragPayload && dnd.dragPayload.fromCollectionId !== node.id;
+
   return (
     <div>
       <div
-        className="group flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+        onDragOver={(e) => {
+          if (!canDrop) return;
+          e.preventDefault();
+          e.stopPropagation();
+          e.dataTransfer.dropEffect =
+            dnd.dragPayload.fromCollectionId ? "move" : "copy";
+          dnd.setDropTargetId(node.id);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) {
+            dnd.setDropTargetId((prev) => (prev === node.id ? null : prev));
+          }
+        }}
+        onDrop={(e) => {
+          if (!canDrop) return;
+          e.preventDefault();
+          e.stopPropagation();
+          dnd.onDropOnCollection(node);
+        }}
+        className={`group flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm transition-colors ${
+          isDropTarget && canDrop
+            ? "rounded-md bg-brand-500/15 text-foreground ring-1 ring-brand-400"
+            : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+        }`}
         style={{ paddingLeft: `${depth * 14 + 8}px` }}
       >
         <button
@@ -244,6 +277,7 @@ function CollectionNode({
               toggleCollection={toggleCollection}
               activeTestCaseId={activeTestCaseId}
               onAddTestCases={onAddTestCases}
+              dnd={dnd}
               depth={depth + 1}
             />
           ))}
@@ -256,10 +290,22 @@ function CollectionNode({
               <button
                 key={item.id}
                 type="button"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(testCaseId));
+                  dnd.setDragPayload({
+                    testCaseId: Number(testCaseId),
+                    fromCollectionId: node.id,
+                    itemId: item.id,
+                    title: item.title,
+                  });
+                }}
+                onDragEnd={dnd.clearDrag}
                 onClick={() =>
                   navigate(`/projects/${projectId}/test-cases/${testCaseId}`)
                 }
-                className={childItemClass(isActive)}
+                className={`${childItemClass(isActive)} cursor-grab active:cursor-grabbing`}
                 style={{ paddingLeft: `${(depth + 1) * 14 + 24}px` }}
               >
                 <FileText className={childIconClass(isActive)} />
@@ -297,7 +343,6 @@ export default function ProjectDetailPage() {
   const activeSuiteId =
     location.pathname.match(/\/suites\/([^/]+)/)?.[1] ?? null;
   const activeDatasetId = new URLSearchParams(location.search).get("datasetId");
-  const activeObjectId = new URLSearchParams(location.search).get("objectId");
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isTestCasesOpen, setIsTestCasesOpen] = useState(true);
@@ -313,6 +358,11 @@ export default function ProjectDetailPage() {
   const [loadingCollections, setLoadingCollections] = useState(false);
   const [expandedCollections, setExpandedCollections] = useState(new Set());
   const [addToCollectionTarget, setAddToCollectionTarget] = useState(null);
+
+  // Sidebar drag & drop: payload of the test case being dragged
+  // ({ testCaseId, fromCollectionId, itemId, title }) and the hovered folder.
+  const [dragPayload, setDragPayload] = useState(null);
+  const [dropTargetId, setDropTargetId] = useState(null);
 
   const [datasets, setDatasets] = useState([]);
   const [loadingDatasets, setLoadingDatasets] = useState(false);
@@ -423,6 +473,56 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     refetchObjects();
   }, [refetchObjects]);
+
+  const clearDrag = useCallback(() => {
+    setDragPayload(null);
+    setDropTargetId(null);
+  }, []);
+
+  async function handleDropOnCollection(node) {
+    const payload = dragPayload;
+    clearDrag();
+
+    if (!payload || payload.fromCollectionId === node.id) return;
+
+    try {
+      await addCollectionItems(node.id, [payload.testCaseId]);
+
+      if (payload.fromCollectionId && payload.itemId) {
+        await removeCollectionItem(payload.fromCollectionId, payload.itemId);
+      }
+
+      toast.success(`"${payload.title}" moved to "${node.name}".`);
+      refetchTestCaseSidebar();
+    } catch (e) {
+      toast.error(e?.message || "Failed to move test case.");
+    }
+  }
+
+  async function handleDropRemoveFromCollection() {
+    const payload = dragPayload;
+    clearDrag();
+
+    if (!payload?.fromCollectionId || !payload?.itemId) return;
+
+    try {
+      await removeCollectionItem(payload.fromCollectionId, payload.itemId);
+
+      toast.success(`"${payload.title}" removed from collection.`);
+      refetchTestCaseSidebar();
+    } catch (e) {
+      toast.error(e?.message || "Failed to remove test case from collection.");
+    }
+  }
+
+  const sidebarDnd = {
+    dragPayload,
+    setDragPayload,
+    dropTargetId,
+    setDropTargetId,
+    clearDrag,
+    onDropOnCollection: handleDropOnCollection,
+  };
 
   function toggleCollection(collectionId) {
     setExpandedCollections((prev) => {
@@ -581,6 +681,7 @@ export default function ProjectDetailPage() {
                       toggleCollection={toggleCollection}
                       activeTestCaseId={activeTestCaseId}
                       onAddTestCases={setAddToCollectionTarget}
+                      dnd={sidebarDnd}
                     />
                   ))}
 
@@ -591,10 +692,22 @@ export default function ProjectDetailPage() {
                       <button
                         key={tc.id}
                         type="button"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.effectAllowed = "copy";
+                          e.dataTransfer.setData("text/plain", String(tc.id));
+                          setDragPayload({
+                            testCaseId: Number(tc.id),
+                            fromCollectionId: null,
+                            itemId: null,
+                            title: tc.title,
+                          });
+                        }}
+                        onDragEnd={clearDrag}
                         onClick={() =>
                           navigate(`/projects/${projectId}/test-cases/${tc.id}`)
                         }
-                        className={childItemClass(isActive)}
+                        className={`${childItemClass(isActive)} cursor-grab active:cursor-grabbing`}
                       >
                         <FileText className={childIconClass(isActive)} />
 
@@ -604,6 +717,34 @@ export default function ProjectDetailPage() {
                       </button>
                     );
                   })}
+
+                  {dragPayload?.fromCollectionId && (
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                        setDropTargetId("uncategorized");
+                      }}
+                      onDragLeave={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget)) {
+                          setDropTargetId((prev) =>
+                            prev === "uncategorized" ? null : prev,
+                          );
+                        }
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleDropRemoveFromCollection();
+                      }}
+                      className={`mt-1 rounded-md border border-dashed px-2 py-2 text-center text-xs transition-colors ${
+                        dropTargetId === "uncategorized"
+                          ? "border-red-400 bg-red-50 text-red-600 dark:bg-red-950/20"
+                          : "border-border text-muted-foreground"
+                      }`}
+                    >
+                      Drop here to remove from collection
+                    </div>
+                  )}
                 </>
               )}
             </div>

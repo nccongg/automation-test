@@ -74,6 +74,8 @@ run_migration "$MIGRATIONS_DIR/018_password_reset_otps.sql"                   "0
 run_migration "$MIGRATIONS_DIR/019_add_onboarding_completed.sql"               "019_add_onboarding_completed"
 run_migration "$MIGRATIONS_DIR/020_eval_log_fields.sql"                        "020_eval_log_fields"
 
+run_migration "$MIGRATIONS_DIR/023_dedupe_test_objects.sql"                     "023_dedupe_test_objects"
+
 # ── Add new migrations here as the schema evolves ────────────────────────────
 
 # ── Step 3: Resync sequences ──────────────────────────────────────────────────

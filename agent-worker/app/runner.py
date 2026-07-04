@@ -818,6 +818,24 @@ def _extract_test_objects(
     seen: Set[str] = set()
     current_url: Optional[str] = None
 
+    # Element-identity dedup: the same element interacted with several times in
+    # one run must map to ONE object, not `name`, `name_1`, `name_2`, ...
+    # These locator values uniquely identify an element on a page.
+    STRONG_IDENTITY_KEYS = ("testId", "id", "xpath")
+    obj_by_name: Dict[str, Dict[str, Any]] = {}
+    # (page_key, locator_key, value) -> object name
+    identity_index: Dict[Tuple[str, str, str], str] = {}
+    # (page_key, canonical selector fingerprint) -> object name
+    fingerprint_index: Dict[Tuple[str, str], str] = {}
+
+    def _register_identity(page_key: str, name: str, collection: Dict[str, str]) -> None:
+        fingerprint = json.dumps(collection, sort_keys=True)
+        fingerprint_index[(page_key, fingerprint)] = name
+        for key in STRONG_IDENTITY_KEYS:
+            val = collection.get(key)
+            if val:
+                identity_index[(page_key, key, val)] = name
+
     for step_idx, step in enumerate(steps):
         action_name = (step.get("actionName") or "").lower().strip()
         action_input = step.get("actionInput") or {}
@@ -859,6 +877,28 @@ def _extract_test_objects(
         if primary == "id_stable":
             primary = "id"
 
+        page_key = _url_to_page_key(current_url)
+
+        # Same element captured again in this run? Reuse the existing object
+        # instead of minting a suffixed duplicate (`_1`, `_2`, ...).
+        fingerprint = json.dumps(selector_collection, sort_keys=True)
+        existing_name = fingerprint_index.get((page_key, fingerprint))
+        if not existing_name:
+            for key in STRONG_IDENTITY_KEYS:
+                val = selector_collection.get(key)
+                if val:
+                    existing_name = identity_index.get((page_key, key, val))
+                    if existing_name:
+                        break
+
+        if existing_name:
+            existing_obj = obj_by_name[existing_name]
+            for key, val in selector_collection.items():
+                existing_obj["selectorCollection"].setdefault(key, val)
+            _register_identity(page_key, existing_name, existing_obj["selectorCollection"])
+            step_object_map[step_idx] = existing_name
+            continue
+
         # Element properties
         node = str(action_input.get("nodeName") or "").lower()
         element_properties: Dict[str, str] = {}
@@ -893,7 +933,6 @@ def _extract_test_objects(
                     suffix = slug
                     break
 
-        page_key = _url_to_page_key(current_url)
         name = f"{prefix}_{suffix}" if suffix else f"{prefix}_{node or 'element'}"
         base = name
         counter = 1
@@ -903,7 +942,7 @@ def _extract_test_objects(
         seen.add(name)
 
         step_object_map[step_idx] = name
-        objects.append({
+        new_obj = {
             "name": name,
             "pageKey": page_key,
             "selectorMethod": primary,
@@ -913,7 +952,10 @@ def _extract_test_objects(
             "sourceUrl": current_url,
             "createdFromRunId": test_run_id,
             "status": "auto",
-        })
+        }
+        objects.append(new_obj)
+        obj_by_name[name] = new_obj
+        _register_identity(page_key, name, selector_collection)
 
     return objects, step_object_map
 
