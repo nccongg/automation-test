@@ -7,6 +7,19 @@ Usage:
     python export_eval.py                  # -> eval_log_<timestamp>.xlsx
     python export_eval.py --format csv     # -> eval_log_<timestamp>.csv
     python export_eval.py --project 1      # filter by project id
+
+Excel output contains, in order:
+    1. Case Study Summary    - headline case-study metrics (Metric / Value)
+    2. Module Summary        - per-module pass/fail/reuse/timing breakdown
+    3. Failure Analysis      - failure types ranked by frequency
+    4. Tree Evaluation Summary - Generated Tree Correct? breakdown
+    5. Evaluation Log        - raw per-run data (unchanged)
+    6. TC Generation Time    - raw per-batch data (unchanged)
+    7. Dataset Gen Time      - raw per-batch data (unchanged)
+    8. Step Failures         - raw per-step data (unchanged)
+    9. Column Descriptions   - glossary for every sheet above
+
+CSV output only ever contains the main Evaluation Log.
 """
 
 import argparse
@@ -45,31 +58,35 @@ def get_conn():
 
 
 # ── Queries ────────────────────────────────────────────────────────────────────
+# All queries are executed with a params dict (see fetch()), so every literal
+# "%" in LIKE patterns below is doubled ("%%") to survive psycopg2's %-style
+# parameter substitution. The project filter itself is always bound via
+# %(project_id)s — never interpolated into the SQL text.
 
-# Sheet 1: Bảng đánh giá chính
+# Sheet: Bảng đánh giá chính
 QUERY_EVAL_LOG = """
 SELECT
   'TC' || LPAD(tc.id::text, 2, '0')                          AS "Task ID",
 
   CASE
-    WHEN LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%login%'
-      OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%sign in%'
-      OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%đăng nhập%'
+    WHEN LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%%login%%'
+      OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%%sign in%%'
+      OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%%đăng nhập%%'
       THEN 'Login'
-    WHEN LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%pim%'
-      OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%employee%'
-      OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%nhân viên%'
+    WHEN LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%%pim%%'
+      OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%%employee%%'
+      OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%%nhân viên%%'
       THEN 'PIM'
-    WHEN LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%leave%'
-      OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%nghỉ phép%'
+    WHEN LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%%leave%%'
+      OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%%nghỉ phép%%'
       THEN 'Leave'
-    WHEN LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%recruit%'
-      OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%tuyển dụng%'
+    WHEN LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%%recruit%%'
+      OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%%tuyển dụng%%'
       THEN 'Recruitment'
-    WHEN LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%time%'
-      OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%attendance%'
+    WHEN LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%%time%%'
+      OR LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%%attendance%%'
       THEN 'Time & Attendance'
-    WHEN LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%admin%'
+    WHEN LOWER(COALESCE(tra.agent_prompt, tc.goal, '')) LIKE '%%admin%%'
       THEN 'Admin'
     ELSE 'Other'
   END                                                         AS "Module",
@@ -159,8 +176,10 @@ SELECT
   END                                                        AS "Total Time",
 
   CASE
-    WHEN tr.verdict = 'pass'              AND es.id IS NOT NULL THEN 'Yes'
-    WHEN tr.verdict = 'pass_with_warning' AND es.id IS NOT NULL THEN 'Partial'
+    WHEN tr.verdict = 'pass'
+      AND EXISTS (SELECT 1 FROM execution_scripts es WHERE es.source_test_run_id = tr.id) THEN 'Yes'
+    WHEN tr.verdict = 'pass_with_warning'
+      AND EXISTS (SELECT 1 FROM execution_scripts es WHERE es.source_test_run_id = tr.id) THEN 'Partial'
     WHEN tr.verdict IN ('pass', 'pass_with_warning')            THEN 'Partial'
     ELSE 'No'
   END                                                        AS "Reusable?",
@@ -186,22 +205,34 @@ SELECT
 FROM test_runs tr
 JOIN test_cases tc   ON tc.id = tr.test_case_id
 JOIN projects p      ON p.id  = tc.project_id
-LEFT JOIN test_case_versions tcv
-  ON tcv.id = COALESCE(tr.test_case_version_id, tc.current_version_id)
-LEFT JOIN test_run_attempts tra
-  ON tra.test_run_id = tr.id
-LEFT JOIN test_case_generation_candidates tgc
-  ON tgc.selected_test_case_id = tc.id
-LEFT JOIN test_case_generation_batches b
-  ON b.id = tgc.batch_id
-LEFT JOIN execution_scripts es
-  ON es.source_test_run_id = tr.id
+-- A test run can have several attempts (retries); take only the latest one so
+-- this join can never multiply a test_runs row (which would silently inflate
+-- Total Runs and bias any non-deduplicated average, e.g. Execution/Total Time).
+LEFT JOIN LATERAL (
+  SELECT tra2.agent_prompt, tra2.trigger_type
+  FROM test_run_attempts tra2
+  WHERE tra2.test_run_id = tr.id
+  ORDER BY tra2.attempt_no DESC
+  LIMIT 1
+) tra ON TRUE
+-- A test case can be regenerated more than once, so several generation
+-- batches may reference the same selected_test_case_id. Take only the most
+-- recent one so this join, too, can never multiply a test_runs row.
+LEFT JOIN LATERAL (
+  SELECT b2.source_prompt, b2.generation_duration_ms, b2.input_tokens, b2.output_tokens
+  FROM test_case_generation_candidates tgc2
+  JOIN test_case_generation_batches b2 ON b2.id = tgc2.batch_id
+  WHERE tgc2.selected_test_case_id = tc.id
+    AND tgc2.is_selected = TRUE
+  ORDER BY tgc2.created_at DESC
+  LIMIT 1
+) b ON TRUE
 WHERE tr.status IN ('completed', 'failed')
   {project_filter}
 ORDER BY tr.started_at DESC
 """
 
-# Sheet 2: Thời gian sinh testcase (LLM generation)
+# Sheet: Thời gian sinh testcase (LLM generation)
 QUERY_GENERATION_TIME = """
 SELECT
   'TC' || LPAD(tc.id::text, 2, '0')                        AS "Task ID",
@@ -234,7 +265,7 @@ LEFT JOIN test_cases tc ON tc.id = tgc.selected_test_case_id
 ORDER BY b.created_at DESC
 """
 
-# Sheet 3: Thời gian sinh dataset
+# Sheet: Thời gian sinh dataset
 QUERY_DATASET_GEN_TIME = """
 SELECT
   p.name                                                   AS "Project",
@@ -265,7 +296,7 @@ LEFT JOIN projects p ON p.id = dgl.project_id
 ORDER BY dgl.created_at DESC
 """
 
-# Sheet 4: Chi tiết từng bước thất bại
+# Sheet: Chi tiết từng bước thất bại
 QUERY_STEP_FAILURES = """
 SELECT
   'TC' || LPAD(tc.id::text, 2, '0')                       AS "Task ID",
@@ -296,12 +327,14 @@ WHERE rsl.status = 'failed'
 ORDER BY tr.started_at DESC, rsl.step_no
 """
 
+QUERY_PROJECT_NAME = 'SELECT name FROM projects WHERE id = %(project_id)s'
+
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-def fetch(conn, sql):
+def fetch(conn, sql, params):
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        cur.execute(sql)
+        cur.execute(sql, params)
         rows = cur.fetchall()
         cols = [d[0] for d in cur.description]
     return cols, [list(r) for r in rows]
@@ -317,6 +350,64 @@ def clean(val):
 
 def clean_row(row):
     return [clean(v) for v in row]
+
+
+def to_records(cols, rows):
+    return [dict(zip(cols, row)) for row in rows]
+
+
+# ── Numeric parsing (Generation/Execution/Total Time are stored as "8.2s") ─────
+
+def to_seconds(val):
+    """Parse a duration value ("8.2s", 8.2, "", None) into float seconds or None."""
+    if val in (None, ""):
+        return None
+    if isinstance(val, (int, float)):
+        return float(val)
+    text = str(val).strip()
+    if text.endswith("s"):
+        text = text[:-1]
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def to_int(val):
+    if val in (None, ""):
+        return None
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return None
+
+
+def avg(values):
+    present = [v for v in values if v is not None]
+    return sum(present) / len(present) if present else None
+
+
+def round_or_blank(value, ndigits=2):
+    return round(value, ndigits) if value is not None else ""
+
+
+def safe_rate(part, whole):
+    return (part / whole) if whole else 0.0
+
+
+def normalize_tree_result(val):
+    """DB stores generated_tree_correct as lowercase 'yes'/'partial'/'no' (see
+    migration 020, chk_tree_correct). Normalize defensively either way."""
+    text = (val or "").strip().lower()
+    return text if text in ("yes", "partial", "no") else ""
+
+
+class Pct:
+    """Marks a value as a fraction (0..1) to be rendered with Excel's percent format."""
+    __slots__ = ("value",)
+
+    def __init__(self, value):
+        self.value = value
 
 
 # ── Excel export ───────────────────────────────────────────────────────────────
@@ -340,6 +431,11 @@ def export_excel(sheets: dict, path: str):
     THIN       = Side(style="thin", color="D0D7E3")
     BORDER     = Border(bottom=Side(style="thin", color="E8ECF4"))
 
+    def display_str(val):
+        if isinstance(val, Pct):
+            return f"{val.value * 100:.1f}%"
+        return str(clean(val))
+
     for sheet_name, (cols, rows) in sheets.items():
         ws = wb.create_sheet(title=sheet_name)
 
@@ -354,10 +450,15 @@ def export_excel(sheets: dict, path: str):
         # Data
         result_col = next((i+1 for i, n in enumerate(cols) if n == "Execution Result"), None)
         for ri, row in enumerate(rows, 2):
-            row_clean = clean_row(row)
             bg = ALT_FILL if ri % 2 == 0 else None
-            for ci, val in enumerate(row_clean, 1):
-                c = ws.cell(row=ri, column=ci, value=val)
+            for ci, raw_val in enumerate(row, 1):
+                if isinstance(raw_val, Pct):
+                    c = ws.cell(row=ri, column=ci, value=raw_val.value)
+                    c.number_format = "0.0%"
+                    val = raw_val.value
+                else:
+                    val = clean(raw_val)
+                    c = ws.cell(row=ri, column=ci, value=val)
                 c.alignment = Alignment(vertical="center", wrap_text=False)
                 c.border    = BORDER
                 if bg:
@@ -371,7 +472,7 @@ def export_excel(sheets: dict, path: str):
 
         # Auto column width
         for ci, name in enumerate(cols, 1):
-            vals    = [str(name)] + [str(clean_row(r)[ci-1]) for r in rows]
+            vals    = [str(name)] + [display_str(r[ci-1]) for r in rows]
             max_len = min(max((len(v) for v in vals), default=10), 80)
             ws.column_dimensions[get_column_letter(ci)].width = max_len + 3
 
@@ -390,9 +491,231 @@ def export_csv(cols, rows, path: str):
             w.writerow(clean_row(row))
 
 
+# ── Summary builders (Python aggregation over the Evaluation Log rows) ─────────
+
+def build_case_study_summary(eval_cols, eval_rows, project_label):
+    recs = to_records(eval_cols, eval_rows)
+    total_runs = len(recs)
+    total_tasks = len({r["Task ID"] for r in recs})
+
+    tree_results = [normalize_tree_result(r["Generated Tree Correct?"]) for r in recs]
+    correct   = tree_results.count("yes")
+    partial   = tree_results.count("partial")
+    incorrect = tree_results.count("no")
+    evaluated = correct + partial + incorrect
+
+    passed = sum(1 for r in recs if r["Execution Result"] == "Pass")
+    failed = sum(1 for r in recs if r["Execution Result"] == "Fail")
+
+    reusable = sum(1 for r in recs if r["Reusable?"] == "Yes")
+
+    # A "manual_replay" run reuses an already-generated action tree/script —
+    # it does not generate a new tree, so it must not be counted as one.
+    replay_runs = sum(1 for r in recs if r["Run Type"] == "manual_replay")
+    generated_trees = total_runs - replay_runs
+
+    # Generation time / tokens belong to the test case's generation batch, not
+    # to each individual run — dedupe by Task ID so replays don't double-count.
+    first_by_task = {}
+    for r in recs:
+        first_by_task.setdefault(r["Task ID"], r)
+    gen_seconds   = [to_seconds(r["Generation Time"]) for r in first_by_task.values()]
+    gen_input_tok  = [to_int(r["Input Tokens"]) for r in first_by_task.values()]
+    gen_output_tok = [to_int(r["Output Tokens"]) for r in first_by_task.values()]
+
+    exec_seconds  = [to_seconds(r["Execution Time"]) for r in recs]
+    total_seconds = [to_seconds(r["Total Time"]) for r in recs]
+    agent_input_tok  = [to_int(r["Agent Input Tokens"]) for r in recs]
+    agent_output_tok = [to_int(r["Agent Output Tokens"]) for r in recs]
+
+    rows = [
+        ["Project / Case Study",              project_label],
+        ["Total Tasks / Test Cases",          total_tasks],
+        ["Total Executions / Runs",           total_runs],
+        ["Total Generated Trees",             generated_trees],
+        ["Correct Trees",                     correct],
+        ["Partially Correct Trees",           partial],
+        ["Incorrect Trees",                   incorrect],
+        ["Tree Correctness Rate",             Pct(safe_rate(correct, evaluated))],
+        ["Passed Executions",                 passed],
+        ["Failed Executions",                 failed],
+        ["Execution Pass Rate",               Pct(safe_rate(passed, total_runs))],
+        ["Execution Fail Rate",               Pct(safe_rate(failed, total_runs))],
+        ["Reusable Count",                    reusable],
+        ["Reuse Rate",                        Pct(safe_rate(reusable, total_runs))],
+        ["Average Generation Time (s)",       round_or_blank(avg(gen_seconds))],
+        ["Average Execution Time (s)",        round_or_blank(avg(exec_seconds))],
+        ["Average Total Time (s)",            round_or_blank(avg(total_seconds))],
+        ["Total Input Tokens",                sum(t for t in gen_input_tok if t is not None)],
+        ["Total Output Tokens",               sum(t for t in gen_output_tok if t is not None)],
+        ["Average Input Tokens",              round_or_blank(avg(gen_input_tok))],
+        ["Average Output Tokens",             round_or_blank(avg(gen_output_tok))],
+        ["Total Agent Input Tokens",          sum(t for t in agent_input_tok if t is not None)],
+        ["Total Agent Output Tokens",         sum(t for t in agent_output_tok if t is not None)],
+        ["Average Agent Input Tokens",        round_or_blank(avg(agent_input_tok))],
+        ["Average Agent Output Tokens",       round_or_blank(avg(agent_output_tok))],
+    ]
+    return ["Metric", "Value"], rows
+
+
+def build_module_summary(eval_cols, eval_rows):
+    recs = to_records(eval_cols, eval_rows)
+    by_module = {}
+    for r in recs:
+        by_module.setdefault(r["Module"], []).append(r)
+
+    cols = [
+        "Module", "Total Tasks", "Total Runs", "Pass Count", "Fail Count",
+        "Pass Rate", "Fail Rate", "Reusable Count", "Reuse Rate",
+        "Avg Generation Time (s)", "Avg Execution Time (s)", "Avg Total Time (s)",
+    ]
+    rows = []
+    for module in sorted(by_module):
+        mrecs = by_module[module]
+        total_runs  = len(mrecs)
+        total_tasks = len({r["Task ID"] for r in mrecs})
+        passed   = sum(1 for r in mrecs if r["Execution Result"] == "Pass")
+        failed   = sum(1 for r in mrecs if r["Execution Result"] == "Fail")
+        reusable = sum(1 for r in mrecs if r["Reusable?"] == "Yes")
+
+        first_by_task = {}
+        for r in mrecs:
+            first_by_task.setdefault(r["Task ID"], r)
+        gen_seconds   = [to_seconds(r["Generation Time"]) for r in first_by_task.values()]
+        exec_seconds  = [to_seconds(r["Execution Time"]) for r in mrecs]
+        total_seconds = [to_seconds(r["Total Time"]) for r in mrecs]
+
+        rows.append([
+            module, total_tasks, total_runs, passed, failed,
+            Pct(safe_rate(passed, total_runs)), Pct(safe_rate(failed, total_runs)),
+            reusable, Pct(safe_rate(reusable, total_runs)),
+            round_or_blank(avg(gen_seconds)),
+            round_or_blank(avg(exec_seconds)),
+            round_or_blank(avg(total_seconds)),
+        ])
+    return cols, rows
+
+
+def build_failure_analysis(eval_cols, eval_rows):
+    recs = to_records(eval_cols, eval_rows)
+    failed_recs = [r for r in recs if r["Failure Type"]]
+    total_failures = len(failed_recs)
+
+    by_type = {}
+    for r in failed_recs:
+        by_type.setdefault(r["Failure Type"], []).append(r)
+
+    cols = ["Failure Type", "Count", "Percentage", "Related Modules", "Example Failed Task"]
+    rows = []
+    for ftype in sorted(by_type, key=lambda k: len(by_type[k]), reverse=True):
+        frecs = by_type[ftype]
+        modules = ", ".join(sorted({r["Module"] for r in frecs}))
+        example = frecs[0]
+        note = (example["Notes"] or example["Generated Test Case"] or "").strip()
+        note = note[:150]
+        example_str = f"{example['Task ID']} (Run {example['Run ID']})"
+        if note:
+            example_str += f": {note}"
+        rows.append([ftype, len(frecs), Pct(safe_rate(len(frecs), total_failures)), modules, example_str])
+    return cols, rows
+
+
+def build_tree_evaluation_summary(eval_cols, eval_rows):
+    recs = to_records(eval_cols, eval_rows)
+    total = len(recs)
+    tree_results = [normalize_tree_result(r["Generated Tree Correct?"]) for r in recs]
+    yes     = tree_results.count("yes")
+    partial = tree_results.count("partial")
+    no      = tree_results.count("no")
+    empty   = total - yes - partial - no
+
+    cols = ["Result", "Count", "Percentage"]
+    rows = [
+        ["Yes (Correct)",              yes,     Pct(safe_rate(yes, total))],
+        ["Partial (Partially Correct)", partial, Pct(safe_rate(partial, total))],
+        ["No (Incorrect)",             no,      Pct(safe_rate(no, total))],
+        ["Empty / Not Evaluated",      empty,   Pct(safe_rate(empty, total))],
+        ["Total",                      total,   Pct(safe_rate(total, total))],
+    ]
+    return cols, rows
+
+
+def distinct_project_names(eval_cols, eval_rows):
+    return sorted({r["Project"] for r in to_records(eval_cols, eval_rows) if r.get("Project")})
+
+
+def resolve_project_label(conn, project_id, eval_cols, eval_rows):
+    if project_id is not None:
+        with conn.cursor() as cur:
+            cur.execute(QUERY_PROJECT_NAME, {"project_id": project_id})
+            row = cur.fetchone()
+        return row[0] if row else f"Project #{project_id}"
+    names = distinct_project_names(eval_cols, eval_rows)
+    return ", ".join(names) if names else "N/A"
+
+
+def list_projects(conn):
+    with conn.cursor() as cur:
+        cur.execute("SELECT id, name FROM projects ORDER BY name")
+        return cur.fetchall()
+
+
 # ── Column Descriptions ────────────────────────────────────────────────────────
 
 COLUMN_DESCRIPTIONS = {
+    "Case Study Summary": [
+        ("Project / Case Study",       "Tên project/case study web app được đánh giá (lọc theo --project nếu có)."),
+        ("Total Tasks / Test Cases",   "Số lượng test case (Task ID) duy nhất xuất hiện trong dữ liệu đánh giá."),
+        ("Total Executions / Runs",    "Tổng số lần thực thi (test_runs) đã hoàn tất hoặc thất bại."),
+        ("Total Generated Trees",      "Tổng số cây hành động thực sự được agent sinh mới = Total Executions trừ đi các lần replay lại script có sẵn (Run Type = manual_replay), vì replay không sinh cây mới."),
+        ("Correct Trees",              "Số cây hành động được đánh giá thủ công là đúng hoàn toàn (Yes)."),
+        ("Partially Correct Trees",    "Số cây hành động được đánh giá là đúng một phần (Partial)."),
+        ("Incorrect Trees",            "Số cây hành động được đánh giá là sai (No)."),
+        ("Tree Correctness Rate",      "Correct Trees / (Correct + Partial + Incorrect) — chỉ tính trên các cây đã được đánh giá thủ công."),
+        ("Passed Executions",          "Số lần thực thi có Execution Result = Pass."),
+        ("Failed Executions",          "Số lần thực thi có Execution Result = Fail."),
+        ("Execution Pass Rate",        "Passed Executions / Total Executions."),
+        ("Execution Fail Rate",        "Failed Executions / Total Executions."),
+        ("Reusable Count",             "Số lần thực thi có Reusable? = Yes (pass và đã có execution script)."),
+        ("Reuse Rate",                 "Reusable Count / Total Executions."),
+        ("Average Generation Time (s)", "Thời gian sinh test case trung bình (giây), tính theo từng Task ID (không lặp lại khi test case được chạy lại nhiều lần)."),
+        ("Average Execution Time (s)", "Thời gian thực thi trung bình trên trình duyệt (giây), tính trên mỗi lần chạy."),
+        ("Average Total Time (s)",     "Tổng thời gian trung bình = Generation Time + Execution Time (giây), tính trên mỗi lần chạy."),
+        ("Total Input Tokens",         "Tổng token đầu vào dùng để sinh test case (theo Task ID, không lặp lại)."),
+        ("Total Output Tokens",        "Tổng token đầu ra khi sinh test case (theo Task ID, không lặp lại)."),
+        ("Average Input Tokens",       "Token đầu vào trung bình để sinh một test case (theo Task ID, không lặp lại). Dễ so sánh giữa các case study có số lượng task khác nhau hơn so với Total."),
+        ("Average Output Tokens",      "Token đầu ra trung bình khi sinh một test case (theo Task ID, không lặp lại)."),
+        ("Total Agent Input Tokens",   "Tổng token đầu vào agent dùng khi thực thi, cộng dồn trên mọi lần chạy."),
+        ("Total Agent Output Tokens",  "Tổng token đầu ra agent khi thực thi, cộng dồn trên mọi lần chạy."),
+        ("Average Agent Input Tokens", "Token đầu vào agent trung bình trên mỗi lần chạy."),
+        ("Average Agent Output Tokens", "Token đầu ra agent trung bình trên mỗi lần chạy."),
+    ],
+    "Module Summary": [
+        ("Module",                     "Nhóm chức năng (Login, PIM, Leave, Recruitment, Time & Attendance, Admin, Other)."),
+        ("Total Tasks",                "Số test case duy nhất thuộc module này."),
+        ("Total Runs",                 "Tổng số lần thực thi thuộc module này."),
+        ("Pass Count",                 "Số lần thực thi Pass."),
+        ("Fail Count",                 "Số lần thực thi Fail."),
+        ("Pass Rate",                  "Pass Count / Total Runs."),
+        ("Fail Rate",                  "Fail Count / Total Runs."),
+        ("Reusable Count",             "Số lần thực thi có thể tái sử dụng (Reusable? = Yes)."),
+        ("Reuse Rate",                 "Reusable Count / Total Runs."),
+        ("Avg Generation Time (s)",    "Thời gian sinh test case trung bình của module (giây), theo Task ID."),
+        ("Avg Execution Time (s)",     "Thời gian thực thi trung bình của module (giây)."),
+        ("Avg Total Time (s)",         "Tổng thời gian trung bình của module (giây)."),
+    ],
+    "Failure Analysis": [
+        ("Failure Type",               "Loại lỗi: Bad locator, Timeout, App error, Prompt misunderstanding, …"),
+        ("Count",                      "Số lần xảy ra loại lỗi này."),
+        ("Percentage",                 "Count / tổng số lần thực thi thất bại có phân loại lỗi."),
+        ("Related Modules",            "Các module có xảy ra loại lỗi này."),
+        ("Example Failed Task",        "Ví dụ một Task ID/Run bị lỗi kèm ghi chú, để minh họa trong luận văn."),
+    ],
+    "Tree Evaluation Summary": [
+        ("Result",                     "Kết quả đánh giá cây hành động: Yes (đúng), Partial (đúng một phần), No (sai), Empty (chưa đánh giá)."),
+        ("Count",                      "Số lần thực thi thuộc nhóm kết quả này."),
+        ("Percentage",                 "Count / Tổng số lần thực thi."),
+    ],
     "Evaluation Log": [
         ("Task ID",                  "Mã định danh test case, sinh tự động theo định dạng TC01, TC02, …"),
         ("Module",                   "Nhóm chức năng được kiểm thử, tự phát hiện từ nội dung test case (Login, PIM, Leave, Recruitment, Time & Attendance, Admin, Other)."),
@@ -480,8 +803,9 @@ def main():
     parser.add_argument("--output", default=None, help="Output file path")
     args = parser.parse_args()
 
-    pf      = f"AND p.id = {args.project}" if args.project else ""
-    pf_noa  = f"AND dgl.project_id = {args.project}" if args.project else ""
+    params  = {"project_id": args.project}
+    pf      = "AND p.id = %(project_id)s" if args.project else ""
+    pf_noa  = "AND dgl.project_id = %(project_id)s" if args.project else ""
 
     ts  = datetime.now().strftime("%Y%m%d_%H%M%S")
     ext = "xlsx" if args.format == "excel" else "csv"
@@ -498,27 +822,51 @@ def main():
 
     try:
         print("Fetching data...")
-        eval_cols,  eval_rows  = fetch(conn, QUERY_EVAL_LOG.format(project_filter=pf))
-        gen_cols,   gen_rows   = fetch(conn, QUERY_GENERATION_TIME.format(project_filter=pf))
-        dgl_cols,   dgl_rows   = fetch(conn, QUERY_DATASET_GEN_TIME.format(project_filter_no_alias=pf_noa))
-        fail_cols,  fail_rows  = fetch(conn, QUERY_STEP_FAILURES.format(project_filter=pf))
+        eval_cols, eval_rows = fetch(conn, QUERY_EVAL_LOG.format(project_filter=pf), params)
 
-        print(f"  Evaluation log:    {len(eval_rows)} runs")
-        print(f"  TC generation:     {len(gen_rows)} batches")
-        print(f"  Dataset generation:{len(dgl_rows)} logs")
-        print(f"  Step failures:     {len(fail_rows)} failed steps")
-
-        if args.format == "excel":
-            desc_cols, desc_rows = build_column_descriptions()
-            export_excel({
-                "Evaluation Log":      (eval_cols,  eval_rows),
-                "TC Generation Time":  (gen_cols,   gen_rows),
-                "Dataset Gen Time":    (dgl_cols,   dgl_rows),
-                "Step Failures":       (fail_cols,  fail_rows),
-                "Column Descriptions": (desc_cols,  desc_rows),
-            }, out)
-        else:
+        if args.format == "csv":
             export_csv(eval_cols, eval_rows, out)
+            print(f"  Evaluation log: {len(eval_rows)} runs")
+            print(f"\n✓ Exported → {out}")
+            return
+
+        if args.project is None:
+            projects_in_data = distinct_project_names(eval_cols, eval_rows)
+            if len(projects_in_data) > 1:
+                print(f"\n✗ The evaluation data spans {len(projects_in_data)} projects: "
+                      f"{', '.join(projects_in_data)}")
+                print("  A thesis case study should evaluate exactly one app. Re-run with --project <id>:\n")
+                for pid, pname in list_projects(conn):
+                    print(f"    --project {pid}   {pname}")
+                sys.exit(1)
+
+        gen_cols,  gen_rows  = fetch(conn, QUERY_GENERATION_TIME.format(project_filter=pf), params)
+        dgl_cols,  dgl_rows  = fetch(conn, QUERY_DATASET_GEN_TIME.format(project_filter_no_alias=pf_noa), params)
+        fail_cols, fail_rows = fetch(conn, QUERY_STEP_FAILURES.format(project_filter=pf), params)
+
+        print(f"  Evaluation log:     {len(eval_rows)} runs")
+        print(f"  TC generation:      {len(gen_rows)} batches")
+        print(f"  Dataset generation: {len(dgl_rows)} logs")
+        print(f"  Step failures:      {len(fail_rows)} failed steps")
+
+        project_label = resolve_project_label(conn, args.project, eval_cols, eval_rows)
+        case_study_cols, case_study_rows = build_case_study_summary(eval_cols, eval_rows, project_label)
+        module_cols,     module_rows     = build_module_summary(eval_cols, eval_rows)
+        failure_cols,    failure_rows    = build_failure_analysis(eval_cols, eval_rows)
+        tree_cols,       tree_rows       = build_tree_evaluation_summary(eval_cols, eval_rows)
+        desc_cols,       desc_rows       = build_column_descriptions()
+
+        export_excel({
+            "Case Study Summary":     (case_study_cols, case_study_rows),
+            "Module Summary":         (module_cols,     module_rows),
+            "Failure Analysis":       (failure_cols,    failure_rows),
+            "Tree Evaluation Summary": (tree_cols,       tree_rows),
+            "Evaluation Log":         (eval_cols,  eval_rows),
+            "TC Generation Time":     (gen_cols,   gen_rows),
+            "Dataset Gen Time":       (dgl_cols,   dgl_rows),
+            "Step Failures":          (fail_cols,  fail_rows),
+            "Column Descriptions":    (desc_cols,  desc_rows),
+        }, out)
 
         print(f"\n✓ Exported → {out}")
 
