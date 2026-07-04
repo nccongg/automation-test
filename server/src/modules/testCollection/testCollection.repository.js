@@ -57,7 +57,7 @@ async function findAllItemsByProject(projectId) {
        ON t.id = tci.test_case_id AND t.deleted_at IS NULL
      JOIN test_collections col
        ON col.id = tci.collection_id AND col.deleted_at IS NULL AND col.project_id = $1
-     ORDER BY tci.added_at ASC`,
+     ORDER BY tci.added_at ASC, tci.id ASC`,
     [projectId]
   );
   return result.rows;
@@ -122,7 +122,7 @@ async function findItemsByCollection(collectionId) {
      FROM test_collection_items tci
      JOIN test_cases tc ON tc.id = tci.test_case_id
      WHERE tci.collection_id = $1 AND tc.deleted_at IS NULL
-     ORDER BY tci.added_at ASC`,
+     ORDER BY tci.added_at ASC, tci.id ASC`,
     [collectionId]
   );
   return result.rows;

@@ -36,6 +36,25 @@ export async function clearUnselectedAiGeneration(projectId) {
   return normalizeApiPayload(response);
 }
 
+export async function refineAiCandidate(candidateId, prompt) {
+  const response = await apiClient.post(
+    `/test-cases/ai-generation/candidates/${candidateId}/refine`,
+    { prompt },
+  );
+  return normalizeApiPayload(response);
+}
+
+export async function updateAiCandidate(
+  candidateId,
+  { title, goal, steps, expectedResult },
+) {
+  const response = await apiClient.put(
+    `/test-cases/ai-generation/candidates/${candidateId}`,
+    { title, goal, steps, expectedResult },
+  );
+  return normalizeApiPayload(response);
+}
+
 export async function getTestCaseById(testCaseId) {
   const response = await apiClient.get(`/test-cases/${testCaseId}`);
   return normalizeApiPayload(response);

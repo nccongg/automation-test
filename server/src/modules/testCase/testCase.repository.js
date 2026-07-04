@@ -1116,11 +1116,146 @@ async function softDeleteTestCase(testCaseId, userId) {
   return result.rows[0] || null;
 }
 
+const CANDIDATE_RETURNING = `
+  id,
+  batch_id AS "batchId",
+  title,
+  goal,
+  display_text AS "displayText",
+  prompt_text AS "promptText",
+  execution_mode AS "executionMode",
+  plan_snapshot AS "planSnapshot",
+  variables_schema AS "variablesSchema",
+  candidate_order AS "candidateOrder",
+  is_selected AS "isSelected",
+  selected_test_case_id AS "selectedTestCaseId",
+  created_at AS "createdAt"
+`;
+
+async function getCandidateForUser(userId, candidateId) {
+  const result = await pool.query(
+    `
+      SELECT
+        c.id,
+        c.batch_id AS "batchId",
+        c.title,
+        c.goal,
+        c.plan_snapshot AS "planSnapshot",
+        c.is_selected AS "isSelected",
+        c.selected_test_case_id AS "selectedTestCaseId",
+        tc.is_ai_draft AS "selectedIsAiDraft"
+      FROM test_case_generation_candidates c
+      JOIN test_case_generation_batches b
+        ON b.id = c.batch_id
+      JOIN projects p
+        ON p.id = b.project_id
+      LEFT JOIN test_cases tc
+        ON tc.id = c.selected_test_case_id
+       AND tc.deleted_at IS NULL
+      WHERE c.id = $1
+        AND p.user_id = $2
+      LIMIT 1
+    `,
+    [candidateId, userId],
+  );
+
+  return result.rows[0] || null;
+}
+
+async function updateCandidateContent(
+  userId,
+  candidateId,
+  { title, goal, displayText, planSnapshot },
+) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const existing = await client.query(
+      `
+        SELECT
+          c.id,
+          c.selected_test_case_id,
+          tc.is_ai_draft
+        FROM test_case_generation_candidates c
+        JOIN test_case_generation_batches b
+          ON b.id = c.batch_id
+        JOIN projects p
+          ON p.id = b.project_id
+        LEFT JOIN test_cases tc
+          ON tc.id = c.selected_test_case_id
+         AND tc.deleted_at IS NULL
+        WHERE c.id = $1
+          AND p.user_id = $2
+        LIMIT 1
+        FOR UPDATE OF c
+      `,
+      [candidateId, userId],
+    );
+
+    const candidate = existing.rows[0];
+
+    if (!candidate) {
+      throw { status: 404, message: "Candidate not found or access denied" };
+    }
+
+    if (candidate.selected_test_case_id && candidate.is_ai_draft === false) {
+      throw {
+        status: 409,
+        message: "This candidate has already been saved to the library",
+      };
+    }
+
+    // Editing invalidates a previously created draft test case (from Run Draft):
+    // soft-delete it and unlink so the next run/save uses the edited content.
+    if (candidate.selected_test_case_id) {
+      await client.query(
+        `
+          UPDATE test_cases
+          SET deleted_at = NOW(),
+              deleted_by = $2,
+              updated_at = NOW()
+          WHERE id = $1
+            AND is_ai_draft = TRUE
+            AND deleted_at IS NULL
+        `,
+        [candidate.selected_test_case_id, userId],
+      );
+    }
+
+    const updated = await client.query(
+      `
+        UPDATE test_case_generation_candidates
+        SET title = $2,
+            goal = $3,
+            display_text = $4,
+            plan_snapshot = $5::jsonb,
+            is_selected = FALSE,
+            selected_test_case_id = NULL
+        WHERE id = $1
+        RETURNING ${CANDIDATE_RETURNING}
+      `,
+      [candidateId, title, goal, displayText, JSON.stringify(planSnapshot)],
+    );
+
+    await client.query("COMMIT");
+    return updated.rows[0];
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   findOwnedProjectById,
   getTestCases,
   getLatestAiGeneration,
   clearUnselectedAiGeneration,
+  getCandidateForUser,
+  updateCandidateContent,
   getTestCaseById,
   getRunsByTestCaseId,
   getExecutionScriptsByTestCaseId,

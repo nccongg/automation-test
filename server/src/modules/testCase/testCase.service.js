@@ -337,6 +337,95 @@ async function refineTestCase(userId, testCaseId, prompt) {
   return llmRefine(tc, String(prompt).trim());
 }
 
+async function refineCandidate(userId, candidateId, prompt) {
+  assertUser(userId);
+  const id = toPositiveInt(candidateId, "candidateId");
+
+  if (!prompt || !String(prompt).trim()) {
+    throw { status: 400, message: "prompt is required" };
+  }
+
+  const candidate = await testCaseRepository.getCandidateForUser(userId, id);
+  if (!candidate) {
+    throw { status: 404, message: "Candidate not found or access denied" };
+  }
+
+  if (candidate.selectedTestCaseId && candidate.selectedIsAiDraft === false) {
+    throw {
+      status: 409,
+      message: "This candidate has already been saved to the library",
+    };
+  }
+
+  const planSnapshot = candidate.planSnapshot || {};
+
+  return llmService.refineTestCase(
+    {
+      title: candidate.title,
+      goal: candidate.goal,
+      steps: Array.isArray(planSnapshot.steps) ? planSnapshot.steps : [],
+    },
+    String(prompt).trim(),
+  );
+}
+
+async function updateCandidate(
+  userId,
+  candidateId,
+  { title, goal, steps, expectedResult },
+) {
+  assertUser(userId);
+  const id = toPositiveInt(candidateId, "candidateId");
+
+  const trimmedTitle = String(title || "").trim();
+  if (!trimmedTitle) {
+    throw { status: 400, message: "title is required" };
+  }
+
+  const normalizedSteps = (Array.isArray(steps) ? steps : [])
+    .map(normalizeStepText)
+    .filter(Boolean);
+
+  if (normalizedSteps.length === 0) {
+    throw { status: 400, message: "steps must contain at least one valid step" };
+  }
+
+  const candidate = await testCaseRepository.getCandidateForUser(userId, id);
+  if (!candidate) {
+    throw { status: 404, message: "Candidate not found or access denied" };
+  }
+
+  const trimmedExpected = String(expectedResult || "").trim();
+  const trimmedGoal =
+    String(goal || "").trim() ||
+    String(candidate.goal || "").trim() ||
+    trimmedExpected ||
+    trimmedTitle;
+
+  const planSnapshot = {
+    title: trimmedTitle,
+    goal: trimmedGoal,
+    expectedResult: trimmedExpected,
+    steps: normalizedSteps.map((text, index) => ({
+      order: index + 1,
+      text,
+      action: "custom",
+    })),
+  };
+
+  return testCaseRepository.updateCandidateContent(userId, id, {
+    title: trimmedTitle,
+    goal: trimmedGoal,
+    displayText: buildDisplayText({
+      title: trimmedTitle,
+      goal: trimmedGoal,
+      steps: normalizedSteps,
+      expectedResult: trimmedExpected,
+    }),
+    planSnapshot,
+  });
+}
+
 async function applyRefinement(
   userId,
   testCaseId,
@@ -423,6 +512,8 @@ module.exports = {
   commitTestCase,
   updateTestCase,
   refineTestCase,
+  refineCandidate,
+  updateCandidate,
   applyRefinement,
   deleteTestCase,
 };

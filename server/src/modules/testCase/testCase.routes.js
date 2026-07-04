@@ -13,6 +13,12 @@ router.get("/", ctrl.getTestCases);
 router.get("/ai-generation/latest", ctrl.getLatestAiGeneration);
 router.delete("/ai-generation/unselected", ctrl.clearUnselectedAiGeneration);
 
+router.post(
+  "/ai-generation/candidates/:candidateId/refine",
+  ctrl.refineAiCandidate,
+);
+router.put("/ai-generation/candidates/:candidateId", ctrl.updateAiCandidate);
+
 router.post("/generate", ctrl.generateTestCases);
 
 router.post("/save", ctrl.saveTestCases);
