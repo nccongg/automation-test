@@ -4,7 +4,7 @@
  * Provides sidebar navigation and main content area
  */
 
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Activity,
   LayoutDashboard,
@@ -30,6 +30,14 @@ const navItems = [
 ];
 
 const ONBOARDING_DISMISSED_KEY = "onboarding_completed";
+const CURRENT_YEAR = new Date().getFullYear();
+
+const footerLinks = [
+  { label: "Terms", to: "/terms" },
+  { label: "Privacy", to: "/privacy" },
+  { label: "Security", to: "/security" },
+  { label: "Contact", to: "/contact" },
+];
 
 const THEME_CYCLE = ["light", "dark", "system"];
 const THEME_ICONS = { light: Sun, dark: Moon, system: Monitor };
@@ -80,6 +88,27 @@ function ThemeToggle({ collapsed }) {
         })}
       </div>
     </div>
+  );
+}
+
+function AppFooter() {
+  return (
+    <footer className="mt-6 border-t border-border/80 py-4 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <span>© {CURRENT_YEAR} AutoTesting</span>
+        <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-4 gap-y-2">
+          {footerLinks.map((link) => (
+            <Link
+              key={link.label}
+              to={link.to}
+              className="hover:text-foreground hover:underline"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
+    </footer>
   );
 }
 
@@ -339,6 +368,7 @@ export default function Layout() {
           <Suspense fallback={<RouteFallback />}>
             <Outlet />
           </Suspense>
+          <AppFooter />
         </div>
       </div>
     </div>

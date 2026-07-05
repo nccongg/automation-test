@@ -36,6 +36,7 @@ const SettingsPage = lazy(() => import("@/pages/settings/SettingsPage"));
 const ProjectSettingsPage = lazy(() => import("@/pages/projects/ProjectSettingsPage"));
 const DataPage = lazy(() => import("@/pages/data/DataPage"));
 const ObjectRepositoryPage = lazy(() => import("@/pages/object-repository/ObjectRepositoryPage"));
+const StaticInfoPage = lazy(() => import("@/pages/legal/StaticInfoPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 
 export default function App() {
@@ -84,6 +85,10 @@ export default function App() {
                   <Route path="settings" element={<ProjectSettingsPage />} />
                 </Route>
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="terms" element={<StaticInfoPage />} />
+                <Route path="privacy" element={<StaticInfoPage />} />
+                <Route path="security" element={<StaticInfoPage />} />
+                <Route path="contact" element={<StaticInfoPage />} />
               </Route>
             </Route>
 
