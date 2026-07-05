@@ -29,6 +29,8 @@ const navItems = [
   { to: "/settings", label: "Settings", Icon: SettingsIcon, tourId: "nav-settings" },
 ];
 
+const ONBOARDING_DISMISSED_KEY = "onboarding_completed";
+
 const THEME_CYCLE = ["light", "dark", "system"];
 const THEME_ICONS = { light: Sun, dark: Moon, system: Monitor };
 const THEME_LABELS = { light: "Light", dark: "Dark", system: "System" };
@@ -90,7 +92,10 @@ export default function Layout() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const isDevTour = new URLSearchParams(window.location.search).has("tour");
   const [showOnboarding, setShowOnboarding] = useState(
-    () => isDevTour || user?.onboarding_completed === false
+    () =>
+      isDevTour ||
+      (user?.onboarding_completed === false &&
+        localStorage.getItem(ONBOARDING_DISMISSED_KEY) !== "true")
   );
 
   useDocumentTitle(titleFromPathname(location.pathname));
