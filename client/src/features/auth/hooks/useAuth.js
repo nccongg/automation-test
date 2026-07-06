@@ -48,7 +48,11 @@ export function useLogin() {
     }
   };
 
-  return { formData, error, isLoading, handleChange, handleSubmit };
+  const handleGoogleSignIn = () => {
+    setError("Google account creation isn't available right now. Please create an account using your email and password.");
+  };
+
+  return { formData, error, isLoading, handleChange, handleSubmit, handleGoogleSignIn };
 }
 
 // ── useSignup ─────────────────────────────────────────────────────────────────

@@ -33,7 +33,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   // Business logic từ hook
-  const { formData, error, isLoading, handleChange, handleSubmit } = useLogin();
+  const { formData, error, isLoading, handleChange, handleSubmit, handleGoogleSignIn } = useLogin();
 
   return (
     <AuthLayout title="Nice to see you again!">
@@ -127,6 +127,7 @@ export default function LoginPage() {
         {/* Google sign-in */}
         <Button
           type="button"
+          onClick={handleGoogleSignIn}
           style={{ background: "var(--brand-dark)" }}
           className="h-11 w-full rounded-md text-sm font-semibold text-white transition hover:opacity-90"
         >
