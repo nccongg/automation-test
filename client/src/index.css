@@ -84,16 +84,17 @@
 /* shared gradient — reused by both layers */
 .ai-border-idle,
 .ai-border-active {
+  --ai-border-track: color-mix(in oklab, var(--border) 78%, transparent);
   background: conic-gradient(
     from var(--ai-angle),
-    transparent   0%,
+    var(--ai-border-track) 0%,
     #4f46e5       8%,
     #7c3aed      18%,
     #db2777      30%,
     #f43f5e      40%,
     #fb923c      48%,
-    transparent  58%,
-    transparent 100%
+    var(--ai-border-track) 58%,
+    var(--ai-border-track) 100%
   );
 }
 

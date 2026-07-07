@@ -174,10 +174,10 @@ export default function TestCasesPage() {
       </div>
 
       {/* AI Workbench — animated border card */}
-      <div className="relative mt-6 rounded-xl p-[1.5px]">
+      <div className="relative mt-6 overflow-hidden rounded-xl bg-border/70 p-[1.5px]">
         <div
           className={`${aiGenerating ? "ai-border-active" : "ai-border-idle"} absolute inset-0 rounded-xl`}
-          style={{ filter: "blur(10px)", opacity: aiGenerating ? 0.75 : 0.45 }}
+          style={{ filter: "blur(6px)", opacity: aiGenerating ? 0.38 : 0.18 }}
           aria-hidden="true"
         />
         <div
