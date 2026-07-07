@@ -10,7 +10,7 @@ Full-stack platform for creating, running, and analyzing browser automation test
 | Backend | Node.js 20, Express 5, PostgreSQL, JWT auth |
 | Agent worker | FastAPI, Playwright/browser-use |
 | AI providers | Gemini, OpenAI, Ollama support |
-| Deployment | Docker, Azure Container Instance, Render/Vercel docs |
+| Deployment | Docker, Azure App Service, Azure Container Instance, Render/Vercel docs |
 
 ## Repository Layout
 
@@ -208,8 +208,8 @@ Detailed Render/Vercel notes live in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 Azure workflows:
 
-- Backend API: [.github/workflows/deploy-backend.yml](.github/workflows/deploy-backend.yml), triggered by pushes to `production/backend-api`.
-- Agent worker: [.github/workflows/deploy.yml](.github/workflows/deploy.yml), triggered by pushes to `production/agent-worker`.
+- Backend API: [.github/workflows/deploy-backend.yml](.github/workflows/deploy-backend.yml), triggered by pushes to `production/backend-api`, builds `backend-api` and updates the Azure App Service image.
+- Agent worker: [.github/workflows/deploy.yml](.github/workflows/deploy.yml), triggered by pushes to `production/agent-worker`, deploys the worker to Azure Container Instance and points callbacks at the backend App Service.
 
 Required GitHub Actions secrets for backend deploy include:
 
@@ -217,16 +217,9 @@ Required GitHub Actions secrets for backend deploy include:
 AZURE_CREDENTIALS
 ACR_USERNAME
 ACR_PASSWORD
-DATABASE_URL
-JWT_SECRET
-GOOGLE_CLIENT_ID
-GEMINI_API_KEY
-AGENT_CALLBACK_SECRET
-SMTP_USER
-SMTP_PASS
 ```
 
-The backend workflow recreates the Azure Container Instance on deploy, so runtime secrets must be present in GitHub Actions secrets, not only manually set in the Azure portal.
+Backend runtime settings such as `DATABASE_URL`, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `GEMINI_API_KEY`, `AGENT_CALLBACK_SECRET`, and SMTP credentials should be configured in the Azure App Service environment/configuration. The backend workflow updates the container image; it no longer recreates the old `backend-api` ACI container.
 
 ## Notes
 
