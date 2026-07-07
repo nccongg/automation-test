@@ -45,6 +45,7 @@ export default function TestRunDetailPage() {
     let pollTimer = null;
 
     async function fetchDetail() {
+      setLoading(true);
       try {
         const data = await getTestRunDetail(runId);
         if (!mounted) return;
@@ -63,7 +64,6 @@ export default function TestRunDetailPage() {
       }
     }
 
-    setLoading(true);
     fetchDetail();
 
     return () => {
@@ -131,7 +131,9 @@ export default function TestRunDetailPage() {
               </div>
             )}
             {verdict && (
-              <Badge className={`border ${VERDICT_BADGE[verdict] ?? "bg-muted text-muted-foreground"}`}>
+              <Badge
+                className={`min-w-[72px] justify-center border ${VERDICT_BADGE[verdict] ?? "bg-muted text-muted-foreground"}`}
+              >
                 {VERDICT_LABEL[verdict] ?? verdict}
               </Badge>
             )}

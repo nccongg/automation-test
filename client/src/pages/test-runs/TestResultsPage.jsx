@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { createElement, useState, useCallback } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import {
   LayoutList,
@@ -37,44 +37,59 @@ function formatDuration(startedAt, finishedAt) {
 function VerdictBadge({ verdict, isLive }) {
   if (isLive)
     return (
-      <span className="flex items-center gap-1 rounded-[6px] border border-blue-400 px-2 py-0.5 text-xs text-blue-500">
+      <span className="flex min-w-[72px] items-center justify-center gap-1 rounded-[6px] border border-blue-400 px-2 py-0.5 text-xs text-blue-500">
         <Clock className="size-3 animate-pulse" /> Running
       </span>
     );
   const map = {
-    pass: { label: "Passed", cls: "border-success text-success" },
+    pass: { label: "Pass", cls: "border-success text-success" },
     pass_with_warning: {
       label: "Pass (no assert)",
       cls: "border-amber-500 text-amber-500",
     },
-    fail: { label: "Failed", cls: "border-destructive text-destructive" },
+    fail: { label: "Fail", cls: "border-destructive text-destructive" },
     error: { label: "Error", cls: "border-orange-500 text-orange-500" },
   };
   const v = map[verdict];
   if (!v)
     return (
-      <span className="rounded-[6px] border border-border px-2 py-0.5 text-xs text-muted-foreground">
+      <span className="inline-flex min-w-[56px] justify-center rounded-[6px] border border-border px-2 py-0.5 text-xs text-muted-foreground">
         Pending
       </span>
     );
   return (
     <span
-      className={`rounded-[6px] border px-2 py-0.5 text-xs font-normal ${v.cls}`}
+      className={`inline-flex min-w-[56px] justify-center rounded-[6px] border px-2 py-0.5 text-xs font-normal ${v.cls}`}
     >
       {v.label}
     </span>
   );
 }
 
+const RUN_GRID_COLUMNS = "minmax(280px,1fr) 176px 128px 128px 56px";
+const RUN_GRID_MIN_WIDTH = 840;
+
 /* ─── Table Column Header ─────────────────────────────────────────────── */
 
-function TableHeader({ children }) {
+function TableHeader({
+  nameLabel,
+  resultsLabel = "Results",
+  statusLabel = "Status",
+}) {
   return (
     <div
-      className="flex items-center border-b border-border bg-muted/40 px-8"
-      style={{ height: 46 }}
+      className="grid items-center gap-4 border-b border-border bg-muted/40 px-8"
+      style={{
+        gridTemplateColumns: RUN_GRID_COLUMNS,
+        minHeight: 46,
+        minWidth: RUN_GRID_MIN_WIDTH,
+      }}
     >
-      {children}
+      <ColHead>{nameLabel}</ColHead>
+      <ColHead className="text-right">Date</ColHead>
+      <ColHead className="text-right">{resultsLabel}</ColHead>
+      <ColHead className="text-right">{statusLabel}</ColHead>
+      <ColHead />
     </div>
   );
 }
@@ -117,8 +132,12 @@ function RunRow({ run, projectId, rowIndex }) {
   return (
     <button
       onClick={() => navigate(`/projects/${projectId}/test-runs/${run.id}`)}
-      className={`group flex w-full items-center px-8 transition-colors hover:bg-muted/60 ${rowBg}`}
-      style={{ minHeight: 46 }}
+      className={`group grid w-full items-center gap-4 px-8 text-left transition-colors hover:bg-muted/60 ${rowBg}`}
+      style={{
+        gridTemplateColumns: RUN_GRID_COLUMNS,
+        minHeight: 46,
+        minWidth: RUN_GRID_MIN_WIDTH,
+      }}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {isLive && (
@@ -131,13 +150,16 @@ function RunRow({ run, projectId, rowIndex }) {
           {run.projectName}
         </p>
       </div>
-      <span className="w-44 shrink-0 text-right text-[13px] text-muted-foreground">
+      <span className="text-right text-[13px] text-muted-foreground">
         {run.executedAt}
       </span>
-      <span className="w-32 shrink-0 flex justify-end">
+      <span className="text-right text-[13px] text-muted-foreground tabular-nums">
+        {run.duration || "-"}
+      </span>
+      <span className="flex justify-end">
         <VerdictBadge verdict={run.verdict} isLive={isLive} />
       </span>
-      <span className="w-14 shrink-0 text-right text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+      <span className="text-right text-xs text-muted-foreground transition-colors group-hover:text-foreground">
         View →
       </span>
     </button>
@@ -165,8 +187,12 @@ function SheetRunRow({ run, onClick, rowIndex }) {
   return (
     <button
       onClick={onClick}
-      className={`group flex w-full items-center px-8 transition-colors hover:bg-muted/60 ${rowBg}`}
-      style={{ minHeight: 46 }}
+      className={`group grid w-full items-center gap-4 px-8 text-left transition-colors hover:bg-muted/60 ${rowBg}`}
+      style={{
+        gridTemplateColumns: RUN_GRID_COLUMNS,
+        minHeight: 46,
+        minWidth: RUN_GRID_MIN_WIDTH,
+      }}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {isLive && (
@@ -181,17 +207,17 @@ function SheetRunRow({ run, onClick, rowIndex }) {
           {duration ? ` · ${duration}` : ""}
         </span>
       </div>
-      <span className="w-44 shrink-0 text-right text-[13px] text-muted-foreground">
+      <span className="text-right text-[13px] text-muted-foreground">
         {formatDateTime(run.createdAt)}
       </span>
-      <span className="w-20 shrink-0 flex items-center justify-end gap-2 text-[13px]">
+      <span className="flex items-center justify-end gap-2 text-[13px]">
         <span className="text-success">{passed} ✓</span>
         {failed > 0 && <span className="text-destructive">{failed} ✗</span>}
       </span>
-      <span className="w-32 shrink-0 flex justify-end">
+      <span className="flex justify-end">
         <VerdictBadge verdict={sheetVerdict} isLive={isLive} />
       </span>
-      <span className="w-14 shrink-0 text-right text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+      <span className="text-right text-xs text-muted-foreground transition-colors group-hover:text-foreground">
         View →
       </span>
     </button>
@@ -207,8 +233,12 @@ function DatasetRunRow({ batch, onClick, rowIndex }) {
   return (
     <button
       onClick={onClick}
-      className={`group flex w-full items-center px-8 transition-colors hover:bg-muted/60 ${rowBg}`}
-      style={{ minHeight: 46 }}
+      className={`group grid w-full items-center gap-4 px-8 text-left transition-colors hover:bg-muted/60 ${rowBg}`}
+      style={{
+        gridTemplateColumns: RUN_GRID_COLUMNS,
+        minHeight: 46,
+        minWidth: RUN_GRID_MIN_WIDTH,
+      }}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <p className="truncate text-[14px] text-foreground">
@@ -219,15 +249,15 @@ function DatasetRunRow({ batch, onClick, rowIndex }) {
           {batch.id}
         </span>
       </div>
-      <span className="w-44 shrink-0 text-right text-[13px] text-muted-foreground">
+      <span className="text-right text-[13px] text-muted-foreground">
         {batch.created_at ? new Date(batch.created_at).toLocaleString() : ""}
       </span>
-      <span className="w-32 shrink-0 flex items-center justify-end gap-2 text-[13px]">
+      <span className="flex items-center justify-end gap-2 text-[13px]">
         <span className="text-success">{batch.passed_rows ?? 0} ✓</span>
         <span className="text-destructive">{batch.failed_rows ?? 0} ✗</span>
         <span className="text-muted-foreground">/ {batch.total_rows ?? 0}</span>
       </span>
-      <span className="w-24 shrink-0 flex justify-end">
+      <span className="flex justify-end">
         <span
           className={`rounded-[6px] border px-2 py-0.5 text-xs font-normal ${
             isCompleted
@@ -238,7 +268,7 @@ function DatasetRunRow({ batch, onClick, rowIndex }) {
           {batch.status}
         </span>
       </span>
-      <span className="w-14 shrink-0 text-right text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+      <span className="text-right text-xs text-muted-foreground transition-colors group-hover:text-foreground">
         View →
       </span>
     </button>
@@ -387,7 +417,7 @@ export default function TestResultsPage() {
 
       {/* Tabs */}
       <div className="flex border-b border-border">
-        {TABS.map(({ id, label, icon: Icon }) => {
+        {TABS.map(({ id, label, icon: TabIcon }) => {
           const count =
             id === "cases"
               ? pagination.total
@@ -405,7 +435,7 @@ export default function TestResultsPage() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Icon className="size-4" />
+              {createElement(TabIcon, { className: "size-4" })}
               {label}
               <span
                 className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
@@ -430,40 +460,37 @@ export default function TestResultsPage() {
           <StatStrip
             items={[
               { label: "Total Runs", value: summary.totalRuns },
-              { label: "Passed", value: summary.passed },
-              { label: "Failed", value: summary.failed },
+              { label: "Pass", value: summary.passed },
+              { label: "Fail", value: summary.failed },
               { label: "Pass Rate", value: summary.passRate },
             ]}
           />
 
-          <TableHeader>
-            <ColHead className="flex-1">Test Case</ColHead>
-            <ColHead className="w-44 text-right">Date</ColHead>
-            <ColHead className="w-32 text-right">Status</ColHead>
-            <ColHead className="w-14" />
-          </TableHeader>
+          <div className="overflow-x-auto">
+            <TableHeader nameLabel="Test Case" resultsLabel="Duration" />
 
-          {individualRuns.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-16 text-center">
-              <p className="text-[14px] font-medium text-muted-foreground">
-                No test case runs yet
-              </p>
-              <p className="text-[13px] text-muted-foreground/60">
-                Run a test case to see results here
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {individualRuns.map((run, index) => (
-                <RunRow
-                  key={`run-${run.id}`}
-                  run={run}
-                  projectId={pid}
-                  rowIndex={index}
-                />
-              ))}
-            </div>
-          )}
+            {individualRuns.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-16 text-center">
+                <p className="text-[14px] font-medium text-muted-foreground">
+                  No test case runs yet
+                </p>
+                <p className="text-[13px] text-muted-foreground/60">
+                  Run a test case to see results here
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {individualRuns.map((run, index) => (
+                  <RunRow
+                    key={`run-${run.id}`}
+                    run={run}
+                    projectId={pid}
+                    rowIndex={index}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
 
           <Pagination
             page={pagination.page}
@@ -482,11 +509,11 @@ export default function TestResultsPage() {
             items={[
               { label: "Sheet Runs", value: sheetRuns.length },
               {
-                label: "Passed",
+                label: "Pass",
                 value: sheetRuns.reduce((s, r) => s + (r.passed ?? 0), 0),
               },
               {
-                label: "Failed",
+                label: "Fail",
                 value: sheetRuns.reduce((s, r) => s + (r.failed ?? 0), 0),
               },
               {
@@ -496,39 +523,35 @@ export default function TestResultsPage() {
             ]}
           />
 
-          <TableHeader>
-            <ColHead className="flex-1">Sheet Name</ColHead>
-            <ColHead className="w-44 text-right">Date</ColHead>
-            <ColHead className="w-20 text-right">Results</ColHead>
-            <ColHead className="w-32 text-right">Status</ColHead>
-            <ColHead className="w-14" />
-          </TableHeader>
+          <div className="overflow-x-auto">
+            <TableHeader nameLabel="Test Suite" />
 
-          {sheetRuns.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-16 text-center">
-              <p className="text-[14px] font-medium text-muted-foreground">
-                No test sheet runs yet
-              </p>
-              <p className="text-[13px] text-muted-foreground/60">
-                Run a test sheet to see results here
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {[...sheetRuns]
-                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                .map((run, index) => (
-                  <SheetRunRow
-                    key={`sheet-${run.id}`}
-                    run={run}
-                    onClick={() =>
-                      navigate(`/projects/${pid}/test-runs/sheet/${run.id}`)
-                    }
-                    rowIndex={index}
-                  />
-                ))}
-            </div>
-          )}
+            {sheetRuns.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-16 text-center">
+                <p className="text-[14px] font-medium text-muted-foreground">
+                  No test sheet runs yet
+                </p>
+                <p className="text-[13px] text-muted-foreground/60">
+                  Run a test sheet to see results here
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {[...sheetRuns]
+                  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                  .map((run, index) => (
+                    <SheetRunRow
+                      key={`sheet-${run.id}`}
+                      run={run}
+                      onClick={() =>
+                        navigate(`/projects/${pid}/test-runs/sheet/${run.id}`)
+                      }
+                      rowIndex={index}
+                    />
+                  ))}
+              </div>
+            )}
+          </div>
         </>
       )}
 
@@ -539,14 +562,14 @@ export default function TestResultsPage() {
             items={[
               { label: "Batches", value: datasetBatches.length },
               {
-                label: "Passed Rows",
+                label: "Pass Rows",
                 value: datasetBatches.reduce(
                   (s, b) => s + (b.passed_rows ?? 0),
                   0,
                 ),
               },
               {
-                label: "Failed Rows",
+                label: "Fail Rows",
                 value: datasetBatches.reduce(
                   (s, b) => s + (b.failed_rows ?? 0),
                   0,
@@ -555,38 +578,34 @@ export default function TestResultsPage() {
             ]}
           />
 
-          <TableHeader>
-            <ColHead className="flex-1">Test Case</ColHead>
-            <ColHead className="w-44 text-right">Date</ColHead>
-            <ColHead className="w-32 text-right">Results</ColHead>
-            <ColHead className="w-24 text-right">Status</ColHead>
-            <ColHead className="w-14" />
-          </TableHeader>
+          <div className="overflow-x-auto">
+            <TableHeader nameLabel="Test Case" />
 
-          {datasetBatches.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-16 text-center">
-              <Database className="mx-auto size-8 text-muted-foreground/30" />
-              <p className="text-[14px] font-medium text-muted-foreground">
-                No dataset runs yet
-              </p>
-              <p className="text-[13px] text-muted-foreground/60">
-                Run a dataset batch from a test case to see results here
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {datasetBatches.map((batch, index) => (
-                <DatasetRunRow
-                  key={batch.id}
-                  batch={batch}
-                  onClick={() =>
-                    navigate(`/projects/${pid}/test-runs/batches/${batch.id}`)
-                  }
-                  rowIndex={index}
-                />
-              ))}
-            </div>
-          )}
+            {datasetBatches.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-16 text-center">
+                <Database className="mx-auto size-8 text-muted-foreground/30" />
+                <p className="text-[14px] font-medium text-muted-foreground">
+                  No dataset runs yet
+                </p>
+                <p className="text-[13px] text-muted-foreground/60">
+                  Run a dataset batch from a test case to see results here
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {datasetBatches.map((batch, index) => (
+                  <DatasetRunRow
+                    key={batch.id}
+                    batch={batch}
+                    onClick={() =>
+                      navigate(`/projects/${pid}/test-runs/batches/${batch.id}`)
+                    }
+                    rowIndex={index}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>

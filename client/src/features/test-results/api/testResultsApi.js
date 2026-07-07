@@ -31,9 +31,9 @@ function formatStepStatus(status) {
 }
 
 function mapVerdictToResult(verdict, status) {
-  if (verdict === "pass") return "Passed";
+  if (verdict === "pass") return "Pass";
   if (verdict === "pass_with_warning") return "Pass (no assertion)";
-  if (verdict === "fail") return "Failed";
+  if (verdict === "fail") return "Fail";
   if (verdict === "error") return "Error";
 
   if (status === "queued" || status === "running") return "Running";
@@ -44,8 +44,8 @@ function mapVerdictToResult(verdict, status) {
 
 function calculateSummary(runs) {
   const totalRuns = runs.length;
-  const passed = runs.filter((run) => run.result === "Passed").length;
-  const failed = runs.filter((run) => run.result === "Failed").length;
+  const passed = runs.filter((run) => run.result === "Pass").length;
+  const failed = runs.filter((run) => run.result === "Fail").length;
   const skipped = 0;
 
   const durationValuesInSeconds = runs
@@ -128,8 +128,8 @@ export async function getTestResults(projectId, { page = 1, pageSize = 20 } = {}
       result,
       fromSheet: !!run.fromSheet,
       totalTests: 1,
-      passed: result === "Passed" ? 1 : 0,
-      failed: result === "Failed" ? 1 : 0,
+      passed: result === "Pass" ? 1 : 0,
+      failed: result === "Fail" ? 1 : 0,
       duration: formatDuration(run.startedAt, run.finishedAt),
       executedAt: formatDateTime(run.createdAt),
       executedBy: "System",

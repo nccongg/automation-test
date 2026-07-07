@@ -365,10 +365,14 @@ export default function Layout() {
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-2 sm:px-6 sm:py-3 md:px-8 md:py-4">
-          <Suspense fallback={<RouteFallback />}>
-            <Outlet />
-          </Suspense>
-          <AppFooter />
+          <div className="flex min-h-full flex-col">
+            <main className="flex-1">
+              <Suspense fallback={<RouteFallback />}>
+                <Outlet />
+              </Suspense>
+            </main>
+            <AppFooter />
+          </div>
         </div>
       </div>
     </div>
