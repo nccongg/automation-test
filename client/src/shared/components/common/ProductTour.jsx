@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { authApi } from "@/features/auth/api/authApi";
@@ -9,6 +9,8 @@ const PADDING = 10;
 const TOOLTIP_W = 272;
 // Desktop sidebar is always w-64 (256px) while tour is active
 const SIDEBAR_W = 256;
+const TOUR_TRANSITION =
+  "left 220ms cubic-bezier(0.22, 1, 0.36, 1), top 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1), height 220ms cubic-bezier(0.22, 1, 0.36, 1)";
 
 const STEPS = [
   {
@@ -117,37 +119,89 @@ function fillFieldIfEmpty(selector, value) {
 
 function useTargetRect(selector, step) {
   const [rect, setRect] = useState(null);
+  const rafRef = useRef(null);
 
-  const refresh = useCallback(() => {
+  const readRect = useCallback(() => {
     if (!selector) { setRect(null); return; }
     const el = document.querySelector(selector);
     if (el) setRect(el.getBoundingClientRect());
     else setRect(null);
   }, [selector]);
 
+  const refresh = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        readRect();
+      });
+    });
+  }, [readRect]);
+
+  useLayoutEffect(() => {
+    refresh();
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [refresh, step]);
+
+  useEffect(() => {
+    if (!selector) return;
+    const el = document.querySelector(selector);
+    el?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  }, [selector, step]);
+
   useEffect(() => {
     // Retry at increasing intervals — handles elements that appear after navigation + data load
-    const delays = [50, 200, 500, 1200];
+    const delays = [60, 160, 320, 650, 1100];
     const timers = delays.map((d) => setTimeout(refresh, d));
     window.addEventListener("resize", refresh);
     window.addEventListener("scroll", refresh, true);
+
+    const mutationObserver = new MutationObserver(refresh);
+    mutationObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "style", "data-state", "open"],
+    });
+
+    const el = selector ? document.querySelector(selector) : null;
+    const resizeObserver = el && "ResizeObserver" in window
+      ? new ResizeObserver(refresh)
+      : null;
+    if (resizeObserver) resizeObserver.observe(el);
+
     return () => {
       timers.forEach(clearTimeout);
       window.removeEventListener("resize", refresh);
       window.removeEventListener("scroll", refresh, true);
+      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
     };
-  }, [refresh, step]);
+  }, [refresh, selector, step]);
 
   return rect;
+}
+
+function getSpotlightBox(rect) {
+  const left = Math.max(0, rect.left - PADDING);
+  const top = Math.max(0, rect.top - PADDING);
+  const right = Math.min(window.innerWidth, rect.right + PADDING);
+  const bottom = Math.min(window.innerHeight, rect.bottom + PADDING);
+
+  return {
+    x: left,
+    y: top,
+    w: Math.max(0, right - left),
+    h: Math.max(0, bottom - top),
+  };
 }
 
 // 4 transparent divs that block clicks everywhere outside the spotlight
 function Blockers({ rect }) {
   if (!rect) return null;
-  const x = rect.x - PADDING;
-  const y = rect.y - PADDING;
-  const w = rect.width + PADDING * 2;
-  const h = rect.height + PADDING * 2;
+  const { x, y, w, h } = getSpotlightBox(rect);
 
   const base = { position: "fixed", zIndex: 1000, background: "transparent", pointerEvents: "auto" };
 
@@ -163,10 +217,7 @@ function Blockers({ rect }) {
 
 function Ring({ rect }) {
   if (!rect) return null;
-  const x = rect.x - PADDING;
-  const y = rect.y - PADDING;
-  const w = rect.width + PADDING * 2;
-  const h = rect.height + PADDING * 2;
+  const { x, y, w, h } = getSpotlightBox(rect);
   const base = {
     position: "fixed",
     zIndex: 1001,
@@ -174,6 +225,8 @@ function Ring({ rect }) {
     borderRadius: 10,
     pointerEvents: "none",
     border: "2px solid rgba(255,255,255,0.95)",
+    transition: TOUR_TRANSITION,
+    willChange: "left, top, width, height",
   };
   return (
     <>
@@ -188,51 +241,34 @@ function Ring({ rect }) {
 }
 
 function Overlay({ rect }) {
+  const base = {
+    position: "fixed",
+    zIndex: 999,
+    background: "rgba(0,0,0,0.6)",
+    pointerEvents: "none",
+    transition: TOUR_TRANSITION,
+    willChange: "left, top, width, height",
+  };
+
   if (!rect) {
     return (
       <div
         style={{
-          position: "fixed",
+          ...base,
           inset: 0,
-          zIndex: 999,
-          background: "rgba(0,0,0,0.6)",
-          pointerEvents: "none",
         }}
       />
     );
   }
 
-  const x = rect.x - PADDING;
-  const y = rect.y - PADDING;
-  const w = rect.width + PADDING * 2;
-  const h = rect.height + PADDING * 2;
+  const { x, y, w, h } = getSpotlightBox(rect);
 
   return (
     <>
-      <svg
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 999,
-          width: "100%",
-          height: "100%",
-          pointerEvents: "none",
-          overflow: "visible",
-        }}
-      >
-        <defs>
-          <mask id="tour-spotlight-mask">
-            <rect width="100%" height="100%" fill="white" />
-            <rect x={x} y={y} width={w} height={h} rx="8" fill="black" />
-          </mask>
-        </defs>
-        <rect
-          width="100%"
-          height="100%"
-          fill="rgba(0,0,0,0.6)"
-          mask="url(#tour-spotlight-mask)"
-        />
-      </svg>
+      <div style={{ ...base, top: 0, left: 0, right: 0, height: y }} />
+      <div style={{ ...base, top: y + h, left: 0, right: 0, bottom: 0 }} />
+      <div style={{ ...base, top: y, left: 0, width: x, height: h }} />
+      <div style={{ ...base, top: y, left: x + w, right: 0, height: h }} />
       <Ring rect={rect} />
     </>
   );
@@ -299,7 +335,12 @@ function Tooltip({ step, index, total, rect, onNext, onBack, onDismiss }) {
   return (
     <div
       data-tour-tooltip
-      style={{ ...style, pointerEvents: "auto" }}
+      style={{
+        ...style,
+        pointerEvents: "auto",
+        transition: "left 220ms cubic-bezier(0.22, 1, 0.36, 1), top 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms ease",
+        willChange: "left, top, transform",
+      }}
       className="relative bg-background border border-border rounded-xl shadow-2xl overflow-visible"
     >
       {/* Connector: arrowhead at sidebar-item end, dashed line to tooltip */}
