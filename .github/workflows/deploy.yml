@@ -11,6 +11,7 @@ env:
   IMAGE_NAME: agent-worker
   RESOURCE_GROUP: agent-worker
   CONTAINER_NAME: agent-worker
+  WEBAPP_NAME: automation-test-backend
 
 jobs:
   deploy:
@@ -48,6 +49,12 @@ jobs:
 
       - name: Create new container
         run: |
+          BACKEND_HOST=$(az webapp show \
+            --resource-group $RESOURCE_GROUP \
+            --name $WEBAPP_NAME \
+            --query defaultHostName \
+            --output tsv)
+
           az container create \
             --resource-group $RESOURCE_GROUP \
             --name $CONTAINER_NAME \
@@ -67,7 +74,7 @@ jobs:
               EXECUTION_HEADLESS=true \
               EXECUTION_LLM_MODEL=gemini-3.5-flash \
               EXECUTION_LLM_PROVIDER=gemini \
-              NODE_CALLBACK_BASE_URL=http://backend-api-prod.indonesiacentral.azurecontainer.io:5000/api \
+              NODE_CALLBACK_BASE_URL=https://$BACKEND_HOST/api \
               NODE_ENV=production \
             --secure-environment-variables \
               GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
