@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { authApi } from "@/features/auth/api/authApi";
 import { ChevronRight, ChevronLeft, MousePointerClick, X, Wand2 } from "lucide-react";
 
+const ONBOARDING_DISMISSED_KEY = "onboarding_completed";
 const PADDING = 10;
 const TOOLTIP_W = 272;
 // Desktop sidebar is always w-64 (256px) while tour is active
@@ -464,16 +465,22 @@ export default function ProductTour({ open, onClose, devMode = false }) {
 
   const dismiss = useCallback(async () => {
     if (!devMode) {
-      try {
-        await authApi.completeOnboarding();
-        const raw = localStorage.getItem("user");
-        if (raw) {
+      localStorage.setItem(ONBOARDING_DISMISSED_KEY, "true");
+      const raw = localStorage.getItem("user");
+      if (raw) {
+        try {
           const u = JSON.parse(raw);
           u.onboarding_completed = true;
           localStorage.setItem("user", JSON.stringify(u));
+        } catch {
+          // Ignore malformed local user data; the standalone flag still prevents repeat tour loops.
         }
+      }
+
+      try {
+        await authApi.completeOnboarding();
       } catch {
-        // best-effort — don't block the user
+        // Backend sync is best-effort; local dismissal should still persist for this browser.
       }
     }
     onClose();

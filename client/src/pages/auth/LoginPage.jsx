@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
+import { useGoogleLogin, useGoogleOAuth } from "@react-oauth/google";
 
 import { useLogin } from '@/features/auth/hooks/useAuth';
 import AuthLayout from '@/shared/components/layout/AuthLayout';
@@ -22,6 +23,31 @@ function GoogleIcon() {
   );
 }
 
+function GoogleSignInButton({ disabled, isLoading, onSuccess, onError }) {
+  const { scriptLoadedSuccessfully } = useGoogleOAuth();
+  const login = useGoogleLogin({
+    onSuccess,
+    onError,
+    onNonOAuthError: onError,
+    scope: "openid profile email",
+  });
+
+  return (
+    <Button
+      type="button"
+      onClick={() => login({ prompt: "select_account" })}
+      disabled={disabled || isLoading || !scriptLoadedSuccessfully}
+      style={{ background: "var(--brand-dark)" }}
+      className="h-11 w-full rounded-md text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+    >
+      <span className="mr-3 inline-flex items-center">
+        <GoogleIcon />
+      </span>
+      {isLoading ? "Signing in..." : "Sign in with Google"}
+    </Button>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 /**
@@ -31,9 +57,20 @@ function GoogleIcon() {
 export default function LoginPage() {
   // UI-only state — không liên quan đến business logic
   const [showPassword, setShowPassword] = useState(false);
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
   // Business logic từ hook
-  const { formData, error, isLoading, handleChange, handleSubmit } = useLogin();
+  const {
+    formData,
+    error,
+    isLoading,
+    isGoogleLoading,
+    handleChange,
+    handleSubmit,
+    handleGoogleSignIn,
+    handleGoogleError,
+    handleGoogleUnavailable,
+  } = useLogin();
 
   return (
     <AuthLayout title="Nice to see you again!">
@@ -111,7 +148,7 @@ export default function LoginPage() {
         {/* Submit */}
         <Button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || isGoogleLoading}
           style={{
             background: "var(--brand-primary)",
             boxShadow: "var(--brand-primary-shadow)",
@@ -125,16 +162,27 @@ export default function LoginPage() {
         <div className="h-px w-full bg-slate-200" />
 
         {/* Google sign-in */}
-        <Button
-          type="button"
-          style={{ background: "var(--brand-dark)" }}
-          className="h-11 w-full rounded-md text-sm font-semibold text-white transition hover:opacity-90"
-        >
-          <span className="mr-3 inline-flex items-center">
-            <GoogleIcon />
-          </span>
-          Sign in with Google
-        </Button>
+        {googleClientId ? (
+          <GoogleSignInButton
+            disabled={isLoading}
+            isLoading={isGoogleLoading}
+            onSuccess={handleGoogleSignIn}
+            onError={handleGoogleError}
+          />
+        ) : (
+          <Button
+            type="button"
+            onClick={handleGoogleUnavailable}
+            disabled={isLoading || isGoogleLoading}
+            style={{ background: "var(--brand-dark)" }}
+            className="h-11 w-full rounded-md text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+          >
+            <span className="mr-3 inline-flex items-center">
+              <GoogleIcon />
+            </span>
+            Sign in with Google
+          </Button>
+        )}
 
         {/* Footer */}
         <p className="pt-2 text-center text-sm text-slate-500">

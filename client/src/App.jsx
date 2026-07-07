@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import { ROUTES } from "@/config/routes";
 import Layout from "@/shared/components/layout/Layout";
 import ProtectedRoute from "@/shared/components/layout/ProtectedRoute";
@@ -36,10 +37,12 @@ const SettingsPage = lazy(() => import("@/pages/settings/SettingsPage"));
 const ProjectSettingsPage = lazy(() => import("@/pages/projects/ProjectSettingsPage"));
 const DataPage = lazy(() => import("@/pages/data/DataPage"));
 const ObjectRepositoryPage = lazy(() => import("@/pages/object-repository/ObjectRepositoryPage"));
+const StaticInfoPage = lazy(() => import("@/pages/legal/StaticInfoPage"));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 
 export default function App() {
-  return (
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+  const app = (
     <BrowserRouter>
       <ErrorBoundary>
         <Suspense fallback={<RouteFallback />}>
@@ -84,6 +87,10 @@ export default function App() {
                   <Route path="settings" element={<ProjectSettingsPage />} />
                 </Route>
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="terms" element={<StaticInfoPage />} />
+                <Route path="privacy" element={<StaticInfoPage />} />
+                <Route path="security" element={<StaticInfoPage />} />
+                <Route path="contact" element={<StaticInfoPage />} />
               </Route>
             </Route>
 
@@ -95,4 +102,10 @@ export default function App() {
       <Toaster position="top-center" richColors />
     </BrowserRouter>
   );
+
+  if (!googleClientId) {
+    return app;
+  }
+
+  return <GoogleOAuthProvider clientId={googleClientId}>{app}</GoogleOAuthProvider>;
 }

@@ -354,9 +354,7 @@ export default function TestResultsPage() {
   const pid = projectId ?? project?.id;
 
   if (loading) {
-    return (
-      <SkeletonListPage rows={8} />
-    );
+    return <SkeletonListPage rows={8} />;
   }
 
   if (error) {
@@ -375,7 +373,7 @@ export default function TestResultsPage() {
       <div className="flex items-start justify-between gap-4 border-b border-border px-8 py-7">
         <div className="min-w-0">
           <h1 className="text-[26px] font-bold leading-[30px] tracking-[0.5px] text-foreground">
-            Test Results
+            Test Runs
           </h1>
           <p className="mt-1.5 text-[14px] tracking-[0.5px] text-muted-foreground">
             All test case and test sheet runs

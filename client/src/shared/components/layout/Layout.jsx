@@ -4,7 +4,7 @@
  * Provides sidebar navigation and main content area
  */
 
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Activity,
   LayoutDashboard,
@@ -27,6 +27,16 @@ const navItems = [
   { to: "/", label: "Dashboard", Icon: LayoutDashboard, tourId: "nav-dashboard" },
   { to: "/projects", label: "Projects", Icon: SquareKanban, tourId: "nav-projects" },
   { to: "/settings", label: "Settings", Icon: SettingsIcon, tourId: "nav-settings" },
+];
+
+const ONBOARDING_DISMISSED_KEY = "onboarding_completed";
+const CURRENT_YEAR = new Date().getFullYear();
+
+const footerLinks = [
+  { label: "Terms", to: "/terms" },
+  { label: "Privacy", to: "/privacy" },
+  { label: "Security", to: "/security" },
+  { label: "Contact", to: "/contact" },
 ];
 
 const THEME_CYCLE = ["light", "dark", "system"];
@@ -81,6 +91,27 @@ function ThemeToggle({ collapsed }) {
   );
 }
 
+function AppFooter() {
+  return (
+    <footer className="mt-6 border-t border-border/80 py-4 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <span>© {CURRENT_YEAR} AutoTesting</span>
+        <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-4 gap-y-2">
+          {footerLinks.map((link) => (
+            <Link
+              key={link.label}
+              to={link.to}
+              className="hover:text-foreground hover:underline"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
+    </footer>
+  );
+}
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -90,7 +121,10 @@ export default function Layout() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const isDevTour = new URLSearchParams(window.location.search).has("tour");
   const [showOnboarding, setShowOnboarding] = useState(
-    () => isDevTour || user?.onboarding_completed === false
+    () =>
+      isDevTour ||
+      (user?.onboarding_completed === false &&
+        localStorage.getItem(ONBOARDING_DISMISSED_KEY) !== "true")
   );
 
   useDocumentTitle(titleFromPathname(location.pathname));
@@ -334,6 +368,7 @@ export default function Layout() {
           <Suspense fallback={<RouteFallback />}>
             <Outlet />
           </Suspense>
+          <AppFooter />
         </div>
       </div>
     </div>

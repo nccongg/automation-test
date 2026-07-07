@@ -41,6 +41,7 @@ const env = {
   // Auth
   JWT_SECRET: process.env.JWT_SECRET || "secret",
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "7d",
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
 
   // Email (SMTP) — used for password-reset OTPs
   SMTP_HOST: process.env.SMTP_HOST || "",

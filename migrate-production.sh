@@ -75,6 +75,7 @@ run_migration "$MIGRATIONS_DIR/019_add_onboarding_completed.sql"               "
 run_migration "$MIGRATIONS_DIR/020_eval_log_fields.sql"                        "020_eval_log_fields"
 
 run_migration "$MIGRATIONS_DIR/023_dedupe_test_objects.sql"                     "023_dedupe_test_objects"
+run_migration "$MIGRATIONS_DIR/024_google_oauth.sql"                            "024_google_oauth"
 
 # ── Add new migrations here as the schema evolves ────────────────────────────
 
