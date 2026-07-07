@@ -431,7 +431,7 @@ async function generateDataset({ goal, scriptSteps, userPrompt, rowCount = 5, in
     .join("\n");
 
   const varsInstruction = templateVars.length > 0
-    ? `The dataset columns MUST be named exactly after these template variables: ${templateVars.map((v) => `"${v}"`).join(", ")}. Do not invent other column names.`
+    ? `The dataset columns MUST be named exactly after these template variables: ${templateVars.map((v) => `"${v}"`).join(", ")}. Do not invent other column names. Every row MUST include every listed variable as a key.`
     : "Infer appropriate column names from the script steps and user request.";
 
   const columnsExample = templateVars.length > 0
@@ -439,7 +439,7 @@ async function generateDataset({ goal, scriptSteps, userPrompt, rowCount = 5, in
     : { col1: "value", col2: "value" };
 
   const initialRowSection = initialRow && Object.keys(initialRow).length > 0
-    ? `\n## Initial Test Data (Row 1 — use these exact values as the first row)\n${JSON.stringify(initialRow, null, 2)}\n`
+    ? `\n## Initial Test Data (Row 1 — keep provided non-empty values; generate realistic non-empty values for any missing/blank variables)\n${JSON.stringify(initialRow, null, 2)}\n`
     : "";
 
   const messages = [
@@ -466,8 +466,11 @@ Return ONLY valid JSON in this exact shape — no markdown, no code fences, no e
 
 Rules:
 - Generate exactly ${rowCount} rows
-- Row 1: if "Initial Test Data" is provided below, use it verbatim; otherwise extract any hardcoded literal values visible in the script steps and use them as Row 1
-- Rows 2+: cover diverse scenarios — valid credentials with variations, wrong/expired credentials, empty fields, boundary values
+- Row 1: if "Initial Test Data" is provided below, keep provided non-empty values exactly and generate realistic non-empty values for any listed variable that is missing or blank; otherwise extract any hardcoded literal values visible in the script steps and use them as Row 1
+- Rows 2+: cover diverse scenarios — valid credentials with variations, wrong/expired credentials, and boundary values
+- Do NOT return blank, null, undefined, or missing values for generated variables
+- If an empty-field scenario is needed, represent it with a realistic non-empty invalid value instead of an empty string
+- Every row object MUST contain every listed/generated column and each value must be a non-empty string
 - ALL values must be realistic strings a real user would actually type — never SQL injection, XSS payloads, or single-character garbage values
 - Credentials (username/email/password) must look like real account credentials:
     • email: must be valid format (user@domain.tld), minimum 6 chars
@@ -503,11 +506,43 @@ Generate ${rowCount} rows and return JSON.`,
   }
 
   const columns = templateVars.length > 0 ? templateVars : Object.keys(parsed.rows[0] || {});
+  const fallbackValueForColumn = (col, rowIndex) => {
+    const name = String(col || "value").toLowerCase();
+    const rowNo = rowIndex + 1;
+    if (name.includes("email")) return `test.user${rowNo}@example.com`;
+    if (name.includes("password") || name.includes("pass")) return `Password${rowNo}1`;
+    if (name.includes("username") || name === "user" || name.includes("user_name")) return `test_user_${rowNo}`;
+    if (name.includes("phone") || name.includes("mobile")) return `09000000${String(rowNo).padStart(2, "0")}`;
+    if (name.includes("name")) return `Test User ${rowNo}`;
+    return `${String(col || "value")}_${rowNo}`;
+  };
+
+  const rows = parsed.rows.map((row, index) => {
+    const normalized = {};
+    columns.forEach((col) => {
+      const value = row?.[col];
+      normalized[col] = value == null ? "" : String(value);
+    });
+    if (index === 0 && initialRow && Object.keys(initialRow).length > 0) {
+      Object.entries(initialRow).forEach(([key, value]) => {
+        if (columns.includes(key) && value != null && String(value) !== "") {
+          normalized[key] = String(value);
+        }
+      });
+    }
+    columns.forEach((col) => {
+      if (String(normalized[col] ?? "").trim() === "") {
+        normalized[col] = fallbackValueForColumn(col, index);
+      }
+    });
+    return normalized;
+  });
+
   return {
     analysis: parsed.analysis || {},
     datasetName: String(parsed.datasetName || "AI Generated Dataset").trim(),
     columns,
-    rows: parsed.rows,
+    rows,
     variableMapping: {},
     inputTokens,
     outputTokens,
