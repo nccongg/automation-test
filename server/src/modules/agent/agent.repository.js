@@ -302,6 +302,16 @@ async function insertEvidence({
 }) {
   const storageProvider = fileData ? 'db' : 'local';
 
+  if (runStepLogId && evidenceType === 'screenshot' && artifactGroup === 'step') {
+    await query(
+      `DELETE FROM public.evidences
+        WHERE run_step_log_id = $1
+          AND evidence_type = $2
+          AND artifact_group = $3`,
+      [runStepLogId, evidenceType, artifactGroup],
+    );
+  }
+
   const sql = `
     INSERT INTO public.evidences (
       test_run_id,

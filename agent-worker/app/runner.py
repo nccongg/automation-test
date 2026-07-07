@@ -1056,78 +1056,91 @@ def build_recorded_script(run_req: RunRequest, history: Any) -> Dict[str, Any]:
     }
 
 
-async def publish_llm_steps(run_req: RunRequest, history: Any, screenshots_dir: Path) -> None:
+def _item_at(values: List[Any], index: int, default: Any = None) -> Any:
+    return values[index] if index < len(values) else default
+
+
+async def publish_llm_history_step(
+    run_req: RunRequest,
+    history: Any,
+    step_index: int,
+    screenshots_dir: Path,
+) -> None:
     urls = safe_to_jsonable(history.urls() or [])
     actions = safe_to_jsonable(history.action_names() or [])
     errors = safe_to_jsonable(history.errors() or [])
     contents = safe_to_jsonable(history.extracted_content() or [])
-    thoughts = safe_to_jsonable(history.model_thoughts() or [])
     screenshots = safe_to_jsonable(history.screenshot_paths() or [])
     model_actions = safe_to_jsonable(history.model_actions() or [])
     model_outputs = safe_to_jsonable(history.model_outputs() or [])
     action_results = safe_to_jsonable(getattr(history, "action_results", lambda: [])() or [])
 
+    error_value = _item_at(errors, step_index)
+    action_name = _item_at(actions, step_index, "unknown")
+    current_url = _item_at(urls, step_index)
+    extracted = _item_at(contents, step_index)
+    screenshot_path = _item_at(screenshots, step_index)
+    action_input = _item_at(model_actions, step_index)
+    action_output = _item_at(action_results, step_index)
+    model_output = _item_at(model_outputs, step_index)
+    step_no = step_index + 1
+
+    # Move browser-use screenshots out of its temp folder so the backend can
+    # render them even after the worker process exits.
+    if screenshot_path and Path(screenshot_path).exists():
+        try:
+            temp_p = Path(screenshot_path)
+            persistent_name = f"llm_step_{step_no}{temp_p.suffix or '.png'}"
+            persistent_path = screenshots_dir / persistent_name
+
+            shutil.copy2(screenshot_path, str(persistent_path))
+            screenshot_path = str(persistent_path.resolve())
+        except Exception:
+            logger.warning(
+                "Failed to copy LLM screenshot from %s to %s",
+                screenshot_path,
+                str(screenshots_dir),
+                exc_info=True,
+            )
+
+    logger.info("LLM step %s screenshotPath=%s", step_no, str(screenshot_path))
+    if screenshot_path:
+        try:
+            exists = Path(screenshot_path).exists()
+        except Exception:
+            exists = False
+        logger.info("LLM step %s screenshot exists=%s", step_no, exists)
+
+    screenshot_data, screenshot_mime = encode_screenshot_file(screenshot_path)
+
+    await post_step_event(
+        {
+            "testRunId": run_req.testRunId,
+            "attemptId": run_req.attemptId,
+            "stepNo": step_no,
+            "stepTitle": action_name,
+            "action": action_name,
+            "status": "failed" if error_value else "passed",
+            "message": str(error_value) if error_value else f"Executed action: {action_name}",
+            "currentUrl": current_url,
+            "thoughtText": None,
+            "extractedContent": extracted if isinstance(extracted, str) else json.dumps(extracted, ensure_ascii=False) if extracted is not None else None,
+            "actionInputJson": action_input,
+            "actionOutputJson": action_output,
+            "modelOutputJson": model_output,
+            "durationMs": None,
+            "screenshotPath": screenshot_path,
+            "screenshotData": screenshot_data,
+            "screenshotMimeType": screenshot_mime,
+        }
+    )
+
+
+async def publish_llm_steps(run_req: RunRequest, history: Any, screenshots_dir: Path) -> None:
     total_steps = history.number_of_steps()
 
     for i in range(total_steps):
-        error_value = errors[i] if i < len(errors) else None
-        action_name = actions[i] if i < len(actions) else "unknown"
-        current_url = urls[i] if i < len(urls) else None
-        extracted = contents[i] if i < len(contents) else None
-        thought = thoughts[i] if i < len(thoughts) else None
-        screenshot_path = screenshots[i] if i < len(screenshots) else None
-        action_input = model_actions[i] if i < len(model_actions) else None
-        action_output = action_results[i] if i < len(action_results) else None
-        model_output = model_outputs[i] if i < len(model_outputs) else None
-
-        # Logic to move screenshot from browser-use temp folder to persistent screenshots_dir
-        if screenshot_path and Path(screenshot_path).exists():
-            try:
-                # Create a unique filename in our persistent directory
-                temp_p = Path(screenshot_path)
-                persistent_name = f"llm_step_{i + 1}{temp_p.suffix or '.png'}"
-                persistent_path = screenshots_dir / persistent_name
-                
-                # Copy to persistent location
-                shutil.copy2(screenshot_path, str(persistent_path))
-                
-                # Use the new absolute path for the callback
-                screenshot_path = str(persistent_path.resolve())
-            except Exception:
-                logger.warning("Failed to copy LLM screenshot from %s to %s", screenshot_path, str(screenshots_dir), exc_info=True)
-
-        # Log screenshot path reported by the browser-use history for debugging
-        logger.info("LLM step %s screenshotPath=%s", i + 1, str(screenshot_path))
-        if screenshot_path:
-            try:
-                exists = Path(screenshot_path).exists()
-            except Exception:
-                exists = False
-            logger.info("LLM step %s screenshot exists=%s", i + 1, exists)
-
-        screenshot_data, screenshot_mime = encode_screenshot_file(screenshot_path)
-
-        await post_step_event(
-            {
-                "testRunId": run_req.testRunId,
-                "attemptId": run_req.attemptId,
-                "stepNo": i + 1,
-                "stepTitle": action_name,
-                "action": action_name,
-                "status": "failed" if error_value else "passed",
-                "message": str(error_value) if error_value else f"Executed action: {action_name}",
-                "currentUrl": current_url,
-                "thoughtText": json.dumps(thought, ensure_ascii=False) if isinstance(thought, (dict, list)) else str(thought) if thought is not None else None,
-                "extractedContent": extracted if isinstance(extracted, str) else json.dumps(extracted, ensure_ascii=False) if extracted is not None else None,
-                "actionInputJson": action_input,
-                "actionOutputJson": action_output,
-                "modelOutputJson": model_output,
-                "durationMs": None,
-                "screenshotPath": screenshot_path,
-                "screenshotData": screenshot_data,
-                "screenshotMimeType": screenshot_mime,
-            }
-        )
+        await publish_llm_history_step(run_req, history, i, screenshots_dir)
 
 
 def _build_synthesis_prompt(
@@ -1376,9 +1389,33 @@ async def execute_llm_run(run_req: RunRequest) -> None:
         )
         logger.debug("[execute_llm_run] Full task text:\n%s", task_text)
 
+        live_published_steps: Set[int] = set()
+
+        async def publish_live_step(agent_instance: Any) -> None:
+            try:
+                total_steps = agent_instance.history.number_of_steps()
+                if total_steps <= 0:
+                    return
+
+                step_index = total_steps - 1
+                if step_index in live_published_steps:
+                    return
+
+                await publish_llm_history_step(run_req, agent_instance.history, step_index, screenshots_dir)
+                live_published_steps.add(step_index)
+            except Exception:
+                logger.warning(
+                    "[execute_llm_run] Failed to publish live LLM step for testRunId=%s",
+                    run_req.testRunId,
+                    exc_info=True,
+                )
+
         agent = Agent(task=task_text, browser=browser, llm=llm)
         logger.info("[execute_llm_run] Agent created — llm class=%s", type(llm).__name__)
-        history = await agent.run(max_steps=run_req.runtimeConfig.maxSteps)
+        history = await agent.run(
+            max_steps=run_req.runtimeConfig.maxSteps,
+            on_step_end=publish_live_step,
+        )
         logger.info(
             "[execute_llm_run] Agent finished — steps=%s successful=%s final_result=%r",
             history.number_of_steps(),
@@ -2145,7 +2182,7 @@ async def execute_replay_run(run_req: RunRequest) -> None:
                     "status": result.status,
                     "message": result.message,
                     "currentUrl": result.current_url,
-                    "thoughtText": "Deterministic replay step",
+                    "thoughtText": None,
                     "extractedContent": result.extracted_content,
                     "actionInputJson": rendered_action_input,
                     "actionOutputJson": result.action_output,

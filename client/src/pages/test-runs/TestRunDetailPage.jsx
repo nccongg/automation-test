@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, ShieldAlert, Sparkles, Lightbulb } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, ShieldAlert } from "lucide-react";
 import { getTestRunDetail, analyzeTestRun } from "@/features/test-results/api/testResultsApi";
 import LoadingSpinner from "@/shared/components/common/LoadingSpinner";
 import { SkeletonDetail } from "@/shared/components/common/Skeleton";
@@ -8,7 +8,6 @@ import ErrorState from "@/shared/components/common/ErrorState";
 import StepResult from "@/shared/components/common/StepResult";
 import AiAnalysisSection from "@/shared/components/common/AiAnalysisSection";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 const VERDICT_BADGE = {
   pass:              "bg-emerald-500/15 text-emerald-500 border-emerald-500/20",
@@ -31,6 +30,27 @@ const VERDICT_ICON = {
   error:             <AlertTriangle className="size-5 text-orange-500" />,
 };
 
+function LiveStepIndicator() {
+  return (
+    <div className="relative flex gap-3">
+      <div className="relative z-10 mt-0.5 flex-shrink-0">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500/15 text-blue-500 ring-4 ring-blue-500/10">
+          <LoadingSpinner size="sm" />
+        </div>
+      </div>
+
+      <div className="mb-4 min-w-0 flex-1 rounded-xl border border-dashed border-blue-500/25 bg-blue-500/[0.04] px-4 py-3">
+        <div className="flex items-center gap-2 text-sm font-medium text-blue-500">
+          <span>Running next step...</span>
+        </div>
+        <div className="mt-2 h-1.5 w-40 overflow-hidden rounded-full bg-blue-500/10">
+          <div className="h-full w-1/2 animate-pulse rounded-full bg-blue-500/40" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 export default function TestRunDetailPage() {
   const { projectId, runId } = useParams();
@@ -43,24 +63,35 @@ export default function TestRunDetailPage() {
   useEffect(() => {
     let mounted = true;
     let pollTimer = null;
+    let hasLoaded = false;
+    let shouldKeepPolling = true;
 
     async function fetchDetail() {
-      setLoading(true);
+      if (!hasLoaded) setLoading(true);
       try {
         const data = await getTestRunDetail(runId);
         if (!mounted) return;
+        hasLoaded = true;
         setDetail(data);
+        setError(null);
         setLoading(false);
 
         const status = data?.run?.status;
         const stillLive = status === "queued" || status === "running";
+        shouldKeepPolling = stillLive;
         if (stillLive) {
           pollTimer = setTimeout(fetchDetail, 3000);
         }
       } catch (e) {
         if (!mounted) return;
-        setError(e || new Error("Failed to load test run."));
-        setLoading(false);
+        if (!hasLoaded) {
+          setError(e || new Error("Failed to load test run."));
+          setLoading(false);
+          return;
+        }
+        if (shouldKeepPolling) {
+          pollTimer = setTimeout(fetchDetail, 3000);
+        }
       }
     }
 
@@ -172,9 +203,10 @@ export default function TestRunDetailPage() {
                 key={step.id}
                 step={step}
                 stepIndex={i}
-                isLast={i === steps.length - 1}
+                isLast={i === steps.length - 1 && !isLive}
               />
             ))}
+            {isLive && <LiveStepIndicator />}
           </div>
         )}
       </section>
