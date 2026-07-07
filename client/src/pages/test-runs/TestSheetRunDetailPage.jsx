@@ -143,7 +143,11 @@ const VERDICT_ICON = {
   error: <AlertTriangle className="size-4 text-orange-500" />,
 };
 
-const ITEM_STATUS_BADGE = {
+const ITEM_RESULT_BADGE = {
+  pass: "bg-emerald-500/15 text-emerald-500",
+  pass_with_warning: "bg-amber-500/15 text-amber-500",
+  fail: "bg-red-500/15 text-red-400",
+  error: "bg-orange-500/15 text-orange-400",
   completed: "bg-emerald-500/15 text-emerald-500",
   failed: "bg-red-500/15 text-red-400",
   cancelled: "bg-muted text-muted-foreground",
@@ -151,6 +155,37 @@ const ITEM_STATUS_BADGE = {
   queued: "bg-brand-500/10 text-brand-400",
   pending: "bg-muted text-muted-foreground",
 };
+
+const RESULTS_GRID_COLUMNS =
+  "32px minmax(280px,1.6fr) 120px 230px 180px 100px 110px 120px";
+const RESULTS_GRID_MIN_WIDTH = 1360;
+
+const ITEM_RESULT_LABEL = {
+  pass: "Pass",
+  pass_with_warning: "Pass*",
+  fail: "Fail",
+  error: "Error",
+  failed: "Fail",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  running: "Running",
+  queued: "Queued",
+  pending: "Pending",
+};
+
+function getItemResultValue(item) {
+  return item.verdict ?? item.status;
+}
+
+function getItemResultLabel(item) {
+  const value = getItemResultValue(item);
+  return ITEM_RESULT_LABEL[value] ?? value ?? "Pending";
+}
+
+function getItemResultBadgeClass(item) {
+  const value = getItemResultValue(item);
+  return ITEM_RESULT_BADGE[value] ?? "bg-muted text-muted-foreground";
+}
 
 /* ─── Test Case Item Row ──────────────────────────────────────────────────── */
 
@@ -170,12 +205,15 @@ function TestCaseItem({
   const scriptLabel = getScriptLabelForItem(item);
 
   return (
-    <div className="border-b last:border-b-0">
+    <div
+      className="border-b last:border-b-0"
+      style={{ minWidth: RESULTS_GRID_MIN_WIDTH }}
+    >
       <div
         className="grid items-center gap-4 px-6 py-4 transition-colors hover:bg-muted/30"
         style={{
-          gridTemplateColumns:
-            "32px minmax(220px,1.5fr) 120px 230px 180px 100px 100px 90px",
+          gridTemplateColumns: RESULTS_GRID_COLUMNS,
+          minWidth: RESULTS_GRID_MIN_WIDTH,
         }}
       >
         <span className="text-center font-mono text-xs text-muted-foreground">
@@ -238,11 +276,9 @@ function TestCaseItem({
         </span>
 
         <Badge
-          className={`w-fit text-xs capitalize ${
-            ITEM_STATUS_BADGE[item.status] ?? "bg-muted text-muted-foreground"
-          }`}
+          className={`min-w-[56px] justify-center text-xs ${getItemResultBadgeClass(item)}`}
         >
-          {item.verdict ?? item.status}
+          {getItemResultLabel(item)}
         </Badge>
 
         <div className="flex justify-end">
@@ -482,13 +518,13 @@ export default function TestSuiteRunDetailPage() {
         />
 
         <StatCard
-          label="Passed"
+          label="Pass"
           value={run.passed}
           color="bg-emerald-500/10 border-emerald-500/20"
         />
 
         <StatCard
-          label="Failed"
+          label="Fail"
           value={failedCount}
           color="bg-red-500/10 border-red-500/20"
         />
@@ -539,62 +575,69 @@ export default function TestSuiteRunDetailPage() {
         </h2>
 
         <div className="overflow-hidden rounded-xl border bg-card">
-          <div
-            className="grid items-center gap-4 border-b border-border bg-muted/40 px-6 py-3"
-            style={{
-              gridTemplateColumns:
-                "32px minmax(220px,1.5fr) 120px 230px 180px 100px 100px 90px",
-            }}
-          >
-            <span />
+          <div className="overflow-x-auto">
+            <div
+              className="grid items-center gap-4 border-b border-border bg-muted/40 px-6 py-3"
+              style={{
+                gridTemplateColumns: RESULTS_GRID_COLUMNS,
+                minWidth: RESULTS_GRID_MIN_WIDTH,
+              }}
+            >
+              <span />
 
-            <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Test Case
-            </span>
+              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Test Case
+              </span>
 
-            <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Run Type
-            </span>
+              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Run Type
+              </span>
 
-            <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Test Data
-            </span>
+              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Test Data
+              </span>
 
-            <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Replay Script
-            </span>
+              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Replay Script
+              </span>
 
-            <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Duration
-            </span>
+              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Duration
+              </span>
 
-            <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Status
-            </span>
+              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Status
+              </span>
 
-            <span className="text-right text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              Action
-            </span>
-          </div>
+              <span className="text-right text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Action
+              </span>
+            </div>
 
-          <div className="divide-y divide-border">
-            {items.length === 0 ? (
-              <div className="p-8 text-center text-sm text-muted-foreground">
-                No test cases found.
-              </div>
-            ) : (
-              items.map((item, idx) => (
-                <TestCaseItem
-                  key={item.id}
-                  item={item}
-                  idx={idx}
-                  isExpanded={expandedItemId === item.id}
-                  onToggle={handleToggleItem}
-                  onOpenDetail={handleOpenTestRunDetail}
-                  stepData={item.testRunId ? itemDetails[item.testRunId] : null}
-                />
-              ))
-            )}
+            <div className="divide-y divide-border">
+              {items.length === 0 ? (
+                <div
+                  className="p-8 text-center text-sm text-muted-foreground"
+                  style={{ minWidth: RESULTS_GRID_MIN_WIDTH }}
+                >
+                  No test cases found.
+                </div>
+              ) : (
+                items.map((item, idx) => (
+                  <TestCaseItem
+                    key={item.id}
+                    item={item}
+                    idx={idx}
+                    isExpanded={expandedItemId === item.id}
+                    onToggle={handleToggleItem}
+                    onOpenDetail={handleOpenTestRunDetail}
+                    stepData={
+                      item.testRunId ? itemDetails[item.testRunId] : null
+                    }
+                  />
+                ))
+              )}
+            </div>
           </div>
         </div>
       </section>

@@ -73,14 +73,14 @@ function DialogContent({
         <DialogPrimitive.Content
           data-slot="dialog-content"
           className={cn(
-            "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] rounded-xl p-[1.5px] shadow-lg duration-200 outline-none sm:max-w-lg",
+            "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] overflow-hidden rounded-xl bg-border/70 p-[1.5px] shadow-lg duration-200 outline-none sm:max-w-lg",
             className
           )}
           {...props}>
           {/* glow layer — blurred copy behind for vibrant halo */}
           <div
             className={`${borderCls} absolute inset-0 rounded-xl`}
-            style={{ filter: "blur(10px)", opacity: aiBorderActive ? 0.75 : 0.45 }}
+            style={{ filter: "blur(6px)", opacity: aiBorderActive ? 0.38 : 0.18 }}
           />
           {/* sharp border layer */}
           <div className={`${borderCls} absolute inset-0 rounded-xl`} />

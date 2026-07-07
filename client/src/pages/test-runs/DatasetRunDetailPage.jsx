@@ -179,42 +179,42 @@ function FailureReasonBadge({ reason }) {
 function VerdictBadge({ verdict, status }) {
   if (verdict === "pass") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-500">
+      <span className="inline-flex min-w-[64px] items-center justify-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-500">
         <CheckCircle2 className="size-3" />
-        PASS
+        Pass
       </span>
     );
   }
 
   if (verdict === "pass_with_warning") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-500">
+      <span className="inline-flex min-w-[64px] items-center justify-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-500">
         <ShieldAlert className="size-3" />
-        PASS*
+        Pass*
       </span>
     );
   }
 
   if (verdict === "fail") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-semibold text-red-400">
+      <span className="inline-flex min-w-[64px] items-center justify-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-semibold text-red-400">
         <XCircle className="size-3" />
-        FAIL
+        Fail
       </span>
     );
   }
 
   if (verdict === "error") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/15 px-2 py-0.5 text-xs font-semibold text-orange-400">
+      <span className="inline-flex min-w-[64px] items-center justify-center gap-1 rounded-full bg-orange-500/15 px-2 py-0.5 text-xs font-semibold text-orange-400">
         <AlertTriangle className="size-3" />
-        ERROR
+        Error
       </span>
     );
   }
 
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-semibold text-blue-400">
+    <span className="inline-flex min-w-[64px] items-center justify-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-semibold text-blue-400">
       <Clock className="size-3" />
       {status === "running" ? "Running" : "Queued"}
     </span>
@@ -391,8 +391,8 @@ export default function DatasetRunDetailPage() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SummaryCard label="Total" value={batch.total_rows} />
-        <SummaryCard label="Passed" value={batch.passed_rows} />
-        <SummaryCard label="Failed" value={batch.failed_rows} />
+        <SummaryCard label="Pass" value={batch.passed_rows} />
+        <SummaryCard label="Fail" value={batch.failed_rows} />
         <SummaryCard
           label={isRunning ? "Running" : "Completed"}
           value={

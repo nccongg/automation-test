@@ -54,6 +54,13 @@ function getExpectedResult(candidate) {
   return planSnapshot.expectedResult ?? "";
 }
 
+const TERMINAL_RUN_STATUSES = new Set(["completed", "failed", "cancelled"]);
+
+function extractSavedTestCaseId(result, fallback = null) {
+  const saved = Array.isArray(result) ? result[0] : result;
+  return saved?.id ?? saved?.testCaseId ?? saved?.test_case_id ?? fallback;
+}
+
 function initCandidateState(c) {
   const steps = extractSteps(c);
   const expectedResult = getExpectedResult(c);
@@ -66,6 +73,10 @@ function initCandidateState(c) {
   );
 
   const isOfficialSaved = Boolean(selectedTestCaseId && !selectedIsAiDraft);
+  const latestRunId = c.latestRunId ?? c.latest_run_id ?? null;
+  const latestRunStatus = c.latestRunStatus ?? c.latest_run_status ?? null;
+  const latestRunVerdict = c.latestRunVerdict ?? c.latest_run_verdict ?? null;
+  const hasDraftRun = Boolean(selectedIsAiDraft && latestRunId);
 
   return {
     ...c,
@@ -92,10 +103,14 @@ function initCandidateState(c) {
     savedTestCaseId: isOfficialSaved ? selectedTestCaseId : null,
     saving: false,
 
-    runPhase: "idle",
-    runId: null,
-    runStatus: null,
-    runVerdict: null,
+    runPhase: hasDraftRun
+      ? TERMINAL_RUN_STATUSES.has(latestRunStatus)
+        ? "done"
+        : "running"
+      : "idle",
+    runId: hasDraftRun ? latestRunId : null,
+    runStatus: hasDraftRun ? latestRunStatus : null,
+    runVerdict: hasDraftRun ? latestRunVerdict : null,
     runError: null,
   };
 }
@@ -295,19 +310,34 @@ function CandidateCard({
     onUpdate({ saving: true });
 
     try {
+      let nextSavedTestCaseId = null;
+
       if (draftTestCaseId) {
-        await commitTestCase(draftTestCaseId);
+        const committed = await commitTestCase(draftTestCaseId);
+        nextSavedTestCaseId = extractSavedTestCaseId(
+          committed,
+          draftTestCaseId,
+        );
       } else {
-        await saveTestCases({
+        const saved = await saveTestCases({
           projectId,
           batchId,
           candidateIds: [candidate.id],
         });
+        nextSavedTestCaseId = extractSavedTestCaseId(saved);
       }
+
+      onUpdate({
+        isSaved: true,
+        savedTestCaseId: nextSavedTestCaseId,
+        draftTestCaseId: null,
+        saving: false,
+        aiEditOpen: false,
+        editing: false,
+      });
 
       toast.success(`"${title}" saved to library!`);
       onSaved?.();
-      onDiscard?.();
     } catch (e) {
       onUpdate({ saving: false });
       toast.error(e?.message || "Failed to save.");
@@ -377,6 +407,12 @@ function CandidateCard({
     runPhase === "saving" || runPhase === "starting" || runPhase === "running";
 
   const isDone = runPhase === "done";
+  const hasDraftResult = Boolean(runId) && !isRunning;
+
+  function openRunResult() {
+    if (!runId) return;
+    navigate(`/projects/${projectId}/test-runs/${runId}`);
+  }
 
   const borderClass = isSaved
     ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-800/30 dark:bg-emerald-950/10"
@@ -663,17 +699,17 @@ function CandidateCard({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleRunDraft}
+                    onClick={hasDraftResult ? openRunResult : handleRunDraft}
                     disabled={isRunning}
                   >
                     {isRunning ? (
                       <Loader2 className="animate-spin" />
-                    ) : runPhase === "done" ? (
-                      <RotateCcw />
+                    ) : hasDraftResult ? (
+                      <ExternalLink />
                     ) : (
                       <Play />
                     )}
-                    {runPhase === "done" ? "Run Again" : "Run Draft"}
+                    {hasDraftResult ? "View Draft Result" : "Run Draft"}
                   </Button>
 
                   <Button
@@ -687,13 +723,11 @@ function CandidateCard({
                 </>
               )}
 
-              {runId && (
+              {runId && (!hasDraftResult || isSaved) && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() =>
-                    navigate(`/projects/${projectId}/test-runs/${runId}`)
-                  }
+                  onClick={openRunResult}
                 >
                   <ExternalLink />
                   Open Full Result
@@ -912,21 +946,25 @@ export default function AIWorkbenchDrawer({
 
     let successCount = 0;
     let failCount = 0;
-    const savedCandidateIds = [];
+    const savedCandidateIds = new Map();
 
     for (const c of unsaved) {
       try {
+        let savedTestCaseId = null;
+
         if (c.draftTestCaseId) {
-          await commitTestCase(c.draftTestCaseId);
+          const committed = await commitTestCase(c.draftTestCaseId);
+          savedTestCaseId = extractSavedTestCaseId(committed, c.draftTestCaseId);
         } else {
-          await saveTestCases({
+          const saved = await saveTestCases({
             projectId,
             batchId,
             candidateIds: [c.id],
           });
+          savedTestCaseId = extractSavedTestCaseId(saved);
         }
 
-        savedCandidateIds.push(c.id);
+        savedCandidateIds.set(c.id, savedTestCaseId);
         successCount += 1;
       } catch {
         updateCandidate(c.id, { saving: false });
@@ -934,9 +972,21 @@ export default function AIWorkbenchDrawer({
       }
     }
 
-    if (savedCandidateIds.length > 0) {
+    if (savedCandidateIds.size > 0) {
       setCandidates((prev) =>
-        prev.filter((c) => !savedCandidateIds.includes(c.id)),
+        prev.map((c) => {
+          if (!savedCandidateIds.has(c.id)) return c;
+
+          return {
+            ...c,
+            isSaved: true,
+            savedTestCaseId: savedCandidateIds.get(c.id),
+            draftTestCaseId: null,
+            saving: false,
+            aiEditOpen: false,
+            editing: false,
+          };
+        }),
       );
     }
 
@@ -972,7 +1022,15 @@ export default function AIWorkbenchDrawer({
   }
 
   function handleDiscard(candidateId) {
+    const candidate = candidates.find((c) => c.id === candidateId);
+
     setCandidates((prev) => prev.filter((c) => c.id !== candidateId));
+
+    toast.success(
+      candidate?.isSaved
+        ? "Candidate removed from workspace."
+        : "Draft candidate discarded.",
+    );
   }
 
   const hasResults = candidates.length > 0;
