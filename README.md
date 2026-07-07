@@ -1,164 +1,236 @@
 # Website Automation Testing
 
-A full-stack web-based automation testing platform powered by Selenium WebDriver and Gemini AI.
+Full-stack platform for creating, running, and analyzing browser automation tests with AI-assisted generation and an agent-worker execution service.
 
-## API document
+## Stack
 
-Open http://localhost:3001/api-docs to view the list of API
+| Layer | Technology |
+| --- | --- |
+| Frontend | React 19, Vite 7, Tailwind CSS, shadcn-style UI components |
+| Backend | Node.js 20, Express 5, PostgreSQL, JWT auth |
+| Agent worker | FastAPI, Playwright/browser-use |
+| AI providers | Gemini, OpenAI, Ollama support |
+| Deployment | Docker, Azure Container Instance, Render/Vercel docs |
 
-## Tech Stack
+## Repository Layout
 
-| Layer      | Technology                                |
-| ---------- | ----------------------------------------- |
-| Frontend   | ReactJS + Vite + shadcn/ui + Tailwind CSS |
-| Backend    | Node.js + Express.js                      |
-| Database   | PostgreSQL 16                             |
-| Automation | Selenium WebDriver                        |
-| AI         | Google Gemini AI                          |
-
-## Project Structure
-
-```
+```text
 automation-test/
-├── client/                    # React frontend
-├── server/
-│   ├── src/
-│   │   ├── app.js             # Entry point — Express setup
-│   │   ├── routes.js          # API router
-│   │   ├── config/
-│   │   │   ├── env.js         # Environment variables
-│   │   │   ├── database.js    # PostgreSQL pool
-│   │   │   └── gemini.js      # Gemini AI config
-│   │   ├── modules/
-│   │   │   ├── testCase/      # Test case CRUD
-│   │   │   ├── testRun/       # Test run execution
-│   │   │   └── result/        # Results & reports
-│   │   ├── middleware/        # Custom middleware
-│   │   └── utils/             # Helper functions
-│   ├── migrations/
-│   │   └── 001_init.sql       # Database schema
-│   └── .env                   # Environment variables (local only)
-└── README.md
+├── client/                 # React/Vite web app
+├── server/                 # Express API, modules, migrations, Dockerfile
+├── agent-worker/           # FastAPI browser agent service
+├── automation/             # Legacy/local Selenium runner utilities
+├── server/migrations/      # Incremental database migrations
+├── migrate-production.sh   # Full schema + incremental migration runner
+├── .github/workflows/      # Azure deployment workflows
+├── docker-compose.yml      # Local PostgreSQL only
+└── docker-compose.prod.yml # Backend + agent-worker production compose
 ```
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
+- Node.js 20+ recommended
+- PostgreSQL 16+
+- Python 3.11+ for `agent-worker`
+- Docker, if using the containerized path
+- Google OAuth Web Client ID, if enabling Google login
 
-- Node.js >= 18
-- PostgreSQL 16
-- Chrome browser (for Selenium)
+## Environment
 
-### 1. Clone and install dependencies
+The backend and frontend both read environment variables from the project-root `.env`.
 
 ```bash
-# Install frontend deps
-cd client && npm install
+cp .env.local.example .env
+```
 
-# Install backend deps
+Important variables:
+
+| Variable | Used by | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | server | Cloud PostgreSQL connection string. Overrides `DB_*`. |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | server | Local PostgreSQL fallback. |
+| `JWT_SECRET`, `JWT_EXPIRES_IN` | server | JWT signing and expiry. |
+| `GOOGLE_CLIENT_ID` | server | Verifies Google login tokens. |
+| `VITE_API_URL` | client | API base URL. Defaults to `/api`. |
+| `VITE_GOOGLE_CLIENT_ID` | client | Enables the Google login popup. Use the same Web Client ID. |
+| `GEMINI_API_KEY`, `OPENAI_API_KEY` | server/worker | AI provider credentials. |
+| `AGENT_WORKER_BASE_URL` | server | Agent worker base URL, usually `http://localhost:8001`. |
+| `AGENT_CALLBACK_SECRET` | server/worker | Shared secret for worker callbacks. |
+| `NODE_CALLBACK_BASE_URL` | worker | Backend callback base URL, e.g. `http://localhost:5000/api`. |
+| `SMTP_*`, `MAIL_FROM` | server | Password reset OTP email. |
+
+For Google login, configure the OAuth client with authorized JavaScript origins such as:
+
+- `http://localhost:5173`
+- your production frontend domain
+
+## Local Setup
+
+Install dependencies:
+
+```bash
+cd client && npm install
 cd ../server && npm install
 ```
 
-**Backend dependencies** (tự động cài qua `npm install`):
-
-| Package   | Mục đích                  |
-| --------- | ------------------------- |
-| `express` | HTTP server               |
-| `pg`      | Kết nối PostgreSQL        |
-| `dotenv`  | Đọc file `.env`           |
-| `cors`    | Cho phép frontend gọi API |
-| `helmet`  | Bảo mật HTTP headers      |
-| `morgan`  | Log request               |
-| `uuid`    | Generate unique IDs       |
-
-### 2. Configure environment variables
-
-**Mac/Linux:**
+Optional agent-worker setup:
 
 ```bash
-cp .env.example .env
+cd agent-worker
+python3.11 -m venv venv
+source venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+playwright install chromium
 ```
 
-**Windows:**
+## Database
 
-```cmd
-copy .env.example .env
-```
-
----
-
-### 3. Cài và khởi động PostgreSQL
-
-#### 🍎 macOS (Homebrew)
+For local PostgreSQL through Docker:
 
 ```bash
-# Cài PostgreSQL 16
-brew install postgresql@16
-
-# Thêm vào PATH
-echo 'export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
-
-# Khởi động PostgreSQL
-brew services start postgresql@16
+docker compose up -d postgres
 ```
 
-#### 🪟 Windows
-
-1. Tải installer tại: https://www.postgresql.org/download/windows/
-2. Chạy installer, cài version 16, đặt password cho user `postgres`
-3. Sau khi cài xong, mở **SQL Shell (psql)** hoặc **pgAdmin** từ Start Menu
-
----
-
-### 4. Tạo database và chạy migration
-
-#### 🍎 macOS
+Create a fresh local database manually if you are not using Docker:
 
 ```bash
-# Tạo database
-psql postgres -c "CREATE DATABASE automation_test;"
-
-# Chạy migration (từ thư mục gốc project)
-psql -d automation_test -f server/migrations/001_init.sql
+createdb automation_test
 ```
 
-#### 🪟 Windows
+Run the full schema/migration chain from the project root:
 
-Mở **SQL Shell (psql)** hoặc **Command Prompt** (đảm bảo `psql` đã được thêm vào PATH):
-
-```cmd
-psql -U postgres -c "CREATE DATABASE automation_test;"
-psql -U postgres -d automation_test -f server/migrations/001_init.sql
+```bash
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB_NAME?sslmode=require" ./migrate-production.sh
 ```
 
-> **Lưu ý Windows:** Nếu `psql` chưa nhận trong CMD, thêm vào PATH:
-> `C:\Program Files\PostgreSQL\16\bin`
+For a local database without SSL:
 
----
+```bash
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/automation_test" ./migrate-production.sh
+```
 
-### 5. Start the backend
+To apply only the Google OAuth migration to an already up-to-date database:
+
+```bash
+psql "postgresql://USER:PASSWORD@HOST:PORT/DB_NAME?sslmode=require" -f server/migrations/024_google_oauth.sql
+```
+
+See [server/migrations/migration-order.md](server/migrations/migration-order.md) before resetting or rebuilding production-like databases.
+
+## Run Locally
+
+Start the backend:
 
 ```bash
 cd server
 npm run dev
-# API running at http://localhost:5000
 ```
 
-### 6. Start the frontend
+Backend runs on `http://localhost:5000` by default.
+
+Start the frontend:
 
 ```bash
 cd client
 npm run dev
-# App running at http://localhost:5173
 ```
 
-## API Endpoints
+Frontend runs on `http://localhost:5173`. Vite proxies `/api` to `http://localhost:${PORT || 5000}` in development.
 
-| Method         | Path                  | Description       |
-| -------------- | --------------------- | ----------------- |
-| GET            | `/api/health`         | Health check      |
-| GET/POST       | `/api/test-cases`     | Manage test cases |
-| GET/PUT/DELETE | `/api/test-cases/:id` | Single test case  |
-| POST           | `/api/test-runs`      | Execute a test    |
-| GET            | `/api/test-runs/:id`  | Get run status    |
-| GET            | `/api/results`        | Get test results  |
+Start the agent worker when running agent/test execution flows:
+
+```bash
+cd agent-worker
+source venv/bin/activate
+uvicorn app.main:app --port 8001 --reload
+```
+
+## API
+
+All backend API routes are prefixed with `/api`.
+
+| Route prefix | Purpose |
+| --- | --- |
+| `/api/health` | Database-backed health check |
+| `/api/auth` | Email/password auth, Google login, password reset, onboarding |
+| `/api/dashboard` | Dashboard metrics |
+| `/api/projects` | Project CRUD and settings |
+| `/api/scans` | Website scan/crawl orchestration |
+| `/api/test-cases` | Test case CRUD and AI-assisted flows |
+| `/api/test-runs` | Test run execution/results |
+| `/api/test-suites` | Test suite/test sheet management |
+| `/api/test-suite-runs` | Suite run execution/results |
+| `/api/test-collections` | Test collection hierarchy |
+| `/api/datasets` | Test data/dataset management |
+| `/api/projects/:projectId/test-objects` | Object repository |
+| `/api/agent` | Agent-worker callbacks and orchestration |
+
+Swagger UI is available only when `NODE_ENV !== "production"`:
+
+```text
+http://localhost:5000/api-docs
+http://localhost:5000/api-docs.json
+```
+
+Protected API routes use `Authorization: Bearer <token>`.
+
+## Scripts
+
+Frontend:
+
+```bash
+cd client
+npm run dev
+npm run build
+npm run lint
+npm run preview
+```
+
+Backend:
+
+```bash
+cd server
+npm run dev
+npm start
+```
+
+Agent worker:
+
+```bash
+cd agent-worker
+uvicorn app.main:app --port 8001
+```
+
+## Deployment
+
+Detailed Render/Vercel notes live in [DEPLOYMENT.md](DEPLOYMENT.md).
+
+Azure workflows:
+
+- Backend API: [.github/workflows/deploy-backend.yml](.github/workflows/deploy-backend.yml), triggered by pushes to `production/backend-api`.
+- Agent worker: [.github/workflows/deploy.yml](.github/workflows/deploy.yml), triggered by pushes to `production/agent-worker`.
+
+Required GitHub Actions secrets for backend deploy include:
+
+```text
+AZURE_CREDENTIALS
+ACR_USERNAME
+ACR_PASSWORD
+DATABASE_URL
+JWT_SECRET
+GOOGLE_CLIENT_ID
+GEMINI_API_KEY
+AGENT_CALLBACK_SECRET
+SMTP_USER
+SMTP_PASS
+```
+
+The backend workflow recreates the Azure Container Instance on deploy, so runtime secrets must be present in GitHub Actions secrets, not only manually set in the Azure portal.
+
+## Notes
+
+- Backend env is loaded from the repository root `.env`.
+- Client Vite config uses `envDir: ..`, so `VITE_*` values also come from the root `.env`.
+- API docs are intentionally hidden in production.
+- `migrate-production.sh` applies `Automation_testing_DB.sql` as the base schema and then guarded incremental migrations.
