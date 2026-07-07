@@ -52,6 +52,7 @@ DB_USER=postgres
 DB_PASSWORD=postgres
 GEMINI_API_KEY=
 JWT_SECRET=
+GOOGLE_CLIENT_ID=
 AGENT_WORKER_BASE_URL=http://localhost:8001
 AGENT_CALLBACK_SECRET=
 ```
@@ -91,7 +92,7 @@ components/ # feature-specific components
 Pages in `client/src/pages/` compose features. Shared UI lives in `client/src/shared/`.
 
 ### Frontend Routing (React Router v7)
-- Auth routes: `/login`, `/signup`, `/forgot-password`, etc.
+- Auth pages: `/login`, `/signup`, `/forgot-password`, etc. Google login posts to `/api/auth/google`.
 - Protected routes under `/projects/:projectId/` — overview, test-cases, test-runs, collections (test sheets), settings
 - Route constants defined in `client/src/config/routes.js`
 

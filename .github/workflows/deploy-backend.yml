@@ -1,4 +1,4 @@
-name: Deploy Backend to Azure Container Instance
+name: Deploy Backend to Azure App Service
 
 on:
   push:
@@ -9,10 +9,9 @@ env:
   ACR_NAME: agentworkeracr
   ACR_LOGIN_SERVER: agentworkeracr.azurecr.io
   IMAGE_NAME: backend-api
+  IMAGE_TAG: ${{ github.sha }}
   RESOURCE_GROUP: agent-worker
-  CONTAINER_NAME: backend-api
-  LOCATION: indonesiacentral
-  DNS_LABEL: backend-api-prod
+  WEBAPP_NAME: automation-test-backend
 
 jobs:
   deploy:
@@ -35,60 +34,81 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:latest ./server
+          docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG ./server
+          docker tag $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG $ACR_LOGIN_SERVER/$IMAGE_NAME:latest
 
       - name: Push Docker image
         run: |
+          docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG
           docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:latest
 
-      - name: Delete old container
+      - name: Update Azure App Service image
         run: |
-          az container delete \
+          if ! az webapp config container set \
             --resource-group $RESOURCE_GROUP \
-            --name $CONTAINER_NAME \
-            --yes || true
+            --name $WEBAPP_NAME \
+            --container-image-name $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG \
+            --container-registry-url https://$ACR_LOGIN_SERVER \
+            --container-registry-user "${{ secrets.ACR_USERNAME }}" \
+            --container-registry-password "${{ secrets.ACR_PASSWORD }}"; then
+            echo "Falling back to legacy Azure CLI container flags"
+            az webapp config container set \
+              --resource-group $RESOURCE_GROUP \
+              --name $WEBAPP_NAME \
+              --docker-custom-image-name $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG \
+              --docker-registry-server-url https://$ACR_LOGIN_SERVER \
+              --docker-registry-server-user "${{ secrets.ACR_USERNAME }}" \
+              --docker-registry-server-password "${{ secrets.ACR_PASSWORD }}"
+          fi
 
-      - name: Create new container
+      - name: Restart Azure App Service
         run: |
-          az container create \
+          az webapp restart \
             --resource-group $RESOURCE_GROUP \
-            --name $CONTAINER_NAME \
-            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:latest \
-            --registry-login-server $ACR_LOGIN_SERVER \
-            --registry-username "${{ secrets.ACR_USERNAME }}" \
-            --registry-password "${{ secrets.ACR_PASSWORD }}" \
-            --cpu 1 \
-            --memory 1.5 \
-            --ports 5000 \
-            --ip-address Public \
-            --dns-name-label $DNS_LABEL \
-            --location $LOCATION \
-            --os-type Linux \
-            --restart-policy Always \
-            --environment-variables \
-              NODE_ENV=production \
-              PORT=5000 \
-              LLM_PROVIDER=gemini \
-              LLM_MODEL=gemini-3.5-flash \
-              EXECUTION_LLM_PROVIDER=gemini \
-              EXECUTION_LLM_MODEL=gemini-3.5-flash \
-              AGENT_WORKER_BASE_URL=http://agent-worker-prod.indonesiacentral.azurecontainer.io:8001 \
-              SERVER_BASE_URL=http://backend-api-prod.indonesiacentral.azurecontainer.io:5000 \
-              SMTP_HOST=smtp.gmail.com \
-              SMTP_PORT=587 \
-              MAIL_FROM="Automation Test <nchicongit@gmail.com>" \
-            --secure-environment-variables \
-              DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-              JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-              GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
-              AGENT_CALLBACK_SECRET="${{ secrets.AGENT_CALLBACK_SECRET }}" \
-              SMTP_USER="${{ secrets.SMTP_USER }}" \
-              SMTP_PASS="${{ secrets.SMTP_PASS }}"
+            --name $WEBAPP_NAME
 
       - name: Wait for container to boot
         run: sleep 20
 
       - name: Smoke test /api/health
         run: |
-          curl -sf "http://${DNS_LABEL}.${LOCATION}.azurecontainer.io:5000/api/health" || \
-            (echo "Health check failed" && exit 1)
+          APP_HOST=$(az webapp show \
+            --resource-group $RESOURCE_GROUP \
+            --name $WEBAPP_NAME \
+            --query defaultHostName \
+            --output tsv)
+
+          for attempt in {1..20}; do
+            if curl -sf "https://$APP_HOST/api/health"; then
+              exit 0
+            fi
+            echo "Health check attempt $attempt failed; retrying..."
+            sleep 10
+          done
+
+          echo "Health check failed"
+          exit 1
+
+      - name: Smoke test /api/auth/google route
+        run: |
+          APP_HOST=$(az webapp show \
+            --resource-group $RESOURCE_GROUP \
+            --name $WEBAPP_NAME \
+            --query defaultHostName \
+            --output tsv)
+
+          HTTP_STATUS=$(curl -sS \
+            -o /tmp/google-login-response.json \
+            -w "%{http_code}" \
+            -X POST "https://$APP_HOST/api/auth/google" \
+            -H "Content-Type: application/json" \
+            -d '{"credential":"test"}')
+
+          cat /tmp/google-login-response.json
+
+          if [ "$HTTP_STATUS" != "401" ]; then
+            echo "Expected /api/auth/google to return 401 for a fake credential, got $HTTP_STATUS"
+            exit 1
+          fi
+
+          grep -q "Invalid Google credential" /tmp/google-login-response.json

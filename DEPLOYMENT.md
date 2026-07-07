@@ -55,6 +55,7 @@ See `server/migrations/migration-order.md` for the manual order if needed.
    | `PORT` | `5000` |
    | `DATABASE_URL` | _(your Neon URL)_ |
    | `JWT_SECRET` | _(generate: `openssl rand -hex 64`)_ |
+   | `GOOGLE_CLIENT_ID` | _(Google OAuth Web client ID)_ |
    | `GEMINI_API_KEY` | _(your key)_ |
    | `LLM_PROVIDER` | `gemini` |
    | `LLM_MODEL` | `gemini-2.5-flash` |
@@ -142,6 +143,7 @@ Then expose port 8001 (or put behind nginx with HTTPS).
    | Variable | Value |
    |---|---|
    | `VITE_API_URL` | `https://your-backend.onrender.com/api` |
+   | `VITE_GOOGLE_CLIENT_ID` | _(same Google OAuth Web client ID)_ |
    | `VITE_APP_NAME` | `AutomationTest` |
    | `VITE_ENV` | `production` |
 
@@ -183,6 +185,7 @@ curl https://your-agent-worker.onrender.com/health
 |---|---|---|---|
 | `DATABASE_URL` | ✅ required | — | — |
 | `JWT_SECRET` | ✅ required | — | — |
+| `GOOGLE_CLIENT_ID` | ✅ required for Google login | — | — |
 | `GEMINI_API_KEY` | ✅ required | ✅ required | — |
 | `OPENAI_API_KEY` | optional | optional | — |
 | `LLM_PROVIDER` | ✅ | — | — |
@@ -195,6 +198,7 @@ curl https://your-agent-worker.onrender.com/health
 | `SERVER_BASE_URL` | ✅ required | — | — |
 | `SCREENSHOTS_DIR` | ✅ | ✅ | — |
 | `VITE_API_URL` | — | — | ✅ required |
+| `VITE_GOOGLE_CLIENT_ID` | — | — | ✅ required for Google login |
 
 ---
 

@@ -631,11 +631,21 @@ async function getLatestAiGeneration({ userId, projectId }) {
         c.is_selected AS "isSelected",
         c.selected_test_case_id AS "selectedTestCaseId",
         tc.is_ai_draft AS "selectedIsAiDraft",
+        latest_run.id AS "latestRunId",
+        latest_run.status AS "latestRunStatus",
+        latest_run.verdict AS "latestRunVerdict",
         c.created_at AS "createdAt"
       FROM test_case_generation_candidates c
       LEFT JOIN test_cases tc
         ON tc.id = c.selected_test_case_id
        AND tc.deleted_at IS NULL
+      LEFT JOIN LATERAL (
+        SELECT tr.id, tr.status, tr.verdict
+        FROM test_runs tr
+        WHERE tr.test_case_id = c.selected_test_case_id
+        ORDER BY tr.created_at DESC, tr.id DESC
+        LIMIT 1
+      ) latest_run ON TRUE
       WHERE c.batch_id = $1
       ORDER BY c.candidate_order ASC, c.id ASC
     `,

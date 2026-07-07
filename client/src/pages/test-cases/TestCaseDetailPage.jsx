@@ -68,93 +68,55 @@ import {
 
 // ── TestPlanSection ───────────────────────────────────────────────────────────
 
-function TestPlanSection({ steps, tc, onStepsUpdated }) {
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [draftSteps, setDraftSteps] = useState([]);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState("");
+function buildDraftSteps(steps = []) {
+  return (Array.isArray(steps) ? steps : []).map((s, i) => ({
+    order: s.order ?? i + 1,
+    text: s.description || s.text || "",
+    action: s.action || "custom",
+  }));
+}
 
-  function startEdit(e) {
-    e.stopPropagation();
-    setDraftSteps(
-      steps.map((s, i) => ({
-        order: s.order ?? i + 1,
-        text: s.description || s.text || "",
-        action: s.action || "custom",
-      })),
-    );
-    setEditing(true);
-    setSaveError("");
-    if (!open) setOpen(true);
-  }
-  function cancelEdit() {
-    setEditing(false);
-    setSaveError("");
-  }
-  function updateStepText(index, value) {
-    setDraftSteps((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, text: value } : s)),
-    );
-  }
-  function addStep() {
-    setDraftSteps((prev) => [
-      ...prev,
-      { order: prev.length + 1, text: "", action: "custom" },
-    ]);
-  }
-  function removeStep(index) {
-    setDraftSteps((prev) =>
-      prev
-        .filter((_, i) => i !== index)
-        .map((s, i) => ({ ...s, order: i + 1 })),
-    );
-  }
-  async function saveSteps() {
-    const validSteps = draftSteps.filter((s) => s.text.trim());
-    if (!validSteps.length) {
-      setSaveError("At least one step is required.");
-      return;
-    }
-    setSaving(true);
-    setSaveError("");
-    try {
-      await applyRefinement(tc.id, {
-        title: tc.title,
-        goal: tc.goal,
-        steps: validSteps.map((s, i) => ({
-          order: i + 1,
-          text: s.text.trim(),
-          action: s.action || "custom",
-        })),
-        expectedResult: tc.expectedResult || "",
-        promptText: "",
-      });
-      setEditing(false);
-      onStepsUpdated(
-        validSteps.map((s, i) => ({
-          order: i + 1,
-          description: s.text.trim(),
-          text: s.text.trim(),
-          action: s.action || "custom",
-        })),
-      );
-    } catch (e) {
-      setSaveError(e?.message || "Failed to save.");
-    } finally {
-      setSaving(false);
-    }
-  }
+function normalizeSteps(steps = []) {
+  return (Array.isArray(steps) ? steps : [])
+    .map((s, i) => ({
+      order: i + 1,
+      text: String(s.text || s.description || "").trim(),
+      action: s.action || "custom",
+    }))
+    .filter((s) => s.text);
+}
+
+function areStepsEqual(a, b) {
+  if (a.length !== b.length) return false;
+
+  return a.every(
+    (step, i) => step.text === b[i].text && step.action === b[i].action,
+  );
+}
+
+function TestPlanSection({
+  steps,
+  editing,
+  draftSteps,
+  saving,
+  saveError,
+  onCancel,
+  onUpdateStepText,
+  onAddStep,
+  onRemoveStep,
+}) {
+  const [open, setOpen] = useState(false);
+  const isOpen = open || editing;
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={() => !editing && setOpen((o) => !o)}
           className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          {open ? (
+          {isOpen ? (
             <ChevronDown className="size-3" />
           ) : (
             <ChevronRight className="size-3" />
@@ -165,89 +127,73 @@ function TestPlanSection({ steps, tc, onStepsUpdated }) {
             {editing ? draftSteps.length : steps.length} steps
           </span>
         </button>
-        {!editing ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={startEdit}
-            className="text-muted-foreground hover:text-primary"
-          >
-            <Pencil className="size-2.5" />
-            Edit
-          </Button>
-        ) : (
-          <div className="flex items-center gap-1.5">
-            <Button type="button" size="xs" onClick={saveSteps} disabled={saving}>
-              {saving ? (
-                <Loader2 className="size-2.5 animate-spin" />
-              ) : (
-                <Check className="size-2.5" />
-              )}
-              Save
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              onClick={cancelEdit}
-              disabled={saving}
-              className="text-muted-foreground"
-            >
-              <X className="size-2.5" />
-              Cancel
-            </Button>
-          </div>
-        )}
       </div>
       {saveError && (
         <p className="mt-1 text-[10px] text-red-500">{saveError}</p>
       )}
 
-      {open && !editing && (
+      {isOpen && !editing && (
         <div className="mt-2 space-y-1.5">
-          {steps.map((step, i) => (
-            <div key={step.id ?? i} className="flex gap-2.5">
-              <span className="relative z-10 mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-surface-2 text-[9px] font-bold text-muted-foreground">
-                {step.order ?? i + 1}
-              </span>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {step.description || step.text || `Step ${i + 1}`}
-              </p>
-            </div>
-          ))}
+          {steps.length > 0 ? (
+            steps.map((step, i) => (
+              <div key={step.id ?? i} className="flex gap-2.5">
+                <span className="relative z-10 mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-surface-2 text-[9px] font-bold text-muted-foreground">
+                  {step.order ?? i + 1}
+                </span>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {step.description || step.text || `Step ${i + 1}`}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="pl-[28px] text-xs italic text-muted-foreground/40">
+              No steps yet
+            </p>
+          )}
         </div>
       )}
 
-      {open && editing && (
-        <div className="mt-2 space-y-2">
-          {draftSteps.map((step, i) => (
-            <div key={i} className="flex gap-2.5 items-start">
-              <span className="mt-2 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">
-                {i + 1}
-              </span>
-              <textarea
-                value={step.text}
-                onChange={(e) => updateStepText(i, e.target.value)}
-                rows={2}
-                disabled={saving}
-                className="flex-1 resize-none rounded-[6px] border border-border bg-surface px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors disabled:opacity-50"
-              />
-              <button
-                type="button"
-                onClick={() => removeStep(i)}
-                disabled={saving}
-                className="mt-2 shrink-0 cursor-pointer text-muted-foreground/30 hover:text-destructive transition-colors"
+      {isOpen && editing && (
+        <div className="mt-2 rounded-[6px] border border-border bg-surface-2/50 p-2">
+          <div className="space-y-1.5">
+            {draftSteps.map((step, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-2"
               >
-                <X className="size-3.5" />
-              </button>
-            </div>
-          ))}
+                <span className="mt-1.5 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">
+                  {i + 1}
+                </span>
+                <textarea
+                  value={step.text}
+                  onChange={(e) => onUpdateStepText(i, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") onCancel();
+                  }}
+                  rows={2}
+                  disabled={saving}
+                  placeholder={`Describe step ${i + 1}`}
+                  className="min-h-[44px] flex-1 resize-y rounded-[6px] border border-border bg-surface px-2 py-1.5 font-sans text-xs leading-relaxed text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary focus:ring-1 focus:ring-primary/20 disabled:opacity-50"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => onRemoveStep(i)}
+                  disabled={saving}
+                  className="mt-1 shrink-0 text-muted-foreground/50 hover:text-destructive"
+                >
+                  <X className="size-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
           <button
             type="button"
-            onClick={addStep}
+            onClick={onAddStep}
             disabled={saving}
-            className="flex cursor-pointer items-center gap-1.5 px-1 py-0.5 text-[11px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+            className="mt-2 flex cursor-pointer items-center gap-1.5 rounded-[6px] px-1 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-primary disabled:opacity-50"
           >
             <span className="flex size-[18px] items-center justify-center rounded-full border border-dashed border-border text-xs">
               +
@@ -288,11 +234,12 @@ export default function TestCaseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Inline editing
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [editingGoal, setEditingGoal] = useState(false);
+  // Header editing
+  const [editingDetails, setEditingDetails] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftGoal, setDraftGoal] = useState("");
+  const [draftSteps, setDraftSteps] = useState([]);
+  const [detailsError, setDetailsError] = useState("");
   const [saving, setSaving] = useState(false);
   const titleRef = useRef(null);
   const goalRef = useRef(null);
@@ -404,53 +351,126 @@ export default function TestCaseDetailPage() {
     }
   }
 
-  // ── Inline editing ──
-  function startEditTitle() {
+  // ── Header editing ──
+  function startEditDetails() {
     setDraftTitle(tc.title ?? "");
-    setEditingTitle(true);
+    setDraftGoal(tc.goal ?? "");
+    setDraftSteps(buildDraftSteps(tc.steps));
+    setDetailsError("");
+    setEditingDetails(true);
     setTimeout(() => titleRef.current?.focus(), 0);
   }
-  function startEditGoal() {
-    setDraftGoal(tc.goal ?? "");
-    setEditingGoal(true);
-    setTimeout(() => goalRef.current?.focus(), 0);
+
+  function cancelEditDetails() {
+    setEditingDetails(false);
+    setDetailsError("");
+    setDraftSteps([]);
   }
-  async function saveTitle() {
-    if (!draftTitle.trim() || draftTitle === tc.title) {
-      setEditingTitle(false);
+
+  function updateDraftStepText(index, value) {
+    setDraftSteps((prev) =>
+      prev.map((step, i) => (i === index ? { ...step, text: value } : step)),
+    );
+  }
+
+  function addDraftStep() {
+    setDraftSteps((prev) => [
+      ...prev,
+      { order: prev.length + 1, text: "", action: "custom" },
+    ]);
+  }
+
+  function removeDraftStep(index) {
+    setDraftSteps((prev) =>
+      prev
+        .filter((_, i) => i !== index)
+        .map((step, i) => ({ ...step, order: i + 1 })),
+    );
+  }
+
+  async function saveDetails() {
+    const title = draftTitle.trim();
+    const goal = draftGoal.trim();
+    const currentSteps = normalizeSteps(buildDraftSteps(tc.steps));
+    const nextSteps = normalizeSteps(draftSteps);
+    const stepsChanged = !areStepsEqual(currentSteps, nextSteps);
+    const titleChanged = title !== String(tc.title ?? "").trim();
+    const goalChanged = goal !== String(tc.goal ?? "").trim();
+
+    if (!titleChanged && !goalChanged && !stepsChanged) {
+      cancelEditDetails();
       return;
     }
-    setSaving(true);
-    try {
-      await updateTestCase(tc.id, {
-        title: draftTitle.trim(),
-        goal: tc.goal,
-        status: tc.status,
-      });
-      setTc((prev) => ({ ...prev, title: draftTitle.trim() }));
-    } finally {
-      setSaving(false);
-      setEditingTitle(false);
-    }
-  }
-  async function saveGoal() {
-    if (draftGoal === (tc.goal ?? "")) {
-      setEditingGoal(false);
+
+    if (!title) {
+      setDetailsError("Title is required.");
+      titleRef.current?.focus();
       return;
     }
+
+    if (!goal) {
+      setDetailsError("Goal is required.");
+      goalRef.current?.focus();
+      return;
+    }
+
+    if (currentSteps.length > 0 && nextSteps.length === 0) {
+      setDetailsError("At least one step is required.");
+      return;
+    }
+
     setSaving(true);
+    setDetailsError("");
     try {
-      await updateTestCase(tc.id, {
-        title: tc.title,
-        goal: draftGoal.trim(),
-        status: tc.status,
-      });
-      setTc((prev) => ({ ...prev, goal: draftGoal.trim() }));
+      if (stepsChanged) {
+        const expectedResult =
+          tc.expectedResult || tc.planSnapshot?.expectedResult || "";
+        const result = await applyRefinement(tc.id, {
+          title,
+          goal,
+          steps: nextSteps,
+          expectedResult,
+          promptText: "",
+        });
+        const displaySteps = nextSteps.map((step, i) => ({
+          order: i + 1,
+          description: step.text,
+          text: step.text,
+          action: step.action || "custom",
+        }));
+
+        setTc((prev) => ({
+          ...prev,
+          title,
+          goal,
+          currentVersionId: result?.versionId ?? prev.currentVersionId,
+          versionNo: result?.versionNo ?? prev.versionNo,
+          planSnapshot: {
+            ...(prev.planSnapshot ?? {}),
+            title,
+            goal,
+            expectedResult,
+            steps: nextSteps,
+          },
+          steps: displaySteps,
+        }));
+      } else {
+        const updated = await updateTestCase(tc.id, {
+          title,
+          goal,
+          status: tc.status,
+        });
+        setTc((prev) => ({ ...prev, ...updated, title, goal }));
+      }
+
+      cancelEditDetails();
+    } catch (e) {
+      setDetailsError(e?.message || "Failed to save.");
     } finally {
       setSaving(false);
-      setEditingGoal(false);
     }
   }
+
   async function saveStatus(newStatus) {
     if (newStatus === tc.status) return;
     setSaving(true);
@@ -564,79 +584,65 @@ export default function TestCaseDetailPage() {
               </div>
 
               {/* Title */}
-              {editingTitle ? (
-                <div className="flex items-center gap-2">
+              {editingDetails ? (
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="test-case-title"
+                    className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    Title
+                  </label>
                   <input
+                    id="test-case-title"
                     ref={titleRef}
                     value={draftTitle}
                     onChange={(e) => setDraftTitle(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") saveTitle();
-                      if (e.key === "Escape") setEditingTitle(false);
+                      if (e.key === "Enter") saveDetails();
+                      if (e.key === "Escape") cancelEditDetails();
                     }}
-                    onBlur={saveTitle}
                     disabled={saving}
-                    className="text-[22px] font-bold leading-[30px] tracking-[0.5px] border-b-2 border-primary bg-transparent outline-none w-full text-foreground"
+                    placeholder="Test case title"
+                    className="h-9 w-full rounded-[6px] border border-border bg-surface-2 px-2.5 font-sans text-[20px] font-bold leading-[28px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary focus:bg-surface focus:ring-2 focus:ring-primary/15 disabled:opacity-50"
                   />
-                  <button
-                    onClick={saveTitle}
-                    className="shrink-0 cursor-pointer text-primary hover:text-primary/80"
-                  >
-                    <Check className="size-4" />
-                  </button>
-                  <button
-                    onClick={() => setEditingTitle(false)}
-                    className="shrink-0 cursor-pointer text-muted-foreground"
-                  >
-                    <X className="size-4" />
-                  </button>
                 </div>
               ) : (
-                <div
-                  className="group flex cursor-pointer items-center gap-2"
-                  onClick={startEditTitle}
-                >
+                <div className="flex items-center gap-2">
                   <h1 className="text-[22px] font-bold leading-[30px] tracking-[0.5px] text-foreground">
                     {tc.title}
                   </h1>
-                  <Pencil className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               )}
 
               {/* Goal */}
-              {editingGoal ? (
-                <div className="flex items-start gap-2">
-                  <Target className="mt-2 size-3.5 shrink-0 text-muted-foreground" />
+              {editingDetails ? (
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="test-case-goal"
+                    className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    <Target className="size-3.5" />
+                    Description
+                  </label>
                   <textarea
+                    id="test-case-goal"
                     ref={goalRef}
                     value={draftGoal}
                     onChange={(e) => setDraftGoal(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Escape") setEditingGoal(false);
+                      if (e.key === "Escape") cancelEditDetails();
+                      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                        saveDetails();
+                      }
                     }}
-                    onBlur={saveGoal}
                     disabled={saving}
                     rows={3}
-                    className="flex-1 text-sm text-muted-foreground border-b border-primary bg-transparent outline-none resize-none leading-relaxed"
+                    placeholder="Describe what this test should verify"
+                    className="min-h-[76px] w-full resize-y rounded-[6px] border border-border bg-surface-2 px-2.5 py-1.5 font-sans text-sm leading-relaxed text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary focus:bg-surface focus:ring-2 focus:ring-primary/15 disabled:opacity-50"
                   />
-                  <button
-                    onClick={saveGoal}
-                    className="mt-1 shrink-0 cursor-pointer text-primary"
-                  >
-                    <Check className="size-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setEditingGoal(false)}
-                    className="mt-1 shrink-0 cursor-pointer text-muted-foreground"
-                  >
-                    <X className="size-3.5" />
-                  </button>
                 </div>
               ) : (
-                <div
-                  className="group flex cursor-pointer items-start gap-1.5"
-                  onClick={startEditGoal}
-                >
+                <div className="flex items-start gap-1.5">
                   <Target className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {tc.goal || (
@@ -645,7 +651,6 @@ export default function TestCaseDetailPage() {
                       </span>
                     )}
                   </p>
-                  <Pencil className="mt-0.5 size-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               )}
 
@@ -671,15 +676,17 @@ export default function TestCaseDetailPage() {
               )}
 
               {/* Test plan (collapsed by default) */}
-              {tc.steps?.length > 0 && (
-                <TestPlanSection
-                  steps={tc.steps}
-                  tc={tc}
-                  onStepsUpdated={(newSteps) =>
-                    setTc((prev) => ({ ...prev, steps: newSteps }))
-                  }
-                />
-              )}
+              <TestPlanSection
+                steps={tc.steps ?? []}
+                editing={editingDetails}
+                draftSteps={draftSteps}
+                saving={saving}
+                saveError={detailsError}
+                onCancel={cancelEditDetails}
+                onUpdateStepText={updateDraftStepText}
+                onAddStep={addDraftStep}
+                onRemoveStep={removeDraftStep}
+              />
 
               {/* Refine panel — shown only on demand */}
               {showRefine && (
@@ -693,106 +700,143 @@ export default function TestCaseDetailPage() {
               )}
             </div>
 
-            {/* Right: actions — max 3 buttons */}
-            <div className="flex shrink-0 flex-col items-end gap-2 mt-0.5">
-              <div className="flex items-center gap-2">
-                {/* Primary action */}
-                {hasScript ? (
-                  <Button
-                    onClick={handleQuickReplay}
-                    disabled={!!busyAction}
-                    className="gap-1.5"
-                  >
-                    {busyAction === "quick_replay" ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin" />
-                        Running…
-                      </>
-                    ) : (
-                      <>
-                        <RotateCcw className="size-4" />
-                        Replay Test
-                      </>
-                    )}
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleRunWithAI}
-                    disabled={!!busyAction}
-                    className="gap-1.5"
-                  >
-                    {busyAction === "ai_run" ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin" />
-                        Starting…
-                      </>
-                    ) : (
-                      <>
-                        <Play className="size-4" />
-                        Run Test
-                      </>
-                    )}
-                  </Button>
-                )}
-
-                {/* Edit Steps — only if script exists */}
-                {hasScript && (
-                  <Button
-                    variant="outline"
-                    onClick={handleEditSteps}
-                    className="gap-1.5"
-                  >
-                    <Pencil className="size-4" />
-                    {editStepsOpen ? "Done" : "Edit Steps"}
-                  </Button>
-                )}
-
-                {/* More Actions dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
+            {!editingDetails && (
+              <div className="flex shrink-0 flex-col items-end gap-2 mt-0.5">
+                <div className="flex items-center gap-2">
+                  {/* Primary action */}
+                  {hasScript ? (
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className="rounded-[6px] border border-border"
+                      onClick={handleQuickReplay}
+                      disabled={!!busyAction}
+                      className="gap-1.5"
                     >
-                      <MoreHorizontal className="size-4" />
+                      {busyAction === "quick_replay" ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Running…
+                        </>
+                      ) : (
+                        <>
+                          <RotateCcw className="size-4" />
+                          Replay Test
+                        </>
+                      )}
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52">
-                    {hasScript && (
-                      <DropdownMenuItem
-                        onClick={handleRunWithAI}
-                        disabled={!!busyAction}
+                  ) : (
+                    <Button
+                      onClick={handleRunWithAI}
+                      disabled={!!busyAction}
+                      className="gap-1.5"
+                    >
+                      {busyAction === "ai_run" ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Starting…
+                        </>
+                      ) : (
+                        <>
+                          <Play className="size-4" />
+                          Run Test
+                        </>
+                      )}
+                    </Button>
+                  )}
+
+                  {/* Edit Steps — only if script exists */}
+                  {hasScript && (
+                    <Button
+                      variant="outline"
+                      onClick={handleEditSteps}
+                      className="gap-1.5"
+                    >
+                      <Pencil className="size-4" />
+                      {editStepsOpen ? "Done" : "Edit Steps"}
+                    </Button>
+                  )}
+
+                  {/* More Actions dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-[6px] border border-border"
                       >
-                        <Play className="size-3.5 mr-2 text-primary" />
-                        Run with AI Agent
+                        <MoreHorizontal className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                      <DropdownMenuItem
+                        onClick={startEditDetails}
+                        disabled={saving}
+                      >
+                        <Pencil className="size-3.5 mr-2 text-muted-foreground" />
+                        Edit details
                       </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem onClick={() => setShowRefine((v) => !v)}>
-                      <Wand2 className="size-3.5 mr-2 text-violet-600" />
-                      {showRefine ? "Hide AI refinement" : "Improve with AI"}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => setDeveloperMode((v) => !v)}
-                    >
-                      <Terminal className="size-3.5 mr-2 text-muted-foreground" />
-                      {developerMode
-                        ? "Disable developer mode"
-                        : "Developer mode"}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => setConfirmDelete(true)}
-                      className="text-red-600 focus:bg-red-50 focus:text-red-600"
-                    >
-                      <Trash2 className="size-3.5 mr-2" />
-                      Delete test case
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      <DropdownMenuSeparator />
+                      {hasScript && (
+                        <DropdownMenuItem
+                          onClick={handleRunWithAI}
+                          disabled={!!busyAction}
+                        >
+                          <Play className="size-3.5 mr-2 text-primary" />
+                          Run with AI Agent
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => setShowRefine((v) => !v)}>
+                        <Wand2 className="size-3.5 mr-2 text-violet-600" />
+                        {showRefine ? "Hide AI refinement" : "Improve with AI"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setDeveloperMode((v) => !v)}
+                      >
+                        <Terminal className="size-3.5 mr-2 text-muted-foreground" />
+                        {developerMode
+                          ? "Disable developer mode"
+                          : "Developer mode"}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => setConfirmDelete(true)}
+                        className="text-red-600 focus:bg-red-50 focus:text-red-600"
+                      >
+                        <Trash2 className="size-3.5 mr-2" />
+                        Delete test case
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
-            </div>
+            )}
           </div>
+
+          {editingDetails && (
+            <div className="mt-4 flex items-center justify-end gap-2 border-t border-border pt-4">
+              <Button
+                type="button"
+                onClick={saveDetails}
+                disabled={saving}
+                className="gap-1.5"
+              >
+                {saving ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Check className="size-4" />
+                )}
+                Save
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={cancelEditDetails}
+                disabled={saving}
+                className="text-muted-foreground"
+              >
+                <X className="size-4" />
+                Cancel
+              </Button>
+            </div>
+          )}
 
           {/* Header error */}
           {headerError && (

@@ -47,10 +47,10 @@ export default function AiAnalysisSection({ onAnalyze, isLive, description, init
   const borderCls = analyzing ? "ai-border-active" : "ai-border-idle";
 
   return (
-    <div className="relative rounded-xl p-[1.5px]">
+    <div className="relative overflow-hidden rounded-xl bg-border/70 p-[1.5px]">
       {/* glow layer — blurred copy behind for vibrant halo */}
       <div className={`${borderCls} absolute inset-0 rounded-xl`}
-           style={{ filter: "blur(10px)", opacity: analyzing ? 0.75 : 0.45 }} />
+           style={{ filter: "blur(6px)", opacity: analyzing ? 0.38 : 0.18 }} />
 
       {/* sharp border layer */}
       <div className={`${borderCls} absolute inset-0 rounded-xl`} />

@@ -170,7 +170,7 @@ export default function StepResult({ step, stepIndex, isLast }) {
   const hasEvidence = (step.screenshots?.filter((s) => s.imageUrl).length ?? 0) > 0;
   const hasAnchors = (step.anchorResults?.length ?? 0) > 0;
   const hasInfo = action || step.message || step.currentUrl;
-  const hasBody = hasInfo || step.thoughtText || step.extractedContent || hasAnchors || hasEvidence;
+  const hasBody = hasInfo || step.extractedContent || hasAnchors || hasEvidence;
 
   return (
     <div className="relative flex gap-3">
@@ -210,16 +210,6 @@ export default function StepResult({ step, stepIndex, isLast }) {
                           className="text-blue-500 hover:underline break-all">{step.currentUrl}</a>
                       </p>
                     )}
-                  </div>
-                )}
-                {step.thoughtText && (
-                  <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5">
-                    <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">
-                      Thought
-                    </span>
-                    <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
-                      {step.thoughtText}
-                    </p>
                   </div>
                 )}
                 {step.extractedContent && (

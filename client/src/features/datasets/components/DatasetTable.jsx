@@ -139,45 +139,55 @@ export default function DatasetTable({
   }
 
   return (
-    <div className="space-y-3">
-      {/* Toolbar */}
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
       {!readOnly && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {rows.length} {rows.length === 1 ? "row" : "rows"}
+        <div className="flex flex-col gap-2.5 border-b border-border bg-muted/20 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-[6px] bg-surface-2 px-2 py-1 text-xs font-semibold text-muted-foreground">
+              <Table2 className="size-3.5" />
+              <span className="tabular-nums text-foreground">{rows.length}</span>
+              {rows.length === 1 ? "row" : "rows"}
             </span>
-            <span className="text-muted-foreground/30">·</span>
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {columns.length} {columns.length === 1 ? "col" : "cols"}
+            <span className="inline-flex items-center rounded-[6px] bg-surface-2 px-2 py-1 text-xs font-semibold text-muted-foreground">
+              <span className="mr-1 tabular-nums text-foreground">
+                {columns.length}
+              </span>
+              {columns.length === 1 ? "col" : "cols"}
             </span>
             {selectable && selectedRowIndex !== null && rows[selectedRowIndex] && (
-              <span className="flex items-center gap-1 rounded-full bg-brand-500/15 px-2.5 py-0.5 text-[10px] font-bold text-brand-400 ring-1 ring-brand-500/25">
-                <CheckCircle2 className="size-2.5" />
+              <span className="inline-flex items-center gap-1 rounded-[6px] bg-brand-500/12 px-2 py-1 text-xs font-semibold text-brand-400 ring-1 ring-brand-500/20">
+                <CheckCircle2 className="size-3" />
                 Row {selectedRowIndex + 1} active
               </span>
             )}
           </div>
+
           <div className="flex items-center gap-1.5">
             <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImportCsv} />
             <Button
               type="button"
-              variant="secondary"
-              size="xs"
+              variant="ghost"
+              size="sm"
               onClick={() => fileInputRef.current?.click()}
-              className="gap-1.5"
+              className="h-7 gap-1.5 rounded-[6px] border border-border bg-surface px-2.5 text-xs font-semibold text-muted-foreground shadow-none hover:bg-surface-2 hover:text-foreground"
             >
-              <Upload className="size-3" /> Import CSV
+              <Upload className="size-3.5" />
+              Import CSV
             </Button>
-            <Button type="button" size="xs" onClick={addRow} className="gap-1.5">
-              <Plus className="size-3" /> Add row
+            <Button
+              type="button"
+              size="sm"
+              onClick={addRow}
+              className="h-7 gap-1.5 rounded-[6px] px-2.5 text-xs shadow-none"
+            >
+              <Plus className="size-3.5" />
+              Add row
             </Button>
           </div>
         </div>
       )}
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-xl bg-card">
+      <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-muted/40">

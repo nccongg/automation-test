@@ -20,6 +20,15 @@ async function login(req, res, next) {
   }
 }
 
+async function googleLogin(req, res, next) {
+  try {
+    const data = await authService.googleLogin(req.body);
+    res.json({ status: 'ok', data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function forgotPassword(req, res, next) {
   try {
     const data = await authService.forgotPassword(req.body);
@@ -59,6 +68,7 @@ async function completeOnboarding(req, res, next) {
 module.exports = {
   register,
   login,
+  googleLogin,
   forgotPassword,
   verifyOtp,
   resetPassword,

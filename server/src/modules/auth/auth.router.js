@@ -86,6 +86,34 @@ router.post('/login', ctrl.login);
 
 /**
  * @swagger
+ * /auth/google:
+ *   post:
+ *     summary: Login with a Google ID credential and receive a JWT token
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               credential:
+ *                 type: string
+ *                 description: Google Identity Services ID credential
+ *               accessToken:
+ *                 type: string
+ *                 description: Google OAuth access token from the browser popup
+ *     responses:
+ *       200:
+ *         description: Google login successful
+ *       401:
+ *         description: Invalid Google credential
+ */
+router.post('/google', ctrl.googleLogin);
+
+/**
+ * @swagger
  * /auth/forgot-password:
  *   post:
  *     summary: Request a password reset OTP
