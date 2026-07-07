@@ -80,6 +80,7 @@ jobs:
             --secure-environment-variables \
               DATABASE_URL="${{ secrets.DATABASE_URL }}" \
               JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+              GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
               GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
               AGENT_CALLBACK_SECRET="${{ secrets.AGENT_CALLBACK_SECRET }}" \
               SMTP_USER="${{ secrets.SMTP_USER }}" \

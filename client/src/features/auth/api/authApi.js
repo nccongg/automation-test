@@ -19,6 +19,16 @@ export const authApi = {
   },
 
   /**
+   * Login user with a Google token
+   * @param {{credential?: string, accessToken?: string}|string} payload - Google credential or access token
+   * @returns {Promise<{data: {token: string, user: object}}>}
+   */
+  googleLogin(payload) {
+    const body = typeof payload === 'string' ? { credential: payload } : payload;
+    return apiClient.post('/auth/google', body);
+  },
+
+  /**
    * Register new user
    * @param {string} email - User email
    * @param {string} name - User full name

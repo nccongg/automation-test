@@ -27,9 +27,16 @@ export function useLogin() {
   const [formData, setFormData] = useState(LOGIN_INITIAL);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const handleChange = (field, value) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
+
+  const completeLogin = (data) => {
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    window.location.href = '/';
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -38,9 +45,7 @@ export function useLogin() {
 
     try {
       const result = await authApi.login(formData.email, formData.password);
-      localStorage.setItem('token', result.data.token);
-      localStorage.setItem('user', JSON.stringify(result.data.user));
-      window.location.href = '/';
+      completeLogin(result.data);
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
@@ -48,11 +53,47 @@ export function useLogin() {
     }
   };
 
-  const handleGoogleSignIn = () => {
-    setError("Google account creation isn't available right now. Please create an account using your email and password.");
+  const handleGoogleSignIn = async (googleResponse) => {
+    const credential = googleResponse?.credential;
+    const accessToken = googleResponse?.access_token || googleResponse?.accessToken;
+
+    if (!credential && !accessToken) {
+      setError('Google sign-in did not return a token. Please try again.');
+      return;
+    }
+
+    setIsGoogleLoading(true);
+    setError('');
+
+    try {
+      const result = await authApi.googleLogin({ credential, accessToken });
+      completeLogin(result.data);
+    } catch (err) {
+      setError(err.message || 'Google sign-in failed. Please try again.');
+    } finally {
+      setIsGoogleLoading(false);
+    }
   };
 
-  return { formData, error, isLoading, handleChange, handleSubmit, handleGoogleSignIn };
+  const handleGoogleError = () => {
+    setError('Google sign-in failed. Please try again.');
+  };
+
+  const handleGoogleUnavailable = () => {
+    setError('Google sign-in is not configured yet. Please add a Google client ID.');
+  };
+
+  return {
+    formData,
+    error,
+    isLoading,
+    isGoogleLoading,
+    handleChange,
+    handleSubmit,
+    handleGoogleSignIn,
+    handleGoogleError,
+    handleGoogleUnavailable,
+  };
 }
 
 // ── useSignup ─────────────────────────────────────────────────────────────────
