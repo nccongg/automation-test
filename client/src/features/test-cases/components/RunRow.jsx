@@ -87,14 +87,17 @@ export default function RunRow({ run, projectId, index }) {
         tabIndex={0}
         onClick={toggle}
         onKeyDown={handleKeyDown}
-        className="group grid w-full cursor-pointer grid-cols-[1.5rem_minmax(0,1fr)_15rem_4.5rem_11rem] items-center gap-x-6 px-8 transition-colors hover:bg-muted/60"
+        className="group grid w-full cursor-pointer grid-cols-[1fr_auto] gap-x-3 gap-y-2 px-4 py-3 transition-colors hover:bg-muted/60 xl:grid-cols-[1.5rem_minmax(0,1fr)_15rem_4.5rem_11rem] xl:items-center xl:gap-x-6 xl:px-8 xl:py-0"
         style={{ minHeight: 46 }}
       >
-        <span className="text-center text-[13px] tabular-nums text-muted-foreground">
+        <span className="hidden text-center text-[13px] tabular-nums text-muted-foreground xl:block">
           #{index + 1}
         </span>
 
-        <div className="flex min-w-0 items-center gap-3 pl-3">
+        <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 xl:col-span-1 xl:flex-nowrap xl:pl-3">
+          <span className="text-[13px] tabular-nums text-muted-foreground xl:hidden">
+            #{index + 1}
+          </span>
           {isLive && (
             <span className="relative flex size-2 shrink-0">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
@@ -103,20 +106,20 @@ export default function RunRow({ run, projectId, index }) {
           )}
           <p className="shrink-0 text-[14px] text-foreground">Run #{run.id}</p>
           {isFailed && !expanded && (
-            <span className="truncate text-[13px] text-muted-foreground">
+            <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
               {buildFailureHint(run)}
             </span>
           )}
         </div>
 
         <span
-          className="min-w-0 truncate text-right text-[13px] text-muted-foreground"
+          className="col-span-2 min-w-0 truncate text-left text-[13px] text-muted-foreground xl:col-span-1 xl:text-right"
           title={dateText}
         >
           {dateText}
         </span>
 
-        <div className="flex justify-end">
+        <div className="flex justify-start xl:justify-end">
           {isLive ? (
             <span className={`${STATUS_CHIP_CLASS} gap-1.5 border-blue-400 text-blue-500`}>
               <Clock className="size-3 animate-pulse" />
@@ -152,7 +155,7 @@ export default function RunRow({ run, projectId, index }) {
 
       {/* ── Expanded detail ── */}
       {expanded && (
-        <div className="border-t border-border bg-muted/40 px-8 py-5">
+        <div className="border-t border-border bg-muted/40 px-4 py-4 sm:px-8 sm:py-5">
           {loading ? (
             <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
               <LoadingSpinner size="sm" /> Loading steps…

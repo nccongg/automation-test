@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ScanLine, CheckCircle2, AlertCircle, Loader2, Clock } from 'lucide-react';
 import { triggerScan, getScanById, getLatestScan, cancelScan } from '@/features/projects/api/scanApi';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const SCAN_STATUS_CONFIG = {
   queued:    { label: 'Queued',      icon: Clock,        className: 'text-amber-600   bg-amber-50   border-amber-200' },
@@ -22,10 +23,26 @@ function depthStyle(depth) {
 /**
  * Scan status badge + trigger button + live progress / results panel.
  *
- * @param {{ projectId: number|string, align?: 'right'|'left' }} props
+ * @param {{
+ *   projectId: number|string,
+ *   align?: 'right'|'left',
+ *   className?: string,
+ *   controlsClassName?: string,
+ *   statusClassName?: string,
+ *   buttonClassName?: string,
+ *   stopButtonClassName?: string,
+ * }} props
  *   align controls which side the dropdown panel opens (default 'right')
  */
-export default function ScanWebsiteButton({ projectId, align = 'right' }) {
+export default function ScanWebsiteButton({
+  projectId,
+  align = 'right',
+  className = '',
+  controlsClassName = '',
+  statusClassName = '',
+  buttonClassName = '',
+  stopButtonClassName = '',
+}) {
   const [scan, setScan]             = useState(undefined);
   const [triggering, setTriggering] = useState(false);
   const [stopping, setStopping]     = useState(false);
@@ -98,13 +115,17 @@ export default function ScanWebsiteButton({ projectId, align = 'right' }) {
   const panelSide = align === 'left' ? 'left-0' : 'right-0';
 
   return (
-    <div className="relative flex flex-col items-end gap-1">
-      <div className="flex items-center gap-2">
+    <div className={cn('relative flex flex-col items-end gap-1', className)}>
+      <div className={cn('flex items-center gap-2', controlsClassName)}>
         {cfg && (
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-opacity cursor-pointer hover:opacity-80 ${cfg.className}`}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-opacity cursor-pointer hover:opacity-80',
+              cfg.className,
+              statusClassName,
+            )}
           >
             <cfg.icon className={`size-3 ${cfg.spin ? 'animate-spin' : ''}`} />
             {cfg.label}
@@ -114,7 +135,13 @@ export default function ScanWebsiteButton({ projectId, align = 'right' }) {
         )}
 
         {isScanning && (
-          <Button type="button" variant="ds-outlined-destructive" onClick={handleStop} disabled={stopping}>
+          <Button
+            type="button"
+            variant="ds-outlined-destructive"
+            onClick={handleStop}
+            disabled={stopping}
+            className={stopButtonClassName}
+          >
             {stopping ? <Loader2 className="animate-spin" /> : null}
             {stopping ? 'Stopping…' : 'Stop'}
           </Button>
@@ -122,6 +149,7 @@ export default function ScanWebsiteButton({ projectId, align = 'right' }) {
 
         <Button type="button" variant="outline" onClick={handleTrigger}
           disabled={triggering || isScanning}
+          className={buttonClassName}
           title="Crawl the site so AI can use real page structure when generating test cases">
           {triggering || isScanning
             ? <Loader2 className="animate-spin" />

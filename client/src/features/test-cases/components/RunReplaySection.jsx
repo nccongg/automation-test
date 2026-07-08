@@ -1130,7 +1130,7 @@ export default function RunReplaySection({
   if (!developerMode) {
     if (!scripts.length && !scriptsLoading) {
       return (
-        <section className="overflow-hidden rounded-xl bg-card border-dashed border-2 border-border px-8 py-10 text-center">
+        <section className="overflow-hidden rounded-xl bg-card border-dashed border-2 border-border px-4 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-sm text-muted-foreground font-medium">
             No recorded script yet
           </p>
@@ -1152,7 +1152,7 @@ export default function RunReplaySection({
     return (
       <section className="overflow-hidden rounded-xl bg-card">
         {/* Script metadata header */}
-        <div className="flex items-center gap-3 border-b border-border px-8 py-4">
+        <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:px-8">
           <div className="flex flex-1 items-center gap-2.5 min-w-0">
             <div className="flex size-7 shrink-0 items-center justify-center rounded-[6px] bg-primary/10">
               <RotateCcw className="size-3.5 text-primary" />
@@ -1185,13 +1185,13 @@ export default function RunReplaySection({
             </div>
           </div>
           {/* Right controls: selector + delete */}
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
             {scripts.length > 1 && (
               <CustomSelect
                 value={selectedScriptId}
                 onValueChange={handleScriptChange}
                 placeholder="Select script"
-                className="w-44"
+                className="w-full sm:w-44"
                 options={scripts.map((s) => ({
                   value: String(s.id),
                   label: `#${s.id} · ${scriptTypeLabel(s.scriptType || s.script_type)}`,
@@ -1258,7 +1258,7 @@ export default function RunReplaySection({
 
         {/* Unsaved changes warning */}
         {scriptEditorSteps && (
-          <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-8 py-2">
+          <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 sm:px-8">
             <AlertTriangle className="size-3.5 shrink-0 text-amber-500" />
             <span className="flex-1 text-xs text-amber-500">
               Unsaved changes — save before replaying.
@@ -1268,7 +1268,7 @@ export default function RunReplaySection({
 
         {/* Steps: read-only list OR editor */}
         {editStepsOpen && selectedScript ? (
-          <div className="px-8 py-5">
+          <div className="px-4 py-5 sm:px-8">
             <ReplayScriptEditor
               scriptId={selectedScript.id}
               steps={editorSteps}
@@ -1289,7 +1289,7 @@ export default function RunReplaySection({
             <button
               type="button"
               onClick={() => setShowNormalDataset((o) => !o)}
-              className={`flex w-full items-center gap-2 px-8 py-3 text-left text-xs font-medium transition-colors ${
+              className={`flex w-full items-center gap-2 px-4 py-3 text-left text-xs font-medium transition-colors sm:px-8 ${
                 showNormalDataset
                   ? "bg-sky-500/10 text-sky-400"
                   : "text-muted-foreground hover:bg-muted/50"
@@ -1318,7 +1318,7 @@ export default function RunReplaySection({
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-border px-8 py-3">
+        <div className="flex flex-col gap-2 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-8">
           {editStepsOpen ? (
             <button
               type="button"
@@ -1351,7 +1351,7 @@ export default function RunReplaySection({
 
         {/* Status messages */}
         {(actionError || actionSuccess) && (
-          <div className="px-8 pb-4 space-y-1.5">
+          <div className="space-y-1.5 px-4 pb-4 sm:px-8">
             {actionError && (
               <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2.5">
                 <AlertTriangle className="size-3.5 text-red-400 shrink-0" />
@@ -1389,8 +1389,8 @@ export default function RunReplaySection({
   // ── Developer mode: full existing UI ─────────────────────────────────────────
   return (
     <section className="overflow-hidden rounded-[6px] bg-surface shadow-[0px_4px_24px_rgba(0,0,0,0.15)] border border-amber-200 dark:border-amber-800/40">
-      <div className="flex items-center justify-between gap-2 px-8 py-4 border-b border-border">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+        <div className="flex flex-wrap items-center gap-2">
           <Terminal className="size-4 text-amber-600 dark:text-amber-400" />
           <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
             Developer Mode
@@ -1411,7 +1411,7 @@ export default function RunReplaySection({
 
       <div className="divide-y divide-border">
         {/* ── Run with AI Agent ────────────────────────────────── */}
-        <div className="px-8 py-5">
+        <div className="px-4 py-5 sm:px-8">
           <div className="flex items-center gap-2 mb-3">
             <Play className="size-3.5 text-primary" />
             <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">
@@ -1467,7 +1467,7 @@ export default function RunReplaySection({
         </div>
 
         {/* ── Replay Script ───────────────────────────────────── */}
-        <div className="px-8 py-5">
+        <div className="px-4 py-5 sm:px-8">
           <div className="flex items-center gap-2 mb-3">
             <RotateCcw className="size-3.5 text-violet-600 dark:text-violet-400" />
             <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">
@@ -1476,7 +1476,7 @@ export default function RunReplaySection({
           </div>
 
           {/* Script selector */}
-          <div className="flex items-start gap-3 mb-4">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start">
             <div className="flex-1">
               <CustomSelect
                 value={selectedScriptId}
@@ -1516,7 +1516,7 @@ export default function RunReplaySection({
               <button
                 type="button"
                 onClick={() => onEditStepsOpenChange?.(!editStepsOpen)}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                className={`flex w-full shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:justify-start ${
                   editStepsOpen
                     ? "border-primary/30 bg-primary/5 text-primary"
                     : "border-border bg-surface text-muted-foreground hover:bg-surface-2"
@@ -1565,7 +1565,7 @@ export default function RunReplaySection({
           {/* Tabs: Steps | Dataset */}
           {scriptSteps.length > 0 ? (
             <>
-              <div className="mb-4 flex items-center gap-1 rounded-[6px] border border-border bg-surface-2 p-1 w-fit">
+              <div className="mb-4 flex w-full max-w-full items-center gap-1 overflow-x-auto rounded-[6px] border border-border bg-surface-2 p-1 sm:w-fit">
                 <button
                   type="button"
                   onClick={() => setActiveReplayTab("steps")}
@@ -1618,7 +1618,7 @@ export default function RunReplaySection({
               {activeReplayTab === "steps" && (
                 <>
                   {availableColumns.length > 0 && (
-                    <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 dark:border-amber-700/40 bg-gradient-to-r from-amber-50 to-orange-50/60 dark:from-amber-900/20 dark:to-orange-900/10 px-3 py-2.5">
+                    <div className="mb-3 flex flex-col gap-2 rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50/60 px-3 py-2.5 dark:border-amber-700/40 dark:from-amber-900/20 dark:to-orange-900/10 sm:flex-row sm:items-center">
                       <Database className="size-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
                       {selectedDatasetRowIndex !== null ? (
                         <>
@@ -1945,7 +1945,7 @@ export default function RunReplaySection({
                       )}
 
                       {confirmBatch ? (
-                        <div className="flex items-center gap-3 rounded-lg border border-amber-300 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 animate-in fade-in duration-200">
+                        <div className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 animate-in fade-in duration-200 dark:border-amber-700/50 dark:bg-amber-900/20 sm:flex-row sm:items-center">
                           <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
                           <p className="text-xs text-amber-800 dark:text-amber-300 flex-1">
                             This will queue{" "}
@@ -1954,7 +1954,7 @@ export default function RunReplaySection({
                             </strong>
                             . Continue?
                           </p>
-                          <div className="flex gap-2 shrink-0">
+                          <div className="flex shrink-0 gap-2">
                             <button
                               type="button"
                               onClick={() => setConfirmBatch(false)}
@@ -2010,7 +2010,7 @@ export default function RunReplaySection({
               )}
 
               {/* Replay button */}
-              <div className="mt-4 flex items-center gap-3">
+              <div className="mt-4 flex flex-wrap items-center gap-3">
                 <Button
                   onClick={handleReplayRun}
                   disabled={

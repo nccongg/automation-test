@@ -150,25 +150,35 @@ export default function TestCasesPage() {
     <>
       <div className="rounded-xl bg-card">
         {/* Page header */}
-        <div className="flex items-start justify-between gap-4 border-b border-border px-8 py-7">
-          <div className="min-w-0">
-            <h1 className="text-[26px] font-bold leading-[30px] tracking-[0.5px] text-foreground">
+        <div className="border-b border-border px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <h1 className="text-[24px] font-bold leading-[30px] tracking-[0.5px] text-foreground sm:text-[26px]">
               Test Cases
             </h1>
-            <p className="mt-1.5 text-[14px] tracking-[0.5px] text-muted-foreground">
-              Organize test cases by collections and generate automated test cases
-            </p>
+
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto lg:shrink-0 lg:pt-1">
+              <ScanWebsiteButton
+                projectId={projectId}
+                className="w-full sm:w-auto"
+                controlsClassName="w-full flex-col items-stretch sm:w-auto sm:flex-row sm:items-center"
+                statusClassName="w-full justify-center sm:w-auto"
+                buttonClassName="w-full sm:w-auto"
+                stopButtonClassName="w-full sm:w-auto"
+              />
+              <Button
+                variant="outline"
+                onClick={() => setCreateCollection(true)}
+                className="w-full sm:w-auto"
+              >
+                <FolderPlus className="size-4" />
+                New Collection
+              </Button>
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2 pt-1">
-            <ScanWebsiteButton projectId={projectId} />
-            <Button
-              variant="outline"
-              onClick={() => setCreateCollection(true)}
-            >
-              <FolderPlus className="size-4" />
-              New Collection
-            </Button>
-          </div>
+
+          <p className="mt-3 max-w-2xl text-[14px] leading-5 tracking-[0.5px] text-muted-foreground">
+            Organize test cases by collections and generate automated test cases
+          </p>
         </div>
 
       </div>

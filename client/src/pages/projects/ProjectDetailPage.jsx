@@ -178,6 +178,15 @@ function childIconClass(isActive) {
   ].join(" ");
 }
 
+const MOBILE_NAV_ITEMS = [
+  { to: "test-cases", label: "Cases", Icon: PlayCircle },
+  { to: "suites", label: "Suites", Icon: FlaskConical },
+  { to: "data", label: "Data", Icon: Database },
+  { to: "objects", label: "Objects", Icon: Layers },
+  { to: "test-runs", label: "Runs", Icon: BarChart3 },
+  { to: "settings", label: "Settings", Icon: Settings },
+];
+
 function CollectionNode({
   node,
   projectId,
@@ -585,9 +594,48 @@ export default function ProjectDetailPage() {
   }
 
   return (
-    <div className="flex gap-6">
+    <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:gap-6">
+      <div className="overflow-hidden rounded-xl border bg-card lg:hidden">
+        <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+          <div className="flex size-9 shrink-0 select-none items-center justify-center rounded-xl bg-brand-600 text-sm font-bold text-white">
+            {projectInitial(data.title ?? data.name)}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground">
+              {data.title ?? data.name}
+            </p>
+            {data.baseUrl && (
+              <p className="truncate text-[11px] text-muted-foreground">
+                {formatBaseUrl(data.baseUrl)}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <nav className="flex gap-1 overflow-x-auto px-3 py-2">
+          {MOBILE_NAV_ITEMS.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                [
+                  "flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors",
+                  isActive
+                    ? "bg-[var(--brand-primary)] text-white shadow-[var(--brand-primary-shadow-sm)]"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                ].join(" ")
+              }
+            >
+              <item.Icon className="size-3.5 shrink-0" />
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+      </div>
+
       <aside
-        className={`sticky top-0 shrink-0 overflow-y-auto overscroll-contain rounded-xl border bg-card p-2 ease-in-out ${
+        className={`sticky top-0 hidden shrink-0 overflow-y-auto overscroll-contain rounded-xl border bg-card p-2 ease-in-out lg:block ${
           isResizing ? "" : "transition-all duration-300"
         }`}
         style={{
@@ -1059,10 +1107,7 @@ export default function ProjectDetailPage() {
         )}
       </aside>
 
-      <main
-        className="min-w-0 flex-1 overflow-y-auto overscroll-contain"
-        style={{ maxHeight: "calc(100dvh - 32px)" }}
-      >
+      <main className="min-w-0 flex-1 lg:max-h-[calc(100dvh-32px)] lg:overflow-y-auto lg:overscroll-contain">
         <Outlet
           context={{
             project: data,

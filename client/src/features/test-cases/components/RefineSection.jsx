@@ -56,7 +56,7 @@ export default function RefineSection({ tc, onApplied }) {
 
       <div className="space-y-3 px-4 py-3">
         {/* Prompt input */}
-        <div className="flex gap-2 items-end">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <input
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -68,7 +68,7 @@ export default function RefineSection({ tc, onApplied }) {
           <button
             onClick={handleRefine}
             disabled={!prompt.trim() || refining || applying}
-            className="shrink-0 flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50 sm:justify-start"
           >
             {refining ? (
               <><span className="size-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />Thinking…</>
@@ -84,9 +84,9 @@ export default function RefineSection({ tc, onApplied }) {
         {suggestion && (
           <div className="overflow-hidden rounded-lg border border-violet-200 bg-card dark:border-violet-800/40">
             {/* Header */}
-            <div className="flex items-center justify-between gap-2 border-b border-violet-100 bg-violet-50 px-3 py-2 dark:border-violet-800/40 dark:bg-violet-950/30">
+            <div className="flex flex-col gap-2 border-b border-violet-100 bg-violet-50 px-3 py-2 dark:border-violet-800/40 dark:bg-violet-950/30 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-[11px] font-semibold text-violet-600 dark:text-violet-300">AI Suggestion</span>
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   onClick={() => setSuggestion(null)}
                   disabled={applying}

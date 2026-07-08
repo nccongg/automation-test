@@ -30,7 +30,7 @@ export default function AiAnalysis({ runId, isLive, initialAnalysis = null }) {
 
   return (
     <div className="mt-4 overflow-hidden rounded-xl border bg-card">
-      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+      <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-1.5">
           <Sparkles className="size-3.5 text-brand-400" />
           <span className="text-xs font-semibold text-foreground">AI Analysis</span>
@@ -40,7 +40,7 @@ export default function AiAnalysis({ runId, isLive, initialAnalysis = null }) {
           <button
             onClick={run}
             disabled={analyzing || isLive}
-            className="flex items-center gap-1.5 rounded-lg bg-brand-500/8 px-2.5 py-1 text-xs font-medium text-brand-400 transition-colors hover:bg-brand-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-500/8 px-2.5 py-1 text-xs font-medium text-brand-400 transition-colors hover:bg-brand-500/15 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:justify-start"
           >
             {analyzing ? (
               <>
@@ -59,7 +59,7 @@ export default function AiAnalysis({ runId, isLive, initialAnalysis = null }) {
         {analysis && (
           <button
             onClick={() => { seededRef.current = true; setAnalysis(null); setErr(""); }}
-            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="text-left text-xs text-muted-foreground transition-colors hover:text-foreground sm:text-right"
           >
             Regenerate
           </button>

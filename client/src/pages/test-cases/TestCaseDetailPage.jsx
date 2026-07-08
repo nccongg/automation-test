@@ -535,7 +535,7 @@ export default function TestCaseDetailPage() {
   const hasScript = scripts.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Back */}
       <button
         onClick={() => navigate(`/projects/${projectId}/test-cases`)}
@@ -547,8 +547,8 @@ export default function TestCaseDetailPage() {
 
       {/* ── Header Card ── */}
       <div className="overflow-hidden rounded-[6px] bg-surface shadow-[0px_4px_24px_rgba(0,0,0,0.15)] border border-border">
-        <div className="px-8 pt-6 pb-6">
-          <div className="flex items-start gap-4">
+        <div className="px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
             {/* Left: info */}
             <div className="min-w-0 flex-1 space-y-2">
               {/* Status + ID */}
@@ -608,7 +608,7 @@ export default function TestCaseDetailPage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <h1 className="text-[22px] font-bold leading-[30px] tracking-[0.5px] text-foreground">
+                  <h1 className="break-words text-[20px] font-bold leading-[28px] tracking-[0.5px] text-foreground sm:text-[22px] sm:leading-[30px]">
                     {tc.title}
                   </h1>
                 </div>
@@ -701,14 +701,14 @@ export default function TestCaseDetailPage() {
             </div>
 
             {!editingDetails && (
-              <div className="flex shrink-0 flex-col items-end gap-2 mt-0.5">
-                <div className="flex items-center gap-2">
+              <div className="mt-0.5 flex w-full shrink-0 flex-col items-stretch gap-2 sm:w-auto sm:items-end">
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
                   {/* Primary action */}
                   {hasScript ? (
                     <Button
                       onClick={handleQuickReplay}
                       disabled={!!busyAction}
-                      className="gap-1.5"
+                      className="flex-1 gap-1.5 sm:flex-none"
                     >
                       {busyAction === "quick_replay" ? (
                         <>
@@ -726,7 +726,7 @@ export default function TestCaseDetailPage() {
                     <Button
                       onClick={handleRunWithAI}
                       disabled={!!busyAction}
-                      className="gap-1.5"
+                      className="flex-1 gap-1.5 sm:flex-none"
                     >
                       {busyAction === "ai_run" ? (
                         <>
@@ -747,7 +747,7 @@ export default function TestCaseDetailPage() {
                     <Button
                       variant="outline"
                       onClick={handleEditSteps}
-                      className="gap-1.5"
+                      className="flex-1 gap-1.5 sm:flex-none"
                     >
                       <Pencil className="size-4" />
                       {editStepsOpen ? "Done" : "Edit Steps"}
@@ -811,7 +811,7 @@ export default function TestCaseDetailPage() {
           </div>
 
           {editingDetails && (
-            <div className="mt-4 flex items-center justify-end gap-2 border-t border-border pt-4">
+            <div className="mt-4 flex flex-col-reverse items-stretch gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-end">
               <Button
                 type="button"
                 onClick={saveDetails}
@@ -854,7 +854,7 @@ export default function TestCaseDetailPage() {
 
           {/* Delete confirm */}
           {confirmDelete && (
-            <div className="mt-3 flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3">
+            <div className="mt-3 flex flex-col items-stretch gap-3 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 sm:flex-row sm:items-center">
               <AlertTriangle className="size-4 shrink-0 text-red-400" />
               <p className="flex-1 text-sm text-red-400">
                 Delete this test case? This cannot be undone.
@@ -878,7 +878,7 @@ export default function TestCaseDetailPage() {
               <button
                 onClick={() => setConfirmDelete(false)}
                 disabled={deleting}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 Cancel
               </button>
@@ -888,9 +888,9 @@ export default function TestCaseDetailPage() {
 
         {/* Pass rate bar */}
         {passRate !== null && runs.length > 0 && (
-          <div className="border-t border-border px-8 py-3">
-            <div className="flex items-center gap-3">
-              <span className="w-16 shrink-0 text-[13px] text-muted-foreground">
+          <div className="border-t border-border px-4 py-3 sm:px-6 lg:px-8">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <span className="shrink-0 text-[13px] text-muted-foreground sm:w-16">
                 Pass rate
               </span>
               <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
@@ -899,7 +899,7 @@ export default function TestCaseDetailPage() {
                   style={{ width: `${passRate}%` }}
                 />
               </div>
-              <div className="flex w-20 items-center justify-end gap-2">
+              <div className="flex items-center justify-between gap-2 sm:w-20 sm:justify-end">
                 <span className="text-[13px] font-bold text-foreground">
                   {passRate}%
                 </span>
@@ -933,7 +933,7 @@ export default function TestCaseDetailPage() {
       <section className="overflow-hidden rounded-xl bg-card">
 
         {/* Tabs */}
-        <div className="flex border-b border-border">
+        <div className="flex overflow-x-auto border-b border-border">
           {[
             { key: "runs",     label: "Run History",  count: runs.length,    icon: <Play className="size-4" /> },
             { key: "datasets", label: "Dataset Runs", count: batches.length, icon: <Database className="size-4" /> },
@@ -944,7 +944,7 @@ export default function TestCaseDetailPage() {
                 key={key}
                 type="button"
                 onClick={() => setHistoryTab(key)}
-                className={`relative flex h-[50px] items-center gap-2 px-6 text-[16px] font-bold tracking-[0.5px] transition-colors ${
+                className={`relative flex h-[50px] shrink-0 items-center gap-2 px-4 text-[14px] font-bold tracking-[0.5px] transition-colors sm:px-6 sm:text-[16px] ${
                   isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -973,7 +973,7 @@ export default function TestCaseDetailPage() {
             <>
               {/* Column headers */}
               <div
-                className="grid grid-cols-[1.5rem_minmax(0,1fr)_15rem_4.5rem_11rem] items-center gap-x-6 border-b border-border bg-muted/40 px-8"
+                className="hidden grid-cols-[1.5rem_minmax(0,1fr)_15rem_4.5rem_11rem] items-center gap-x-6 border-b border-border bg-muted/40 px-8 xl:grid"
                 style={{ height: 46 }}
               >
                 <span />
@@ -1004,11 +1004,11 @@ export default function TestCaseDetailPage() {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between border-t border-border px-8 py-3">
-                  <p className="text-[13px] tracking-[0.5px] text-muted-foreground tabular-nums">
+                <div className="flex flex-col items-stretch gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+                  <p className="text-center text-[13px] tracking-[0.5px] text-muted-foreground tabular-nums sm:text-left">
                     {globalOffset + 1}–{Math.min(globalOffset + RUN_PAGE_SIZE, runs.length)} of {runs.length} runs
                   </p>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center justify-center gap-1.5 sm:justify-end">
                     <Button
                       type="button"
                       variant="secondary"
@@ -1051,7 +1051,7 @@ export default function TestCaseDetailPage() {
         {historyTab === "datasets" && (
           <>
             {/* Column headers */}
-            <div className="flex items-center border-b border-border bg-muted/40 px-8" style={{ height: 46 }}>
+            <div className="hidden items-center border-b border-border bg-muted/40 px-8 xl:flex" style={{ height: 46 }}>
               <span className="flex-1 text-[13px] font-bold text-foreground">Dataset</span>
               <span className="w-44 text-right text-[13px] font-bold text-foreground">Date</span>
               <span className="w-36 text-right text-[13px] font-bold text-foreground">Results</span>
@@ -1076,10 +1076,10 @@ export default function TestCaseDetailPage() {
                       key={batch.id}
                       type="button"
                       onClick={() => navigate(`/projects/${projectId}/test-runs/batches/${batch.id}`)}
-                      className={`group flex w-full cursor-pointer items-center gap-4 px-8 transition-colors hover:bg-muted/60 ${rowBg}`}
+                      className={`group flex w-full cursor-pointer flex-col items-stretch gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60 xl:flex-row xl:items-center xl:gap-4 xl:px-8 xl:py-0 ${rowBg}`}
                       style={{ minHeight: 46 }}
                     >
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
                         <p className="truncate text-[14px] text-foreground">
                           {batch.dataset_name ?? `Dataset #${batch.dataset_id}`}
                         </p>
@@ -1087,23 +1087,27 @@ export default function TestCaseDetailPage() {
                           Batch #{batch.id}
                         </span>
                       </div>
-                      <div className="flex shrink-0 items-center gap-5">
-                        <span className="w-44 text-right text-[13px] text-muted-foreground">
-                          {batch.created_at ? new Date(batch.created_at).toLocaleString() : "—"}
+                      <div className="grid shrink-0 grid-cols-2 gap-x-4 gap-y-2 xl:flex xl:items-center xl:gap-5">
+                        <span className="col-span-2 flex justify-between gap-3 text-[13px] text-muted-foreground xl:block xl:w-44 xl:text-right">
+                          <span className="text-muted-foreground/60 xl:hidden">Date</span>
+                          <span>{batch.created_at ? new Date(batch.created_at).toLocaleString() : "—"}</span>
                         </span>
-                        <span className="flex w-36 items-center justify-end gap-2 text-[13px]">
-                          <span className="text-success">{batch.passed_rows ?? 0} ✓</span>
-                          <span className="text-destructive">{batch.failed_rows ?? 0} ✗</span>
-                          <span className="text-muted-foreground">/ {batch.total_rows ?? 0}</span>
+                        <span className="flex items-center justify-between gap-3 text-[13px] xl:w-36 xl:justify-end xl:gap-2">
+                          <span className="text-muted-foreground/60 xl:hidden">Results</span>
+                          <span className="flex items-center gap-2">
+                            <span className="text-success">{batch.passed_rows ?? 0} ✓</span>
+                            <span className="text-destructive">{batch.failed_rows ?? 0} ✗</span>
+                            <span className="text-muted-foreground">/ {batch.total_rows ?? 0}</span>
+                          </span>
                         </span>
-                        <span className={`w-24 rounded-[6px] border px-2 py-0.5 text-right text-xs font-normal ${
+                        <span className={`w-fit justify-self-end rounded-[6px] border px-2 py-0.5 text-right text-xs font-normal xl:w-24 ${
                           batch.status === "completed"
                             ? "border-success text-success"
                             : "border-blue-400 text-blue-500"
                         }`}>
                           {batch.status}
                         </span>
-                        <span className="w-14 text-right text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                        <span className="col-span-2 text-right text-xs text-muted-foreground opacity-100 transition-opacity xl:w-14 xl:opacity-0 xl:group-hover:opacity-100">
                           View →
                         </span>
                       </div>
