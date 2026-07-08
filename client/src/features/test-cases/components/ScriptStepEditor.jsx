@@ -26,7 +26,7 @@ const ANCHOR_TYPE_META = {
 function StepAnchors({ anchors }) {
   if (!anchors || anchors.length === 0) return null;
   return (
-    <div className="flex flex-wrap gap-1.5 rounded-lg border border-violet-100 bg-violet-50/60 px-2.5 py-2">
+    <div className="flex flex-wrap gap-1.5 rounded-lg border border-violet-100 bg-violet-50/60 px-2.5 py-2 dark:border-violet-800/40 dark:bg-violet-950/20">
       {anchors.map((anchor, i) => {
         const meta = ANCHOR_TYPE_META[anchor.type] ?? {
           icon: Hash,
@@ -39,8 +39,8 @@ function StepAnchors({ anchors }) {
             title={anchor.reason || anchor.type}
             className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
               anchor.required
-                ? "border-violet-200 bg-violet-100 text-violet-700"
-                : "border-slate-200 bg-slate-100 text-slate-500"
+                ? "border-violet-200 bg-violet-100 text-violet-700 dark:border-violet-700/40 dark:bg-violet-950/40 dark:text-violet-300"
+                : "border-border bg-muted text-muted-foreground"
             }`}
           >
             <Icon size={9} className="shrink-0" />
@@ -63,7 +63,7 @@ const ACTION_COLORS = {
   select: "border-violet-300 bg-violet-100 text-violet-700 dark:border-violet-700/50 dark:bg-violet-900/30 dark:text-violet-300",
   check: "border-teal-300 bg-teal-100 text-teal-700 dark:border-teal-700/50 dark:bg-teal-900/30 dark:text-teal-300",
   uncheck: "border-teal-300 bg-teal-100 text-teal-700 dark:border-teal-700/50 dark:bg-teal-900/30 dark:text-teal-300",
-  wait: "border-slate-300 bg-slate-100 text-slate-500 dark:border-slate-600/50 dark:text-slate-400",
+  wait: "border-slate-300 bg-slate-100 text-slate-500 dark:border-slate-600/50 dark:bg-slate-800/70 dark:text-slate-400",
   assert: "border-purple-300 bg-purple-100 text-purple-700 dark:border-purple-700/50 dark:bg-purple-900/30 dark:text-purple-300",
   scroll: "border-sky-300 bg-sky-100 text-sky-700 dark:border-sky-700/50 dark:bg-sky-900/30 dark:text-sky-300",
   hover: "border-orange-300 bg-orange-100 text-orange-700 dark:border-orange-700/50 dark:bg-orange-900/30 dark:text-orange-300",
@@ -129,11 +129,11 @@ const ASSERTION_TYPES = [
 ];
 
 function actionColorClass(name) {
-  if (!name) return "border-slate-200 bg-slate-100 text-slate-600";
+  if (!name) return "border-border bg-muted text-muted-foreground";
   if (ACTION_COLORS[name]) return ACTION_COLORS[name];
   if (name.startsWith("assert_") || name.startsWith("verify_"))
     return ACTION_COLORS.assert;
-  return "border-slate-200 bg-slate-100 text-slate-600";
+  return "border-border bg-muted text-muted-foreground";
 }
 
 function extractTemplateVars(val) {
@@ -188,9 +188,9 @@ function ColDropdown({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-1 min-w-[140px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
-          <div className="border-b border-slate-100 px-2.5 py-1.5">
-            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+        <div className="absolute right-0 top-full z-30 mt-1 min-w-[140px] overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
+          <div className="border-b border-border px-2.5 py-1.5">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
               {label}
             </p>
           </div>
@@ -203,7 +203,7 @@ function ColDropdown({
                   onPick(col);
                   setOpen(false);
                 }}
-                className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-surface-2"
+                className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left hover:bg-muted"
               >
                 <span className="text-[11px] font-semibold text-violet-600 dark:text-violet-400">
                   {col}
@@ -252,14 +252,14 @@ function FieldRow({
       {/* Value area */}
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
         {readOnly ? (
-          <span className="text-xs text-slate-600">
+          <span className="text-xs text-foreground">
             {rawValue || paramValue || (
               <span className="italic text-slate-300">—</span>
             )}
           </span>
         ) : isRedacted ? (
           <>
-            <span className="shrink-0 rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-500">
+            <span className="shrink-0 rounded border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-500 dark:border-orange-800/40 dark:bg-orange-950/25 dark:text-orange-300">
               redacted
             </span>
             <input
@@ -269,8 +269,8 @@ function FieldRow({
               placeholder="Enter value for replay…"
               className={`min-w-0 flex-1 rounded border px-2 py-1 text-xs placeholder:text-slate-300 outline-none focus:ring-1 transition-colors ${
                 paramValue
-                  ? "border-emerald-200 bg-emerald-50/40 text-slate-700 focus:border-emerald-300 focus:ring-emerald-100"
-                  : "border-orange-200 bg-orange-50/30 text-slate-700 focus:border-orange-300 focus:ring-orange-100"
+                  ? "border-emerald-200 bg-emerald-50/40 text-foreground focus:border-emerald-300 focus:ring-emerald-100 dark:border-emerald-800/40 dark:bg-emerald-950/20 dark:focus:ring-emerald-900/40"
+                  : "border-orange-200 bg-orange-50/30 text-foreground focus:border-orange-300 focus:ring-orange-100 dark:border-orange-800/40 dark:bg-orange-950/20 dark:focus:ring-orange-900/40"
               }`}
             />
             <button
@@ -316,7 +316,7 @@ function FieldRow({
               value={paramValue ?? ""}
               onChange={(e) => onChangeValue(e.target.value)}
               placeholder="override…"
-              className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 placeholder:text-slate-300 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-100 transition-colors"
+              className="min-w-0 flex-1 rounded border border-border bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground/50 outline-none transition-colors focus:border-sky-300 focus:ring-1 focus:ring-sky-100 dark:focus:ring-sky-900/40"
             />
             {hasColumns && (
               <ColDropdown
@@ -333,7 +333,7 @@ function FieldRow({
           // Hardcoded value — show as read-only badge + optional column picker to parameterize
           <>
             <span
-              className="min-w-0 flex-1 truncate rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-mono text-slate-600"
+              className="min-w-0 flex-1 truncate rounded border border-border bg-muted px-2 py-1 text-xs font-mono text-muted-foreground"
               title={rawValue}
             >
               {rawValue || <span className="italic text-slate-300">empty</span>}
@@ -345,7 +345,7 @@ function FieldRow({
                 columns={availableColumns}
                 columnValues={columnValues}
                 onPick={onParameterize}
-                triggerClass="border-slate-200 bg-slate-50 text-slate-400 hover:border-amber-200 dark:hover:border-amber-700/40 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-600 dark:hover:text-amber-400"
+                triggerClass="border-border bg-muted text-muted-foreground hover:border-amber-200 dark:hover:border-amber-700/40 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-600 dark:hover:text-amber-400"
               />
             )}
           </>
@@ -397,7 +397,7 @@ function AddAssertionPanel({ nextStepNo, availableColumns, onAdd, disabled }) {
   }
 
   return (
-    <div ref={ref} className="border-t border-slate-100 px-4 py-3">
+    <div ref={ref} className="border-t border-border px-4 py-3">
       {!open ? (
         <button
           type="button"
@@ -409,7 +409,7 @@ function AddAssertionPanel({ nextStepNo, availableColumns, onAdd, disabled }) {
           Add assertion
         </button>
       ) : (
-        <div className="space-y-3 rounded-lg border border-purple-200 bg-white p-3 shadow-sm">
+        <div className="space-y-3 rounded-lg border border-purple-200 bg-card p-3 shadow-sm dark:border-purple-800/40">
           <div className="flex items-center gap-2">
             <ShieldCheck className="size-3.5 shrink-0 text-purple-500" />
             <p className="text-[10px] font-bold uppercase tracking-widest text-purple-500">
@@ -433,7 +433,7 @@ function AddAssertionPanel({ nextStepNo, availableColumns, onAdd, disabled }) {
                 className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold transition-colors ${
                   type === t.value
                     ? "border-purple-300 bg-purple-100 text-purple-700 dark:border-purple-600/50 dark:bg-purple-900/30 dark:text-purple-300"
-                    : "border-slate-200 bg-white text-slate-400 hover:border-purple-200 dark:hover:border-purple-700/40 hover:text-purple-500 dark:hover:text-purple-400"
+                    : "border-border bg-card text-muted-foreground hover:border-purple-200 dark:hover:border-purple-700/40 hover:text-purple-500 dark:hover:text-purple-400"
                 }`}
               >
                 {t.label}
@@ -465,7 +465,7 @@ function AddAssertionPanel({ nextStepNo, availableColumns, onAdd, disabled }) {
                   value={selector}
                   onChange={(e) => setSelector(e.target.value)}
                   placeholder="#el, .class, [data-id]"
-                  className="w-full rounded border border-slate-200 px-2.5 py-1.5 text-xs font-mono outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-100"
+                  className="w-full rounded border border-border bg-surface px-2.5 py-1.5 text-xs font-mono text-foreground outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-100 dark:focus:ring-purple-900/40"
                 />
               </div>
             )}
@@ -484,7 +484,7 @@ function AddAssertionPanel({ nextStepNo, availableColumns, onAdd, disabled }) {
                         ? "value or {{col}}"
                         : "expected value"
                     }
-                    className="min-w-0 flex-1 rounded border border-slate-200 px-2.5 py-1.5 text-xs outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-100"
+                    className="min-w-0 flex-1 rounded border border-border bg-surface px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-purple-300 focus:ring-1 focus:ring-purple-100 dark:focus:ring-purple-900/40"
                   />
                   {availableColumns.length > 0 && (
                     <select
@@ -608,8 +608,8 @@ export default function ScriptStepEditor({
 
   if (!steps.length) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 py-8 text-center">
-        <p className="text-sm text-slate-400">
+      <div className="rounded-xl border border-dashed border-border bg-muted/30 py-8 text-center">
+        <p className="text-sm text-muted-foreground">
           No steps recorded in this script.
         </p>
       </div>
@@ -625,27 +625,27 @@ export default function ScriptStepEditor({
   const anchorCount = steps.reduce((n, s) => n + (s.anchors?.length ?? 0), 0);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
           {steps.length} step{steps.length !== 1 ? "s" : ""}
         </span>
         <div className="flex items-center gap-2">
           {assertionCount > 0 && (
-            <span className="flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-600">
+            <span className="flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-600 dark:border-purple-800/40 dark:bg-purple-950/30 dark:text-purple-300">
               <ShieldCheck className="size-3" />
               {assertionCount} assertion{assertionCount > 1 ? "s" : ""}
             </span>
           )}
           {anchorCount > 0 && (
-            <span className="flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600">
+            <span className="flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:border-violet-800/40 dark:bg-violet-950/30 dark:text-violet-300">
               <ShieldCheck className="size-3" />
               {anchorCount} anchor{anchorCount > 1 ? "s" : ""}
             </span>
           )}
           {availableColumns.length > 0 && (
-            <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[9px] font-bold text-violet-600">
+            <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[9px] font-bold text-violet-600 dark:border-violet-800/40 dark:bg-violet-950/30 dark:text-violet-300">
               {availableColumns.length} col
               {availableColumns.length > 1 ? "s" : ""}
             </span>
@@ -654,7 +654,7 @@ export default function ScriptStepEditor({
       </div>
 
       {/* Step list */}
-      <div className="divide-y divide-slate-100">
+      <div className="divide-y divide-border">
         {steps.map((step, i) => {
           const sno = step.stepNo ?? i + 1;
           const desc = stepDescription(step);
@@ -697,13 +697,13 @@ export default function ScriptStepEditor({
             <div key={i} className="flex transition-colors">
               {/* Step number */}
               <div className="flex w-10 shrink-0 items-start justify-center pt-3">
-                <span className="flex size-5 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-500">
+                <span className="flex size-5 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">
                   {sno}
                 </span>
               </div>
 
               {/* Content */}
-              <div className="flex min-w-0 flex-1 flex-col gap-2 border-l border-slate-100 py-2.5 pl-3 pr-4">
+              <div className="flex min-w-0 flex-1 flex-col gap-2 border-l border-border py-2.5 pl-3 pr-4">
                 {/* Action + description */}
                 <div className="flex flex-wrap items-center gap-2">
                   <span

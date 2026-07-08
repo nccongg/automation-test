@@ -36,6 +36,9 @@ const VERDICT_CLS = {
   error:             "border-orange-500 text-orange-500",
 };
 
+const STATUS_CHIP_CLASS =
+  "inline-flex h-6 w-[72px] items-center justify-center rounded-[6px] border px-2 text-[11px] font-normal";
+
 export default function RunRow({ run, projectId, index }) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
@@ -68,9 +71,12 @@ export default function RunRow({ run, projectId, index }) {
   }
 
   const dur    = duration(run.startedAt, run.finishedAt);
+  const dateText = `${fmt(run.createdAt)}${dur ? ` · ${dur}` : ""}`;
   const rowBg  = index % 2 === 0 ? "bg-card" : "bg-muted/50";
   const verdictCls   = VERDICT_CLS[run.verdict] ?? "border-border text-muted-foreground";
   const verdictLabel = VERDICT_LABEL[run.verdict] ?? run.verdict;
+  const compactVerdictLabel =
+    run.verdict === "pass_with_warning" ? "Pass" : verdictLabel;
   const isFailed = run.verdict === "fail" || run.verdict === "error";
 
   return (
@@ -81,24 +87,21 @@ export default function RunRow({ run, projectId, index }) {
         tabIndex={0}
         onClick={toggle}
         onKeyDown={handleKeyDown}
-        className="group flex w-full cursor-pointer items-center gap-4 px-8 transition-colors hover:bg-muted/60"
+        className="group grid w-full cursor-pointer grid-cols-[1.5rem_minmax(0,1fr)_15rem_4.5rem_11rem] items-center gap-x-6 px-8 transition-colors hover:bg-muted/60"
         style={{ minHeight: 46 }}
       >
-        {/* Left */}
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="w-6 shrink-0 text-center text-[13px] tabular-nums text-muted-foreground">
-            #{index + 1}
-          </span>
+        <span className="text-center text-[13px] tabular-nums text-muted-foreground">
+          #{index + 1}
+        </span>
+
+        <div className="flex min-w-0 items-center gap-3 pl-3">
           {isLive && (
             <span className="relative flex size-2 shrink-0">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
               <span className="relative inline-flex size-2 rounded-full bg-blue-500" />
             </span>
           )}
-          <p className="text-[14px] text-foreground">Run #{run.id}</p>
-          <span className="shrink-0 text-[13px] text-muted-foreground">
-            {fmt(run.createdAt)}{dur ? ` · ${dur}` : ""}
-          </span>
+          <p className="shrink-0 text-[14px] text-foreground">Run #{run.id}</p>
           {isFailed && !expanded && (
             <span className="truncate text-[13px] text-muted-foreground">
               {buildFailureHint(run)}
@@ -106,22 +109,30 @@ export default function RunRow({ run, projectId, index }) {
           )}
         </div>
 
-        {/* Right */}
-        <div className="flex shrink-0 items-center gap-3">
+        <span
+          className="min-w-0 truncate text-right text-[13px] text-muted-foreground"
+          title={dateText}
+        >
+          {dateText}
+        </span>
+
+        <div className="flex justify-end">
           {isLive ? (
-            <span className="flex items-center gap-1.5 rounded-[6px] border border-blue-400 px-2 py-0.5 text-xs text-blue-500">
+            <span className={`${STATUS_CHIP_CLASS} gap-1.5 border-blue-400 text-blue-500`}>
               <Clock className="size-3 animate-pulse" />
               {run.status === "running" && elapsed > 0
                 ? (elapsed >= 60 ? `${Math.floor(elapsed / 60)}m ${elapsed % 60}s` : `${elapsed}s`)
                 : run.status}
             </span>
           ) : run.verdict ? (
-            <span className={`rounded-[6px] border px-2 py-0.5 text-xs font-normal ${verdictCls}`}>
-              {verdictLabel}
+            <span className={`${STATUS_CHIP_CLASS} ${verdictCls}`} title={verdictLabel}>
+              {compactVerdictLabel}
             </span>
           ) : null}
+        </div>
 
-          <div className="flex items-center gap-1 rounded-[6px] border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground shadow-[0px_2px_8px_rgba(0,0,0,0.2)]">
+        <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center gap-1 whitespace-nowrap rounded-[6px] border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground shadow-[0px_2px_8px_rgba(0,0,0,0.2)]">
             Steps
             <ChevronDown className={`ml-0.5 size-3 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
           </div>
@@ -132,7 +143,7 @@ export default function RunRow({ run, projectId, index }) {
               e.stopPropagation();
               navigate(`/projects/${projectId}/test-runs/${run.id}`);
             }}
-            className="rounded-[6px] border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground shadow-[0px_2px_8px_rgba(0,0,0,0.2)] transition-colors hover:bg-surface-2"
+            className="whitespace-nowrap rounded-[6px] border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground shadow-[0px_2px_8px_rgba(0,0,0,0.2)] transition-colors hover:bg-surface-2"
           >
             Detail →
           </button>

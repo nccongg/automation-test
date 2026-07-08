@@ -93,8 +93,8 @@ export default function AddToSuiteDialog({
         {err && <p className="text-sm text-red-500">{err}</p>}
 
         {success ? (
-          <div className="flex flex-col items-center gap-2 py-8 text-emerald-600">
-            <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100">
+          <div className="flex flex-col items-center gap-2 py-8 text-emerald-600 dark:text-emerald-300">
+            <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/50">
               <Check className="size-5" />
             </div>
             <p className="text-sm font-medium">Added to suite!</p>
@@ -111,7 +111,7 @@ export default function AddToSuiteDialog({
                 No suites yet — create one below.
               </p>
             ) : suites.length > 0 ? (
-              <div className="max-h-56 overflow-y-auto divide-y rounded-lg border">
+              <div className="max-h-56 overflow-y-auto divide-y divide-border rounded-lg border border-border">
                 {suites.map((s) => (
                   <button
                     key={s.id}
@@ -120,8 +120,8 @@ export default function AddToSuiteDialog({
                       setSelectedId(s.id);
                       setCreating(false);
                     }}
-                    className={`flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-slate-50 ${
-                      selectedId === s.id ? "bg-brand-50" : ""
+                    className={`flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60 ${
+                      selectedId === s.id ? "bg-brand-50 dark:bg-brand-950/30" : ""
                     }`}
                   >
                     {/* Radio dot */}
@@ -129,7 +129,7 @@ export default function AddToSuiteDialog({
                       className={`size-4 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
                         selectedId === s.id
                           ? "border-brand-600 bg-brand-600"
-                          : "border-slate-300"
+                          : "border-border"
                       }`}
                     >
                       {selectedId === s.id && (
@@ -162,14 +162,14 @@ export default function AddToSuiteDialog({
                   setCreating(true);
                   setSelectedId(null);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-brand-400 hover:text-brand-600"
+                className="flex w-full items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-brand-400 hover:text-brand-600 dark:hover:text-brand-300"
               >
                 <Plus className="size-4" />
                 Create new suite
               </button>
             ) : (
-              <div className="space-y-2 rounded-lg border border-brand-200 bg-brand-50/50 p-3">
-                <Label className="text-xs font-semibold text-brand-700">
+              <div className="space-y-2 rounded-lg border border-brand-200 bg-brand-50/50 p-3 dark:border-brand-800/40 dark:bg-brand-950/20">
+                <Label className="text-xs font-semibold text-brand-700 dark:text-brand-300">
                   New Suite Name
                 </Label>
                 <Input

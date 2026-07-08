@@ -227,7 +227,7 @@ export default function GenerateTestCasesSection({ project }) {
 
   return (
     <>
-      <section className="rounded-xl border bg-white p-6 shadow-sm space-y-5">
+      <section className="space-y-5 rounded-xl border border-border bg-card p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <h2 className="text-lg font-semibold tracking-tight">Generate Test Cases</h2>
@@ -262,11 +262,19 @@ export default function GenerateTestCasesSection({ project }) {
           </Button>
         </div>
 
-        {runError && <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{runError}</div>}
-        {runResult && <div className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-700">{runResult}</div>}
+        {runError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800/40 dark:bg-red-950/20 dark:text-red-300">
+            {runError}
+          </div>
+        )}
+        {runResult && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-950/20 dark:text-emerald-300">
+            {runResult}
+          </div>
+        )}
 
         {testCases?.length > 0 && (
-          <div className="border-t pt-5 space-y-4">
+          <div className="space-y-4 border-t border-border pt-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Checkbox
@@ -318,22 +326,22 @@ export default function GenerateTestCasesSection({ project }) {
                 <div
                   key={tc.id ?? i}
                   onClick={() => toggleSelect(i)}
-                  className={`rounded-lg border p-4 space-y-2 transition-colors cursor-pointer ${
-                    selected.has(i) ? "bg-blue-50 border-blue-200" : "bg-slate-50 hover:bg-slate-100"
+                  className={`space-y-2 rounded-lg border p-4 transition-colors cursor-pointer ${
+                    selected.has(i) ? "border-primary/40 bg-primary/10" : "border-border bg-muted/30 hover:bg-muted/50"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2 min-w-0">
                       <Checkbox checked={selected.has(i)} onCheckedChange={() => toggleSelect(i)} className="mt-0.5 shrink-0" />
-                      <span className="text-sm font-medium leading-snug">{tc.title}</span>
+                      <span className="text-sm font-medium leading-snug text-foreground">{tc.title}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs rounded-full bg-slate-200 px-2 py-0.5 text-slate-600">{tc.type}</span>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{tc.type}</span>
                       <button
                         onClick={(e) => { e.stopPropagation(); openEdit(i); }}
-                        className="rounded p-1 hover:bg-slate-200 transition-colors"
+                        className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                       >
-                        <Pencil className="size-3.5 text-slate-500" />
+                        <Pencil className="size-3.5" />
                       </button>
                     </div>
                   </div>
@@ -342,7 +350,7 @@ export default function GenerateTestCasesSection({ project }) {
                       <li key={j} className="text-xs text-muted-foreground">{step}</li>
                     ))}
                   </ol>
-                  <p className="text-xs text-emerald-700 font-medium pl-6">Expected: {tc.expectedResult}</p>
+                  <p className="pl-6 text-xs font-medium text-emerald-700 dark:text-emerald-400">Expected: {tc.expectedResult}</p>
                 </div>
               ))}
             </div>

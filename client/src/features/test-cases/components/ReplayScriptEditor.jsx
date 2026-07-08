@@ -449,7 +449,7 @@ function PickPanel({ scriptId, stepIndex, params, onApply, onClose }) {
   }
 
   return (
-    <div className="mt-2 space-y-3 rounded-lg border border-sky-200 bg-gradient-to-b from-sky-50/60 to-white p-3 shadow-sm">
+    <div className="mt-2 space-y-3 rounded-lg border border-sky-200 bg-gradient-to-b from-sky-50/60 to-card p-3 shadow-sm dark:border-sky-800/40 dark:from-sky-950/25 dark:to-card">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <MousePointerClick className="size-3.5 text-sky-600" />
@@ -484,9 +484,9 @@ function PickPanel({ scriptId, stepIndex, params, onApply, onClose }) {
       )}
 
       {phase === "error" && (
-        <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2.5">
+        <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 dark:border-red-800/40 dark:bg-red-950/20">
           <AlertTriangle className="mt-px size-3.5 shrink-0 text-red-500" />
-          <p className="text-xs text-red-600">{error}</p>
+          <p className="text-xs text-red-600 dark:text-red-300">{error}</p>
         </div>
       )}
 
@@ -516,7 +516,7 @@ function PickPanel({ scriptId, stepIndex, params, onApply, onClose }) {
             <select
               value={locType}
               onChange={(e) => setLocType(e.target.value)}
-              className="shrink-0 rounded-md border border-sky-200 bg-white px-2 py-1.5 text-xs text-sky-700 outline-none transition-colors focus:ring-2 focus:ring-sky-100"
+              className="shrink-0 rounded-md border border-sky-200 bg-card px-2 py-1.5 text-xs text-sky-700 outline-none transition-colors focus:ring-2 focus:ring-sky-100 dark:border-sky-800/40 dark:text-sky-300 dark:focus:ring-sky-900/40"
             >
               {LOCATOR_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -534,7 +534,7 @@ function PickPanel({ scriptId, stepIndex, params, onApply, onClose }) {
               }}
               placeholder="Enter value…"
               autoFocus
-              className="min-w-0 flex-1 rounded-md border border-sky-200 bg-white px-2.5 py-1.5 font-mono text-xs text-slate-700 outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+              className="min-w-0 flex-1 rounded-md border border-sky-200 bg-card px-2.5 py-1.5 font-mono text-xs text-foreground outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-sky-800/40 dark:focus:ring-sky-900/40"
             />
           </div>
 
@@ -611,7 +611,7 @@ function FixPanel({
   const confidence = suggestion?.confidence ?? 0;
 
   return (
-    <div className="mt-2 space-y-3 rounded-lg border border-violet-200 bg-gradient-to-b from-violet-50/50 to-white p-3 shadow-sm">
+    <div className="mt-2 space-y-3 rounded-lg border border-violet-200 bg-gradient-to-b from-violet-50/50 to-card p-3 shadow-sm dark:border-violet-800/40 dark:from-violet-950/25 dark:to-card">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Sparkles className="size-3.5 text-violet-600" />
@@ -643,9 +643,9 @@ function FixPanel({
       )}
 
       {phase === "error" && (
-        <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2.5">
+        <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 dark:border-red-800/40 dark:bg-red-950/20">
           <AlertTriangle className="mt-px size-3.5 shrink-0 text-red-500" />
-          <p className="text-xs text-red-600">{error}</p>
+          <p className="text-xs text-red-600 dark:text-red-300">{error}</p>
         </div>
       )}
 
@@ -662,7 +662,7 @@ function FixPanel({
           )}
 
           {!result?.inspectOk && result?.inspectError && (
-            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800/40 dark:bg-amber-950/20 dark:text-amber-300">
               ⚠ Fast-forward stopped early: {result.inspectError} — suggestion
               based on partial context
             </div>
@@ -675,7 +675,7 @@ function FixPanel({
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-red-400">
                     Before
                   </p>
-                  <pre className="max-h-32 overflow-auto rounded-md border border-red-100 bg-red-50 px-2.5 py-2 text-[11px] leading-relaxed text-red-700">
+                  <pre className="max-h-32 overflow-auto rounded-md border border-red-100 bg-red-50 px-2.5 py-2 text-[11px] leading-relaxed text-red-700 dark:border-red-800/40 dark:bg-red-950/20 dark:text-red-300">
                     {JSON.stringify(currentStep.actionInput, null, 2)}
                   </pre>
                 </div>
@@ -689,17 +689,17 @@ function FixPanel({
                     <span
                       className={`rounded-full px-1.5 py-px text-[9px] font-bold ${
                         confidence >= 0.8
-                          ? "bg-emerald-100 text-emerald-700"
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
                           : confidence >= 0.5
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-slate-100 text-slate-500"
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+                            : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"
                       }`}
                     >
                       {Math.round(confidence * 100)}%
                     </span>
                   </div>
 
-                  <pre className="max-h-32 overflow-auto rounded-md border border-emerald-100 bg-emerald-50 px-2.5 py-2 text-[11px] leading-relaxed text-emerald-700">
+                  <pre className="max-h-32 overflow-auto rounded-md border border-emerald-100 bg-emerald-50 px-2.5 py-2 text-[11px] leading-relaxed text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-950/20 dark:text-emerald-300">
                     {JSON.stringify(suggestion.actionInput, null, 2)}
                   </pre>
                 </div>
@@ -824,7 +824,7 @@ function ActionInputEditor({ actionInput, onChange }) {
             type="text"
             value={String(v ?? "")}
             onChange={(e) => set(k, e.target.value)}
-            className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-2 py-0.5 font-mono text-xs text-slate-700 outline-none transition-colors focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
+            className="min-w-0 flex-1 rounded border border-border bg-surface px-2 py-0.5 font-mono text-xs text-foreground outline-none transition-colors focus:border-sky-300 focus:ring-1 focus:ring-sky-100 dark:focus:ring-sky-900/40"
           />
 
           <button
@@ -915,8 +915,8 @@ function GuidedStepRow({
 
   return (
     <div
-      className={`border-b border-slate-100 transition-colors last:border-b-0 ${
-        expanded ? "bg-slate-50/70 dark:bg-white/10" : "hover:bg-slate-50/40 dark:hover:bg-white/5"
+      className={`border-b border-border transition-colors last:border-b-0 ${
+        expanded ? "bg-muted/70 dark:bg-white/10" : "hover:bg-muted/50 dark:hover:bg-white/5"
       }`}
     >
       <div className="flex items-center gap-2 px-3 py-2.5">
@@ -924,7 +924,7 @@ function GuidedStepRow({
           className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
             isAssertion
               ? "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
-              : "bg-slate-100 text-slate-500"
+              : "bg-muted text-muted-foreground"
           }`}
         >
           {sno}
@@ -947,7 +947,7 @@ function GuidedStepRow({
           className="flex min-w-0 flex-1 items-center gap-1 text-left"
         >
           <span
-            className="min-w-0 flex-1 truncate text-xs text-slate-600 group-hover:text-slate-900"
+            className="min-w-0 flex-1 truncate text-xs text-foreground"
             title={label}
           >
             {label}
@@ -982,7 +982,7 @@ function GuidedStepRow({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 dark:hover:bg-surface-2 hover:text-slate-600"
+                className="rounded p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
               >
                 <MoreHorizontal className="size-3.5" />
               </button>
@@ -1027,7 +1027,7 @@ function GuidedStepRow({
 
               <DropdownMenuItem
                 onClick={onDelete}
-                className="text-red-600 focus:bg-red-50 focus:text-red-600"
+                className="text-red-600 focus:bg-red-50 focus:text-red-600 dark:text-red-400 dark:focus:bg-red-950/30 dark:focus:text-red-300"
               >
                 <Trash2 className="mr-2 size-3.5" />
                 Delete step
@@ -1051,7 +1051,7 @@ function GuidedStepRow({
       )}
 
       {expanded && (
-        <div className="space-y-3 border-t border-slate-100 py-3 pl-10 pr-4">
+        <div className="space-y-3 border-t border-border py-3 pl-10 pr-4">
           <div className="flex items-center gap-2">
             <span className="w-24 shrink-0 text-right text-[10px] font-semibold uppercase tracking-widest text-slate-300">
               action
@@ -1063,7 +1063,7 @@ function GuidedStepRow({
               onChange={(e) =>
                 onUpdate({ ...step, actionName: e.target.value })
               }
-              className="w-44 rounded border border-slate-200 bg-white px-2 py-0.5 font-mono text-xs text-slate-700 outline-none transition-colors focus:border-sky-300 focus:ring-1 focus:ring-sky-100"
+              className="w-44 rounded border border-border bg-surface px-2 py-0.5 font-mono text-xs text-foreground outline-none transition-colors focus:border-sky-300 focus:ring-1 focus:ring-sky-100 dark:focus:ring-sky-900/40"
             />
 
             {isAssertion && (
@@ -1201,7 +1201,7 @@ function AddStepPanel({ nextStepNo, onAdd, onClose }) {
     : false;
 
   return (
-    <div className="space-y-3 border-t border-slate-100 bg-slate-50/60 px-3 py-3">
+    <div className="space-y-3 border-t border-border bg-muted/40 px-3 py-3">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
           Add step {nextStepNo}
@@ -1234,7 +1234,7 @@ function AddStepPanel({ nextStepNo, onAdd, onClose }) {
                     : "border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-600/50 dark:bg-brand-900/30 dark:text-brand-300"
                   : isAssert
                     ? "border-purple-200 bg-purple-50 text-purple-600 hover:border-purple-300 hover:bg-purple-100 dark:border-purple-700/40 dark:bg-purple-900/15 dark:text-purple-400 dark:hover:bg-purple-900/30"
-                    : "border-slate-200 bg-white text-slate-500 hover:border-brand-200 hover:text-brand-600 dark:hover:border-brand-700/40 dark:hover:text-brand-400"
+                    : "border-border bg-card text-muted-foreground hover:border-brand-200 hover:text-brand-600 dark:hover:border-brand-700/40 dark:hover:text-brand-400"
               }`}
             >
               {q.label}
@@ -1248,7 +1248,7 @@ function AddStepPanel({ nextStepNo, onAdd, onClose }) {
           className={`rounded-lg border px-3 py-2 text-xs leading-relaxed ${
             chosenIsAssertion
               ? "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-700/40 dark:bg-purple-900/15 dark:text-purple-300"
-              : "border-slate-200 bg-white text-slate-500"
+              : "border-border bg-card text-muted-foreground"
           }`}
         >
           <div className="flex items-start gap-2">
@@ -1297,7 +1297,7 @@ function AddStepPanel({ nextStepNo, onAdd, onClose }) {
             setChosen(matchedQuickAction || null);
           }}
           placeholder="e.g. click, fill, navigate…"
-          className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs outline-none transition-colors focus:border-brand-300 focus:ring-1 focus:ring-brand-100"
+          className="min-w-0 flex-1 rounded border border-border bg-surface px-2 py-1 font-mono text-xs text-foreground outline-none transition-colors focus:border-brand-300 focus:ring-1 focus:ring-brand-100 dark:focus:ring-brand-900/40"
         />
       </div>
 
@@ -1425,11 +1425,11 @@ function GuidedMode({
           onClose={() => setAddOpen(false)}
         />
       ) : (
-        <div className="border-t border-slate-100 px-3 py-2.5">
+        <div className="border-t border-border px-3 py-2.5">
           <button
             type="button"
             onClick={() => setAddOpen(true)}
-            className="flex items-center gap-1.5 rounded border border-dashed border-slate-200 px-3 py-1.5 text-[11px] font-medium text-slate-400 transition-colors hover:border-brand-300 hover:text-brand-600"
+            className="flex items-center gap-1.5 rounded border border-dashed border-border px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-brand-300 hover:text-brand-600 dark:hover:text-brand-300"
           >
             <Plus className="size-3.5" />
             Add step
@@ -1490,8 +1490,8 @@ function AdvancedMode({
 
   return (
     <div className="flex min-h-0 gap-0">
-      <div className="w-44 shrink-0 overflow-y-auto border-r border-slate-100">
-        <div className="divide-y divide-slate-100">
+      <div className="w-44 shrink-0 overflow-y-auto border-r border-border">
+        <div className="divide-y divide-border">
           {steps.map((step, i) => {
             const { color } = getActionMeta(step.actionName);
             const res = runResult[i];
@@ -1500,13 +1500,13 @@ function AdvancedMode({
             return (
               <div
                 key={i}
-                className="group flex items-center gap-1.5 px-2 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-white/5"
+                className="group flex items-center gap-1.5 px-2 py-2 transition-colors hover:bg-muted/50 dark:hover:bg-white/5"
               >
                 <span
                   className={`flex size-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
                     isAssertion
                       ? "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
-                      : "bg-slate-100 text-slate-500"
+                      : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {step.stepNo ?? i + 1}
@@ -1558,7 +1558,7 @@ function AdvancedMode({
 
       <div className="flex min-w-0 flex-1 flex-col">
         {jsonError && (
-          <div className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-3 py-1.5">
+          <div className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-3 py-1.5 dark:border-red-800/40 dark:bg-red-950/20">
             <AlertTriangle className="size-3 shrink-0 text-red-500" />
             <p
               className="min-w-0 flex-1 truncate text-[11px] text-red-600"
@@ -1574,7 +1574,7 @@ function AdvancedMode({
           value={rawJson}
           onChange={(e) => onJsonChange(e.target.value)}
           spellCheck={false}
-          className={`flex-1 resize-none bg-white px-4 py-3 font-mono text-xs text-slate-700 outline-none transition-colors focus:ring-1 focus:ring-inset ${
+          className={`flex-1 resize-none bg-card px-4 py-3 font-mono text-xs text-foreground outline-none transition-colors focus:ring-1 focus:ring-inset ${
             jsonError ? "focus:ring-red-200" : "focus:ring-sky-200"
           }`}
           style={{ minHeight: 320, tabSize: 2 }}
@@ -1616,6 +1616,7 @@ export default function ReplayScriptEditor({
     if (sig === prevExternalSig.current) return;
 
     prevExternalSig.current = sig;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync the raw JSON editor after external guided edits.
     setAdvJson(JSON.stringify(stepsProp, null, 2));
     setJsonError(null);
   }, [stepsProp]);
@@ -1696,17 +1697,17 @@ export default function ReplayScriptEditor({
   );
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-2">
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2">
         {developerMode && (
-          <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
+          <div className="flex items-center rounded-lg border border-border bg-muted p-0.5 shadow-sm">
             <button
               type="button"
               onClick={switchToGuided}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all ${
                 mode === "guided"
                   ? "bg-[var(--brand-primary)] dark:bg-white/15 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-700"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Eye className="size-3" />
@@ -1719,7 +1720,7 @@ export default function ReplayScriptEditor({
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all ${
                 mode === "advanced"
                   ? "bg-[var(--brand-primary)] dark:bg-white/15 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-700"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Code2 className="size-3" />
@@ -1734,27 +1735,27 @@ export default function ReplayScriptEditor({
           </span>
 
           {assertionCount > 0 && (
-            <span className="flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-600">
+            <span className="flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-600 dark:border-purple-800/40 dark:bg-purple-950/30 dark:text-purple-300">
               <ShieldCheck className="size-2.5" />
               {assertionCount}
             </span>
           )}
 
           {anchorCount > 0 && (
-            <span className="flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600">
+            <span className="flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:border-violet-800/40 dark:bg-violet-950/30 dark:text-violet-300">
               {anchorCount} anchor{anchorCount !== 1 ? "s" : ""}
             </span>
           )}
 
           {mode === "advanced" && jsonError && (
-            <span className="flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+            <span className="flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:border-red-800/40 dark:bg-red-950/30 dark:text-red-300">
               <AlertTriangle className="size-2.5" />
               JSON error
             </span>
           )}
 
           {mode === "advanced" && !jsonError && stepsProp.length > 0 && (
-            <span className="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
+            <span className="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:border-emerald-800/40 dark:bg-emerald-950/30 dark:text-emerald-300">
               <Check className="size-2.5" />
               valid
             </span>
@@ -1778,7 +1779,7 @@ export default function ReplayScriptEditor({
             type="button"
             onClick={onSave}
             disabled={saving || !!jsonError}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-[11px] font-semibold text-foreground shadow-sm transition-all hover:bg-muted disabled:opacity-40"
           >
             {saving ? (
               <Loader2 className="size-3 animate-spin" />

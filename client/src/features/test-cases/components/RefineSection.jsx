@@ -48,13 +48,13 @@ export default function RefineSection({ tc, onApplied }) {
   }
 
   return (
-    <div className="rounded-xl border border-violet-200 bg-violet-50/30 overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-violet-100">
+    <div className="overflow-hidden rounded-xl border border-violet-200 bg-violet-50/30 dark:border-violet-800/40 dark:bg-violet-950/20">
+      <div className="flex items-center gap-2 border-b border-violet-100 px-4 py-3 dark:border-violet-800/40">
         <Wand2 className="size-3.5 text-violet-500" />
-        <h2 className="text-xs font-semibold text-violet-700">Refine Goal with AI</h2>
+        <h2 className="text-xs font-semibold text-violet-700 dark:text-violet-300">Refine Goal with AI</h2>
       </div>
 
-      <div className="px-4 py-3 space-y-3">
+      <div className="space-y-3 px-4 py-3">
         {/* Prompt input */}
         <div className="flex gap-2 items-end">
           <input
@@ -63,7 +63,7 @@ export default function RefineSection({ tc, onApplied }) {
             onKeyDown={(e) => { if (e.key === "Enter") handleRefine(); }}
             placeholder='e.g. "Add verification for error messages on failed login"'
             disabled={refining || applying}
-            className="flex-1 rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50"
+            className="flex-1 rounded-lg border border-violet-200 bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50 dark:border-violet-800/40"
           />
           <button
             onClick={handleRefine}
@@ -82,15 +82,15 @@ export default function RefineSection({ tc, onApplied }) {
 
         {/* Suggestion preview */}
         {suggestion && (
-          <div className="rounded-lg border border-violet-200 bg-white overflow-hidden">
+          <div className="overflow-hidden rounded-lg border border-violet-200 bg-card dark:border-violet-800/40">
             {/* Header */}
-            <div className="flex items-center justify-between gap-2 px-3 py-2 bg-violet-50 border-b border-violet-100">
-              <span className="text-[11px] font-semibold text-violet-600">AI Suggestion</span>
+            <div className="flex items-center justify-between gap-2 border-b border-violet-100 bg-violet-50 px-3 py-2 dark:border-violet-800/40 dark:bg-violet-950/30">
+              <span className="text-[11px] font-semibold text-violet-600 dark:text-violet-300">AI Suggestion</span>
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setSuggestion(null)}
                   disabled={applying}
-                  className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-100 disabled:opacity-50 transition-colors"
+                  className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
                 >
                   <RotateCcw className="size-2.5" /> Discard
                 </button>
@@ -109,18 +109,18 @@ export default function RefineSection({ tc, onApplied }) {
             </div>
 
             {/* Goal diff */}
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-border">
               {suggestion.title !== tc.title && (
                 <div className="px-3 py-2 space-y-1.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Title</span>
-                  <div className="text-xs line-through text-slate-400">{tc.title}</div>
-                  <div className="text-xs font-medium text-slate-800">{suggestion.title}</div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Title</span>
+                  <div className="text-xs text-muted-foreground line-through">{tc.title}</div>
+                  <div className="text-xs font-medium text-foreground">{suggestion.title}</div>
                 </div>
               )}
               <div className="px-3 py-2 space-y-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Goal</span>
-                <div className="text-xs text-slate-400 line-through leading-relaxed">{tc.goal}</div>
-                <div className="text-xs text-slate-700 leading-relaxed">{suggestion.goal}</div>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Goal</span>
+                <div className="text-xs text-muted-foreground line-through leading-relaxed">{tc.goal}</div>
+                <div className="text-xs text-foreground leading-relaxed">{suggestion.goal}</div>
               </div>
 
               {/* Steps — collapsed by default */}
@@ -129,17 +129,17 @@ export default function RefineSection({ tc, onApplied }) {
                   <button
                     type="button"
                     onClick={() => setShowSteps((s) => !s)}
-                    className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+                    className="flex items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {showSteps ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
                     Test plan steps ({suggestion.steps.length})
-                    <span className="text-[10px] text-slate-300">· for reference only</span>
+                    <span className="text-[10px] text-muted-foreground/60">· for reference only</span>
                   </button>
                   {showSteps && (
                     <ol className="mt-2 space-y-1">
                       {suggestion.steps.map((step, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs text-slate-500">
-                          <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[9px] font-bold text-slate-400">
+                        <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                          <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-bold text-muted-foreground">
                             {i + 1}
                           </span>
                           {step.text}

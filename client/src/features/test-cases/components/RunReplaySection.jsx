@@ -90,12 +90,12 @@ function AdvancedDataset({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+        className="flex items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
       >
         <Settings2 className="size-3" />
         Advanced
         {hasAny && (
-          <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-600">
+          <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-600 dark:bg-sky-950/50 dark:text-sky-300">
             dataset set
           </span>
         )}
@@ -106,8 +106,8 @@ function AdvancedDataset({
         )}
       </button>
       {open && (
-        <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
-          <p className="col-span-2 text-[10px] text-slate-400 mb-1">
+        <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted/40 p-3">
+          <p className="col-span-2 text-[10px] text-muted-foreground mb-1">
             Dataset binding — link to pre-stored test data
           </p>
           {[
@@ -137,14 +137,14 @@ function AdvancedDataset({
             },
           ].map(({ label, value, onChange, placeholder }) => (
             <div key={label}>
-              <label className="mb-1 block text-[10px] text-slate-400">
+              <label className="mb-1 block text-[10px] text-muted-foreground">
                 {label}
               </label>
               <input
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder}
-                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-sky-200"
+                className="w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-900/40"
               />
             </div>
           ))}
@@ -171,7 +171,7 @@ function GoalVarInputs({ vars, paramsText, onParamsChange }) {
             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
               {varName}
             </span>
-            <span className="rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-amber-700">
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-amber-700 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-300">
               {`{{${varName}}}`}
             </span>
           </div>
@@ -180,7 +180,7 @@ function GoalVarInputs({ vars, paramsText, onParamsChange }) {
             value={params[varName] ?? ""}
             onChange={(e) => setVar(varName, e.target.value)}
             placeholder={`Enter ${varName}…`}
-            className="w-full rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50/60 to-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition-all"
+            className="w-full rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50/60 to-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:border-amber-300 focus:ring-2 focus:ring-amber-200 dark:border-amber-800/40 dark:from-amber-950/25 dark:to-card dark:focus:ring-amber-900/40"
           />
         </div>
       ))}
@@ -200,7 +200,7 @@ function RawJsonToggle({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+        className="flex items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
       >
         <Code2 className="size-3" />
         {label}
@@ -215,7 +215,7 @@ function RawJsonToggle({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           rows={5}
-          className={`mt-2 w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-mono outline-none ${focusRingClass} focus:ring-2`}
+          className={`mt-2 w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-xs font-mono text-foreground outline-none ${focusRingClass} focus:ring-2`}
         />
       )}
     </div>
@@ -286,7 +286,7 @@ function DatasetPicker({
 
   if (datasets.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-200 py-8 text-center">
+      <div className="rounded-xl border border-dashed border-border py-8 text-center">
         <Database className="size-6 text-slate-300 mx-auto mb-2" />
         <p className="text-xs font-medium text-slate-400">
           No datasets in this project
@@ -1894,7 +1894,7 @@ export default function RunReplaySection({
                                         className={`flex-1 min-w-0 rounded-lg border px-2 py-1 text-xs outline-none focus:ring-2 ${
                                           picked
                                             ? "border-emerald-200 bg-emerald-50 text-emerald-700 focus:ring-emerald-100 dark:border-emerald-700/40 dark:bg-emerald-900/20 dark:text-emerald-300"
-                                            : "border-amber-200 bg-white text-slate-600 focus:ring-amber-100 dark:border-amber-700/40"
+                                            : "border-amber-200 bg-card text-foreground focus:ring-amber-100 dark:border-amber-700/40 dark:focus:ring-amber-900/40"
                                         }`}
                                       >
                                         <option value="__none__">
@@ -1958,7 +1958,7 @@ export default function RunReplaySection({
                             <button
                               type="button"
                               onClick={() => setConfirmBatch(false)}
-                              className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                              className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
                             >
                               Cancel
                             </button>
@@ -2069,13 +2069,13 @@ export default function RunReplaySection({
                   onChange={(e) => setReplayParamsText(e.target.value)}
                   rows={5}
                   placeholder='{"username":"user1"}'
-                  className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-violet-300"
+                  className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm font-mono text-foreground outline-none focus:ring-2 focus:ring-violet-300 dark:focus:ring-violet-900/40"
                 />
                 <Button
                   onClick={handleReplayRun}
                   disabled={busyAction === "run" || busyAction === "replay"}
                   variant="outline"
-                  className="border-violet-200 text-violet-700 hover:bg-violet-50"
+                  className="border-violet-200 text-violet-700 hover:bg-violet-50 dark:border-violet-800/40 dark:text-violet-300 dark:hover:bg-violet-950/30"
                 >
                   {busyAction === "replay" ? (
                     <>
@@ -2099,9 +2099,9 @@ export default function RunReplaySection({
       {(actionError || actionSuccess) && (
         <div className="px-5 pb-4 animate-in fade-in slide-in-from-top-1 duration-300">
           {actionError && (
-            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800/40 dark:bg-red-950/20">
               <AlertTriangle className="size-3.5 text-red-500 shrink-0" />
-              <span className="text-sm text-red-600 flex-1">{actionError}</span>
+              <span className="text-sm text-red-600 flex-1 dark:text-red-300">{actionError}</span>
               <button
                 type="button"
                 onClick={() => setActionError("")}
@@ -2112,9 +2112,9 @@ export default function RunReplaySection({
             </div>
           )}
           {actionSuccess && (
-            <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-800/40 dark:bg-emerald-950/20">
               <CheckCircle className="size-3.5 text-emerald-500 shrink-0" />
-              <span className="text-sm text-emerald-700 flex-1">
+              <span className="text-sm text-emerald-700 flex-1 dark:text-emerald-300">
                 {actionSuccess}
               </span>
               <button

@@ -117,27 +117,27 @@ function initCandidateState(c) {
 
 const VERDICT_STYLE = {
   pass: {
-    bg: "bg-emerald-50",
-    border: "border-emerald-200",
-    badge: "bg-emerald-100 text-emerald-700",
+    bg: "bg-emerald-50 dark:bg-emerald-950/20",
+    border: "border-emerald-200 dark:border-emerald-800/40",
+    badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
     label: "Passed",
   },
   pass_with_warning: {
-    bg: "bg-amber-50",
-    border: "border-amber-200",
-    badge: "bg-amber-100 text-amber-700",
+    bg: "bg-amber-50 dark:bg-amber-950/20",
+    border: "border-amber-200 dark:border-amber-800/40",
+    badge: "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
     label: "Passed (no assertions)",
   },
   fail: {
-    bg: "bg-red-50",
-    border: "border-red-200",
-    badge: "bg-red-100 text-red-700",
+    bg: "bg-red-50 dark:bg-red-950/20",
+    border: "border-red-200 dark:border-red-800/40",
+    badge: "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300",
     label: "Failed",
   },
   error: {
-    bg: "bg-rose-50",
-    border: "border-rose-200",
-    badge: "bg-rose-100 text-rose-700",
+    bg: "bg-rose-50 dark:bg-rose-950/20",
+    border: "border-rose-200 dark:border-rose-800/40",
+    badge: "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300",
     label: "Error",
   },
 };
@@ -460,7 +460,7 @@ function CandidateCard({
 
         <div className="flex shrink-0 items-center gap-1.5">
           {isSaved && (
-            <Badge className="bg-emerald-100 font-semibold text-emerald-700">
+            <Badge className="bg-emerald-100 font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
               <CheckCircle2 className="size-3" />
               Saved
             </Badge>
@@ -473,7 +473,7 @@ function CandidateCard({
           )}
 
           {isRunning && (
-            <Badge className="bg-brand-100 font-semibold text-brand-700">
+            <Badge className="bg-brand-100 font-semibold text-brand-700 dark:bg-brand-900/35 dark:text-brand-200">
               <Loader2 className="size-3 animate-spin" />
               {runPhase === "saving"
                 ? "Preparing…"
@@ -563,7 +563,7 @@ function CandidateCard({
               )}
 
               {expectedResult && (
-                <p className="text-xs font-medium text-emerald-700">
+                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
                   Expected: {expectedResult}
                 </p>
               )}
@@ -674,7 +674,7 @@ function CandidateCard({
                       )}
 
                       {aiSuggestion.expectedResult && (
-                        <p className="text-xs font-medium text-emerald-700">
+                        <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
                           Expected: {aiSuggestion.expectedResult}
                         </p>
                       )}
@@ -686,9 +686,9 @@ function CandidateCard({
           )}
 
           {isDone && runError && (
-            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800/40 dark:bg-red-950/20">
               <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-500" />
-              <p className="text-xs text-red-700">{runError}</p>
+              <p className="text-xs text-red-700 dark:text-red-300">{runError}</p>
             </div>
           )}
 
@@ -1048,7 +1048,7 @@ export default function AIWorkbenchDrawer({
     <>
       <div className={`flex shrink-0 items-center justify-between border-b py-4 ${inline ? "px-8" : "px-5"}`}>
         <div className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-brand-100">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-brand-100 dark:bg-brand-900/35">
             <Sparkles className="size-4 text-brand-600" />
           </div>
 
@@ -1185,7 +1185,7 @@ export default function AIWorkbenchDrawer({
 
         {!hasResults && !generating && !loadingLatest && !genError && (
           <div className="flex flex-col items-center justify-center gap-3 px-5 py-16 text-center">
-            <div className="flex size-14 items-center justify-center rounded-full bg-brand-50">
+            <div className="flex size-14 items-center justify-center rounded-full bg-brand-50 dark:bg-brand-900/30">
               <Sparkles className="size-6 text-brand-400" />
             </div>
 
@@ -1272,7 +1272,7 @@ export default function AIWorkbenchDrawer({
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b py-4 px-8">
             <div className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-brand-100">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-brand-100 dark:bg-brand-900/35">
                 <Sparkles className="size-4 text-brand-600" />
               </div>
               <div>

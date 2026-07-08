@@ -576,7 +576,7 @@ export default function TestCaseDetailPage() {
                   {tc.id}
                 </span>
                 {developerMode && (
-                  <span className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
+                  <span className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-300">
                     <Terminal className="size-3" />
                     Developer mode
                   </span>
@@ -798,7 +798,7 @@ export default function TestCaseDetailPage() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => setConfirmDelete(true)}
-                        className="text-red-600 focus:bg-red-50 focus:text-red-600"
+                        className="text-red-600 focus:bg-red-50 focus:text-red-600 dark:text-red-400 dark:focus:bg-red-950/30 dark:focus:text-red-300"
                       >
                         <Trash2 className="size-3.5 mr-2" />
                         Delete test case
@@ -972,12 +972,15 @@ export default function TestCaseDetailPage() {
           return (
             <>
               {/* Column headers */}
-              <div className="flex items-center border-b border-border bg-muted/40 px-8" style={{ height: 46 }}>
-                <span className="w-6 shrink-0" />
-                <span className="flex-1 pl-3 text-[13px] font-bold text-foreground">Run</span>
-                <span className="w-44 text-right text-[13px] font-bold text-foreground">Date · Duration</span>
-                <span className="w-32 text-right text-[13px] font-bold text-foreground">Status</span>
-                <span className="w-40 text-right text-[13px] font-bold text-foreground">Actions</span>
+              <div
+                className="grid grid-cols-[1.5rem_minmax(0,1fr)_15rem_4.5rem_11rem] items-center gap-x-6 border-b border-border bg-muted/40 px-8"
+                style={{ height: 46 }}
+              >
+                <span />
+                <span className="pl-3 text-[13px] font-bold text-foreground">Run</span>
+                <span className="text-right text-[13px] font-bold text-foreground">Date · Duration</span>
+                <span className="text-right text-[13px] font-bold text-foreground">Status</span>
+                <span className="text-right text-[13px] font-bold text-foreground">Actions</span>
               </div>
 
               {runs.length === 0 ? (
