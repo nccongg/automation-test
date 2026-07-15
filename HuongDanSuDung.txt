@@ -1,0 +1,461 @@
+HƯỚNG DẪN BIÊN DỊCH, KHỞI CHẠY VÀ SỬ DỤNG CHƯƠNG TRÌNH
+=======================================================
+
+1. Địa chỉ production
+---------------------
+
+Frontend production hiện tại:
+
+https://automation-test-one.vercel.app/
+
+Nếu chỉ cần sử dụng bản đã triển khai, mở URL trên bằng trình duyệt. Khi frontend production đã được cấu hình đúng với backend và agent-worker production, người dùng có thể đăng ký, đăng nhập, tạo project, sinh test case, chạy test và xem kết quả trực tiếp.
+
+
+2. Các dịch vụ cần chạy khi phát triển local
+--------------------------------------------
+
+Khi chạy đầy đủ trên máy local, cần 4 thành phần:
+
+1. PostgreSQL: lưu dữ liệu người dùng, project, test case, test run, dataset và object repository.
+2. Backend Express: cung cấp REST API tại http://localhost:5000.
+3. Agent-worker FastAPI: xử lý scan website và chạy browser automation tại http://localhost:8001.
+4. Frontend Vite/React: giao diện người dùng tại http://localhost:5173.
+
+
+3. Khởi tạo database trước lần chạy đầu tiên
+--------------------------------------------
+
+3.1. Bật PostgreSQL bằng Docker
+
+Từ thư mục gốc của dự án:
+
+docker compose up -d postgres
+
+3.2. Chạy migration
+
+Từ thư mục gốc của dự án:
+
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/automation_test" ./migrate-production.sh
+
+Nếu dùng database cloud, thay DATABASE_URL bằng connection string của database đó.
+
+Lưu ý: docker-compose.yml tự động nạp server/migrations/001_init.sql khi volume PostgreSQL mới được tạo. Nếu migrate-production.sh báo lỗi do bảng đã tồn tại, reset schema local rồi chạy migration lại. Lệnh reset sẽ xóa dữ liệu local:
+
+psql "postgresql://postgres:postgres@localhost:5432/automation_test" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/automation_test" ./migrate-production.sh
+
+3.3. Kiểm tra database
+
+psql "postgresql://postgres:postgres@localhost:5432/automation_test" -c "SELECT COUNT(*) FROM users;"
+
+Nếu lệnh trả về kết quả, database đã sẵn sàng.
+
+
+4. Biên dịch/build chương trình
+-------------------------------
+
+4.1. Backend
+
+Backend là ứng dụng Node.js/Express nên không cần biên dịch riêng. Để kiểm tra source backend có thể khởi động:
+
+cd server
+npm run dev
+
+Khi chạy production local hoặc triển khai production:
+
+cd server
+npm start
+
+4.2. Frontend
+
+Frontend cần được build thành static assets bằng Vite:
+
+cd client
+npm run build
+
+Kết quả build nằm trong:
+
+client/dist
+
+Có thể preview bản build:
+
+cd client
+npm run preview
+
+4.3. Agent-worker
+
+Agent-worker là ứng dụng Python/FastAPI nên không cần biên dịch. Sau khi cài dependencies, chạy bằng uvicorn:
+
+cd agent-worker
+source venv/bin/activate
+uvicorn app.main:app --port 8001
+
+4.4. Docker production build
+
+Nếu muốn build và chạy backend + agent-worker bằng Docker:
+
+docker compose -f docker-compose.prod.yml up -d --build
+
+Lệnh này build image backend và agent-worker, sau đó chạy hai service ở chế độ nền.
+
+
+5. Khởi chạy local để phát triển
+--------------------------------
+
+Nên mở 4 terminal riêng.
+
+5.1. Terminal 1: PostgreSQL
+
+Từ thư mục gốc:
+
+docker compose up -d postgres
+
+Nếu PostgreSQL đã chạy sẵn trên máy thì có thể bỏ qua terminal này.
+
+5.2. Terminal 2: Backend
+
+cd server
+npm run dev
+
+Backend mặc định chạy tại:
+
+http://localhost:5000
+
+Health check:
+
+http://localhost:5000/api/health
+
+Tài liệu API trong môi trường development:
+
+http://localhost:5000/api-docs
+http://localhost:5000/api-docs.json
+
+5.3. Terminal 3: Agent-worker
+
+cd agent-worker
+source venv/bin/activate
+uvicorn app.main:app --port 8001 --reload
+
+Agent-worker chạy tại:
+
+http://localhost:8001
+
+Health check:
+
+http://localhost:8001/health
+
+5.4. Terminal 4: Frontend
+
+cd client
+npm run dev
+
+Frontend chạy tại:
+
+http://localhost:5173
+
+Vite sẽ đọc biến môi trường từ file .env ở thư mục gốc và proxy /api sang backend port 5000.
+
+
+6. Kiểm tra nhanh sau khi khởi chạy
+-----------------------------------
+
+6.1. Kiểm tra backend
+
+curl http://localhost:5000/api/health
+
+Kết quả mong đợi gồm:
+
+- status: ok
+- db: connected
+
+6.2. Kiểm tra agent-worker
+
+curl http://localhost:8001/health
+
+Kết quả mong đợi gồm:
+
+- ok: true
+- maxConcurrency: giá trị WORKER_MAX_CONCURRENCY
+
+6.3. Kiểm tra frontend
+
+Mở trình duyệt:
+
+http://localhost:5173
+
+Nếu frontend hiển thị màn hình đăng nhập/đăng ký và không báo lỗi API, hệ thống đã chạy cơ bản.
+
+
+7. Hướng dẫn sử dụng giao diện
+------------------------------
+
+7.1. Đăng ký và đăng nhập
+
+1. Mở http://localhost:5173 hoặc production URL.
+2. Chọn đăng ký tài khoản mới nếu chưa có tài khoản.
+3. Đăng nhập bằng email và mật khẩu.
+4. Nếu đã cấu hình Google OAuth, có thể đăng nhập bằng Google.
+5. Nếu quên mật khẩu và SMTP đã được cấu hình, dùng flow forgot password để nhận OTP qua email.
+
+7.2. Tạo project kiểm thử
+
+1. Vào trang Projects.
+2. Chọn tạo project mới.
+3. Nhập tên project và base URL của website cần kiểm thử.
+4. Lưu project.
+
+Base URL là địa chỉ website mà hệ thống sẽ scan, sinh test case hoặc chạy browser automation.
+
+7.3. Scan website và quản lý object repository
+
+1. Mở chi tiết project.
+2. Chạy chức năng scan website nếu cần thu thập phần tử giao diện.
+3. Agent-worker sẽ dùng Playwright/crawler để đọc trang.
+4. Kết quả scan có thể được lưu vào object repository.
+5. Vào Object Repository để xem, thêm hoặc sửa selector/locator của các đối tượng trên trang.
+
+7.4. Sinh test case bằng AI
+
+1. Trong project, mở khu vực sinh test case.
+2. Nhập prompt mô tả mục tiêu kiểm thử, ví dụ: kiểm tra đăng nhập thành công, tạo nhân viên, tìm kiếm dữ liệu.
+3. Chọn sinh test case.
+4. Backend gọi LLM theo LLM_PROVIDER và LLM_MODEL trong .env.
+5. Xem danh sách test case được sinh.
+6. Chọn test case phù hợp, sửa lại goal, steps hoặc expected result nếu cần.
+
+7.5. Tạo và quản lý dataset
+
+1. Vào phần Data/Datasets của project.
+2. Tạo dataset thủ công hoặc dùng AI để sinh dữ liệu.
+3. Gán dataset vào test case hoặc test suite nếu flow kiểm thử cần nhiều bộ dữ liệu.
+4. Kiểm tra cột, hàng và tên biến để đảm bảo khớp với template trong test step.
+
+7.6. Chạy một test case
+
+1. Mở chi tiết test case.
+2. Kiểm tra nội dung test case, replay script và dataset binding nếu có.
+3. Chọn chạy test.
+4. Backend tạo test run và gửi yêu cầu đến agent-worker.
+5. Agent-worker mở Chromium và tương tác với website theo agent hoặc replay script.
+6. Kết quả được gửi callback về backend qua NODE_CALLBACK_BASE_URL.
+7. Xem verdict: pass, pass_with_warning, fail hoặc error.
+
+7.7. Chạy test suite/test sheet
+
+1. Tạo test suite/test sheet.
+2. Thêm các test case cần chạy vào suite.
+3. Cấu hình dataset cho từng test case nếu cần.
+4. Chọn run suite.
+5. Theo dõi danh sách item run và trạng thái từng test case.
+6. Xem tổng kết kết quả suite sau khi hoàn tất.
+
+7.8. Xem kết quả và bằng chứng
+
+Trong trang Test Runs hoặc chi tiết run, có thể xem:
+
+- Trạng thái và verdict.
+- Log từng bước.
+- Screenshot/evidence nếu agent-worker có chụp ảnh.
+- Failure reason nếu test fail.
+- AI analysis nếu hệ thống đã sinh phân tích lỗi.
+- Token usage và thời gian thực thi nếu có dữ liệu.
+
+7.9. Dashboard
+
+Dashboard hiển thị các chỉ số tổng quan như:
+
+- Số project.
+- Số test case.
+- Số lần chạy test.
+- Tỷ lệ pass/fail.
+- Xu hướng kết quả theo thời gian.
+
+
+8. Sử dụng API trực tiếp
+-----------------------
+
+Tất cả API backend có prefix /api.
+
+Một số route chính:
+
+- GET /api/health: kiểm tra backend và database.
+- /api/auth: đăng ký, đăng nhập, Google login, reset password và onboarding.
+- /api/dashboard: chỉ số dashboard.
+- /api/projects: quản lý project.
+- /api/scans: scan/crawl website.
+- /api/test-cases: quản lý test case.
+- /api/test-runs: chạy và xem kết quả test run.
+- /api/test-suites: quản lý test suite/test sheet.
+- /api/test-suite-runs: chạy và xem kết quả suite.
+- /api/test-collections: quản lý collection.
+- /api/datasets: quản lý dataset.
+- /api/projects/:projectId/test-objects: object repository.
+- /api/agent: callback và điều phối agent-worker.
+
+Trong môi trường development, mở Swagger UI:
+
+http://localhost:5000/api-docs
+
+Route cần xác thực sử dụng header:
+
+Authorization: Bearer <token>
+
+
+9. Xuất báo cáo đánh giá bằng export_eval.py
+--------------------------------------------
+
+Script export_eval.py xuất evaluation log từ PostgreSQL sang Excel hoặc CSV.
+
+9.1. Chuẩn bị biến môi trường
+
+Từ thư mục gốc, export biến trong .env:
+
+set -a
+source .env
+set +a
+
+Hoặc khai báo trực tiếp DATABASE_URL trước khi chạy:
+
+export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/automation_test"
+
+9.2. Xuất Excel mặc định
+
+python export_eval.py
+
+Nếu database có dữ liệu của nhiều project, script có thể yêu cầu lọc theo project để báo cáo case study chỉ gồm một ứng dụng.
+
+9.3. Xuất theo project ID
+
+python export_eval.py --project 1
+
+9.4. Xuất CSV
+
+python export_eval.py --format csv --project 1
+
+9.5. Lọc theo base URL
+
+python export_eval.py --base-url-contains orangehrm
+
+Shortcut riêng cho OrangeHRM:
+
+python export_eval.py --orangehrm
+
+9.6. Đặt tên file đầu ra
+
+python export_eval.py --project 1 --output bao_cao_eval.xlsx
+
+File Excel gồm các sheet:
+
+- Case Study Summary.
+- Execution Mode Summary.
+- Module Summary.
+- Failure Analysis.
+- Tree Evaluation Summary.
+- Evaluation Log.
+- TC Generation Time.
+- Dataset Gen Time.
+- Step Failures.
+- Column Descriptions.
+
+
+10. Dừng chương trình
+---------------------
+
+10.1. Dừng frontend dev server
+
+Trong terminal đang chạy frontend, nhấn Ctrl+C.
+
+10.2. Dừng backend
+
+Trong terminal đang chạy backend, nhấn Ctrl+C.
+
+10.3. Dừng agent-worker
+
+Trong terminal đang chạy uvicorn, nhấn Ctrl+C.
+
+10.4. Dừng PostgreSQL Docker
+
+Từ thư mục gốc:
+
+docker compose down
+
+Nếu muốn xóa cả volume database local:
+
+docker compose down -v
+
+Cần cẩn thận với docker compose down -v vì lệnh này sẽ xóa dữ liệu PostgreSQL local.
+
+
+11. Workflow demo nhanh
+-----------------------
+
+1. Chạy PostgreSQL:
+
+docker compose up -d postgres
+
+2. Chạy migration:
+
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/automation_test" ./migrate-production.sh
+
+3. Chạy backend:
+
+cd server
+npm run dev
+
+4. Chạy agent-worker:
+
+cd agent-worker
+source venv/bin/activate
+uvicorn app.main:app --port 8001 --reload
+
+5. Chạy frontend:
+
+cd client
+npm run dev
+
+6. Mở:
+
+http://localhost:5173
+
+7. Đăng ký hoặc đăng nhập, tạo project, nhập base URL, sinh test case và chạy test.
+
+
+12. Lỗi thường gặp khi sử dụng
+------------------------------
+
+12.1. Frontend báo lỗi không gọi được API
+
+- Đảm bảo backend đang chạy tại http://localhost:5000.
+- Kiểm tra VITE_API_URL trong .env.
+- Mở http://localhost:5000/api/health để kiểm tra backend.
+
+12.2. Chạy test bị treo hoặc không có kết quả
+
+- Đảm bảo agent-worker đang chạy tại http://localhost:8001.
+- Kiểm tra AGENT_WORKER_BASE_URL trong .env.
+- Kiểm tra NODE_CALLBACK_BASE_URL là http://localhost:5000/api.
+- Kiểm tra AGENT_CALLBACK_SECRET nếu có cấu hình.
+
+12.3. Không có screenshot/evidence
+
+- Kiểm tra SCREENSHOTS_DIR.
+- Đảm bảo backend và agent-worker có quyền ghi/đọc thư mục screenshots.
+- Nếu dùng Docker, đảm bảo volume screenshots được mount đúng.
+
+12.4. Sinh test case bằng AI thất bại
+
+- Kiểm tra LLM_PROVIDER và LLM_MODEL.
+- Kiểm tra GEMINI_API_KEY hoặc OPENAI_API_KEY.
+- Nếu dùng Ollama, đảm bảo Ollama server đang chạy và model đã được tải.
+
+12.5. Database health check trả về db disconnected
+
+- Đảm bảo PostgreSQL đang chạy.
+- Kiểm tra DATABASE_URL hoặc các biến DB_* trong .env.
+- Nếu dùng Docker, chạy docker compose ps để xem container postgres.
+
+12.6. Build frontend production sai API URL
+
+- VITE_API_URL được đóng gói vào bundle khi chạy npm run build.
+- Sau khi sửa VITE_API_URL, cần build/deploy lại frontend.

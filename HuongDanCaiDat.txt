@@ -1,0 +1,460 @@
+HƯỚNG DẪN CÀI ĐẶT HỆ THỐNG WEBSITE AUTOMATION TESTING
+======================================================
+
+1. Tổng quan dự án
+------------------
+
+Website Automation Testing là hệ thống hỗ trợ tạo, quản lý, chạy và phân tích kiểm thử tự động trên trình duyệt. Dự án gồm các thành phần chính sau:
+
+- Giao diện người dùng: React 19, Vite 7, Tailwind CSS.
+- Máy chủ API: Node.js 20, Express 5, PostgreSQL, xác thực JWT.
+- Agent-worker: FastAPI, Playwright và browser-use để điều khiển trình duyệt khi chạy test.
+- Cơ sở dữ liệu: PostgreSQL 16.
+- Tích hợp AI/LLM: hỗ trợ Gemini, OpenAI và Ollama.
+- Công cụ xuất báo cáo: export_eval.py, dùng để xuất evaluation log sang Excel hoặc CSV.
+- Docker: hỗ trợ chạy PostgreSQL cục bộ và đóng gói backend/agent-worker cho môi trường production.
+
+Đường dẫn frontend production hiện tại:
+
+https://automation-test-one.vercel.app/
+
+
+2. Công cụ và môi trường cần cài đặt
+------------------------------------
+
+2.1. Bắt buộc
+
+- Git: dùng để tải mã nguồn và quản lý phiên bản.
+- Node.js 20 trở lên: dùng cho frontend và backend.
+- npm: đi kèm Node.js, dùng để cài thư viện JavaScript.
+- PostgreSQL 16 trở lên: dùng làm hệ quản trị cơ sở dữ liệu.
+- psql CLI: dùng để kiểm tra database và chạy file migration.
+- Python 3.11 trở lên: dùng cho agent-worker và script export_eval.py.
+- pip và venv: dùng để tạo môi trường Python riêng cho dự án.
+- Chromium: được Playwright cài đặt để chạy kiểm thử trên trình duyệt.
+
+2.2. Khuyến nghị
+
+- Docker và Docker Compose: giúp chạy PostgreSQL cục bộ nhanh hơn.
+- Visual Studio Code hoặc IDE tương đương.
+- curl: dùng để kiểm tra các endpoint health check.
+
+2.3. Tùy chọn theo tính năng
+
+- Gemini API key nếu dùng Gemini để sinh hoặc chạy test bằng AI.
+- OpenAI API key nếu dùng OpenAI.
+- Ollama nếu muốn chạy mô hình ngôn ngữ cục bộ.
+- Google OAuth Web Client ID nếu bật đăng nhập bằng Google.
+- Tài khoản SMTP nếu muốn gửi email OTP khi đặt lại mật khẩu.
+
+
+3. Tải mã nguồn
+---------------
+
+Nếu chưa có mã nguồn, tải repository về máy:
+
+git clone <repository-url>
+cd automation-test
+
+Nếu đã có mã nguồn, mở thư mục gốc của dự án:
+
+cd /đường-dẫn/automation-test
+
+Thư mục gốc cần có các thư mục và tệp quan trọng sau:
+
+- client/
+- server/
+- agent-worker/
+- automation/
+- docker-compose.yml
+- docker-compose.prod.yml
+- migrate-production.sh
+- .env.local.example
+- .env.production.example
+
+
+4. Cấu hình biến môi trường
+---------------------------
+
+Backend, frontend và agent-worker đều đọc biến môi trường từ tệp .env ở thư mục gốc của dự án.
+
+Tạo tệp .env cho môi trường phát triển cục bộ:
+
+cp .env.local.example .env
+
+Sau đó mở tệp .env và điền các giá trị thực tế.
+
+4.1. Cấu hình cơ sở dữ liệu
+
+Nếu dùng PostgreSQL cục bộ bằng Docker:
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=automation_test
+DB_USER=postgres
+DB_PASSWORD=postgres
+
+Nếu dùng database cloud như Neon, Supabase hoặc Railway:
+
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB_NAME?sslmode=require
+
+Lưu ý: nếu DATABASE_URL được khai báo, backend sẽ ưu tiên DATABASE_URL thay vì các biến DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD.
+
+4.2. Cấu hình backend
+
+PORT=5000
+NODE_ENV=development
+JWT_SECRET=<chuỗi-bí-mật-mạnh>
+JWT_EXPIRES_IN=7d
+GOOGLE_CLIENT_ID=<google-web-client-id-nếu-có>
+
+Nên tạo JWT_SECRET bằng lệnh:
+
+openssl rand -hex 64
+
+4.3. Cấu hình AI dùng để sinh test case
+
+Nếu dùng Gemini:
+
+LLM_PROVIDER=gemini
+LLM_MODEL=gemini-2.5-flash
+GEMINI_API_KEY=<gemini-api-key>
+
+Nếu dùng OpenAI:
+
+LLM_PROVIDER=openai
+LLM_MODEL=<tên-model-openai>
+OPENAI_API_KEY=<openai-api-key>
+
+Nếu dùng Ollama cục bộ:
+
+LLM_PROVIDER=ollama
+LLM_MODEL=gemma3:4b
+OLLAMA_BASE_URL=http://localhost:11434
+
+4.4. Cấu hình agent-worker
+
+AGENT_WORKER_BASE_URL=http://localhost:8001
+NODE_CALLBACK_BASE_URL=http://localhost:5000/api
+AGENT_CALLBACK_SECRET=<chuỗi-bí-mật-chung-giữa-backend-và-worker>
+SCREENSHOTS_DIR=../server/screenshots
+WORKER_MAX_CONCURRENCY=3
+
+Nếu đặt AGENT_CALLBACK_SECRET, giá trị này phải giống nhau ở backend và agent-worker.
+
+4.5. Cấu hình AI dùng khi agent-worker chạy test
+
+Nếu dùng Gemini:
+
+EXECUTION_LLM_PROVIDER=gemini
+EXECUTION_LLM_MODEL=gemini-2.5-flash
+GEMINI_API_KEY=<gemini-api-key>
+
+Nếu dùng Ollama cục bộ:
+
+EXECUTION_LLM_PROVIDER=ollama
+EXECUTION_LLM_MODEL=gemma3:4b
+OLLAMA_BASE_URL=http://localhost:11434
+
+Nếu dùng OpenAI:
+
+EXECUTION_LLM_PROVIDER=openai
+EXECUTION_LLM_MODEL=<tên-model-openai>
+OPENAI_API_KEY=<openai-api-key>
+
+Các biến điều khiển quá trình chạy trình duyệt:
+
+EXECUTION_MAX_STEPS=20
+EXECUTION_TIMEOUT_SECONDS=300
+EXECUTION_USE_VISION=true
+EXECUTION_HEADLESS=true
+EXECUTION_BROWSER_TYPE=
+
+4.6. Cấu hình frontend
+
+VITE_API_URL=http://localhost:5000/api
+VITE_GOOGLE_CLIENT_ID=<google-web-client-id-nếu-có>
+VITE_APP_NAME=AutomationTest
+VITE_ENV=development
+
+Lưu ý: các biến bắt đầu bằng VITE_ sẽ được Vite đóng gói vào frontend tại thời điểm build.
+
+
+5. Cài đặt cơ sở dữ liệu
+------------------------
+
+5.1. Cách 1: chạy PostgreSQL bằng Docker
+
+Từ thư mục gốc của dự án:
+
+docker compose up -d postgres
+
+Container PostgreSQL sẽ chạy với cấu hình:
+
+- Host: localhost
+- Port: 5432
+- Database: automation_test
+- User: postgres
+- Password: postgres
+
+5.2. Cách 2: dùng PostgreSQL đã cài trên máy
+
+Tạo database:
+
+createdb automation_test
+
+Sau đó kiểm tra lại file .env để chắc chắn các biến DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD đã đúng.
+
+5.3. Chạy migration/schema
+
+Với database cục bộ:
+
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/automation_test" ./migrate-production.sh
+
+Với database cloud có SSL:
+
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB_NAME?sslmode=require" ./migrate-production.sh
+
+Script migrate-production.sh sẽ áp dụng schema gốc Automation_testing_DB.sql, chạy các migration bổ sung trong server/migrations và đồng bộ lại sequence.
+
+Lưu ý khi dùng docker-compose.yml: container PostgreSQL sẽ tự nạp server/migrations/001_init.sql trong lần tạo volume đầu tiên. Nếu muốn chạy migrate-production.sh trên database cục bộ sạch, hãy reset schema public trước khi migrate. Chỉ chạy lệnh sau khi chấp nhận xóa dữ liệu local:
+
+psql "postgresql://postgres:postgres@localhost:5432/automation_test" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+Sau đó chạy lại:
+
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/automation_test" ./migrate-production.sh
+
+5.4. Script setup-database.sh
+
+Dự án có script setup-database.sh để tạo database và nạp Automation_testing_DB.sql:
+
+./setup-database.sh
+
+Script này phù hợp khi cần khởi tạo nhanh database cục bộ có schema/dữ liệu theo file dump. Nếu cần schema mới nhất theo chuỗi migration, nên dùng migrate-production.sh.
+
+
+6. Cài đặt backend
+------------------
+
+Đi vào thư mục server và cài dependencies:
+
+cd server
+npm install
+
+Backend sử dụng các thư viện chính:
+
+- express: xây dựng REST API.
+- pg: kết nối PostgreSQL.
+- dotenv: đọc biến môi trường.
+- jsonwebtoken và bcrypt: xác thực người dùng.
+- google-auth-library: đăng nhập Google.
+- @google/generative-ai và openai: tích hợp mô hình AI.
+- nodemailer: gửi email OTP.
+- swagger-jsdoc và swagger-ui-express: tạo tài liệu API trong môi trường development.
+- helmet, cors, morgan, express-rate-limit: bảo mật, CORS, ghi log và giới hạn tần suất request.
+
+
+7. Cài đặt frontend
+-------------------
+
+Đi vào thư mục client và cài dependencies:
+
+cd client
+npm install
+
+Frontend sử dụng các thư viện chính:
+
+- react và react-dom.
+- vite.
+- tailwindcss và @tailwindcss/vite.
+- react-router-dom.
+- axios.
+- lucide-react.
+- @react-oauth/google.
+- radix-ui, shadcn-style components và sonner.
+
+
+8. Cài đặt agent-worker
+-----------------------
+
+Agent-worker cần Python 3.11 trở lên.
+
+Đi vào thư mục agent-worker:
+
+cd agent-worker
+
+Tạo môi trường ảo:
+
+python3.11 -m venv venv
+
+Kích hoạt môi trường ảo trên macOS/Linux:
+
+source venv/bin/activate
+
+Kích hoạt môi trường ảo trên Windows:
+
+venv\Scripts\activate
+
+Cập nhật pip:
+
+python -m pip install --upgrade pip
+
+Cài dependencies:
+
+pip install -r requirements.txt
+
+Cài Chromium cho Playwright:
+
+playwright install chromium
+
+Nếu chạy trên Linux server và thiếu thư viện hệ thống, dùng:
+
+playwright install chromium --with-deps
+
+Agent-worker sử dụng các thư viện chính:
+
+- fastapi.
+- uvicorn.
+- httpx.
+- python-dotenv.
+- pydantic.
+- browser-use.
+- langchain-ollama.
+- playwright.
+
+
+9. Cài đặt công cụ xuất báo cáo export_eval.py
+----------------------------------------------
+
+Script export_eval.py nằm ở thư mục gốc và dùng để xuất evaluation log sang Excel hoặc CSV.
+
+Cài các thư viện Python cần thiết:
+
+pip install psycopg2-binary openpyxl python-dotenv
+
+Script sẽ kết nối database bằng DATABASE_URL nếu biến này tồn tại. Nếu không có DATABASE_URL, script dùng các biến DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD.
+
+Nếu muốn script đọc biến từ file .env, có thể export biến trong shell trước khi chạy:
+
+set -a
+source .env
+set +a
+
+
+10. Tùy chọn: cài Ollama cục bộ
+-------------------------------
+
+Nếu không dùng API cloud và muốn chạy mô hình ngôn ngữ trên máy local, cài Ollama theo hướng dẫn của hệ điều hành. Sau đó tải model, ví dụ:
+
+ollama pull gemma3:4b
+
+Trong .env, cấu hình:
+
+LLM_PROVIDER=ollama
+LLM_MODEL=gemma3:4b
+EXECUTION_LLM_PROVIDER=ollama
+EXECUTION_LLM_MODEL=gemma3:4b
+OLLAMA_BASE_URL=http://localhost:11434
+
+
+11. Tùy chọn: chạy backend và agent-worker bằng Docker production
+-----------------------------------------------------------------
+
+Tạo file .env production:
+
+cp .env.production.example .env
+
+Điền đầy đủ DATABASE_URL, JWT_SECRET, GEMINI_API_KEY hoặc OPENAI_API_KEY, AGENT_CALLBACK_SECRET, SERVER_BASE_URL và AGENT_WORKER_BASE_URL.
+
+Sau đó chạy:
+
+docker compose -f docker-compose.prod.yml up -d --build
+
+docker-compose.prod.yml sẽ build:
+
+- backend từ server/Dockerfile, mặc định expose port 5000.
+- agent-worker từ agent-worker/Dockerfile, expose port 8001.
+- volume screenshots để lưu ảnh minh chứng.
+
+
+12. Kiểm tra cài đặt
+--------------------
+
+12.1. Kiểm tra database
+
+psql "postgresql://postgres:postgres@localhost:5432/automation_test" -c "SELECT NOW();"
+
+12.2. Kiểm tra backend
+
+cd server
+npm run dev
+
+Nếu thành công, backend sẽ in log đang chạy trên port 5000.
+
+12.3. Kiểm tra frontend build
+
+cd client
+npm run build
+
+Nếu thành công, Vite sẽ tạo thư mục client/dist.
+
+12.4. Kiểm tra agent-worker
+
+cd agent-worker
+source venv/bin/activate
+uvicorn app.main:app --port 8001
+
+Mở endpoint:
+
+http://localhost:8001/health
+
+12.5. Kiểm tra toàn hệ thống bằng script
+
+Từ thư mục gốc:
+
+./verify-setup.sh
+
+Script này kiểm tra kết nối database, các bảng quan trọng, cấu trúc file và dependencies chính.
+
+
+13. Lỗi thường gặp khi cài đặt
+------------------------------
+
+13.1. Backend không kết nối được database
+
+- Kiểm tra PostgreSQL đã chạy chưa.
+- Kiểm tra DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD trong .env.
+- Nếu dùng DATABASE_URL cloud, đảm bảo URL đúng và database cho phép SSL.
+- Gọi endpoint http://localhost:5000/api/health để xem trạng thái.
+
+13.2. Frontend gọi sai API
+
+- Kiểm tra VITE_API_URL trong .env.
+- Môi trường local nên dùng http://localhost:5000/api.
+- Vite dev server có proxy /api sang backend port 5000.
+
+13.3. Agent-worker không chạy được Chromium
+
+- Đảm bảo đã chạy playwright install chromium.
+- Trên Linux server, chạy playwright install chromium --with-deps.
+- Nếu máy yếu, giảm WORKER_MAX_CONCURRENCY xuống 1 hoặc 2.
+
+13.4. Sinh test bằng AI bị lỗi API key
+
+- Kiểm tra GEMINI_API_KEY hoặc OPENAI_API_KEY.
+- Kiểm tra LLM_PROVIDER và LLM_MODEL.
+- Nếu dùng Ollama, đảm bảo Ollama đang chạy tại http://localhost:11434 và model đã được tải.
+
+13.5. Google login không hoạt động
+
+- Kiểm tra GOOGLE_CLIENT_ID và VITE_GOOGLE_CLIENT_ID.
+- Trong Google Cloud Console, thêm authorized JavaScript origins:
+  http://localhost:5173
+  domain production frontend nếu deploy.
+
+13.6. Chức năng đặt lại mật khẩu không gửi email
+
+- Kiểm tra SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE và MAIL_FROM.
+- Nếu không cấu hình SMTP, các flow đăng ký/đăng nhập vẫn có thể chạy, nhưng reset password qua email sẽ không gửi được OTP.
+

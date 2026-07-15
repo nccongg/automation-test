@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# python export_eval.py --base-url-contains orangehrm
 """
 Export evaluation log to Excel/CSV.
 
@@ -7,17 +8,20 @@ Usage:
     python export_eval.py                  # -> eval_log_<timestamp>.xlsx
     python export_eval.py --format csv     # -> eval_log_<timestamp>.csv
     python export_eval.py --project 1      # filter by project id
+    python export_eval.py --orangehrm      # all projects whose base_url contains orangehrm
+    python export_eval.py --base-url-contains orangehrm
 
 Excel output contains, in order:
     1. Case Study Summary    - headline case-study metrics (Metric / Value)
-    2. Module Summary        - per-module pass/fail/reuse/timing breakdown
-    3. Failure Analysis      - failure types ranked by frequency
-    4. Tree Evaluation Summary - Generated Tree Correct? breakdown
-    5. Evaluation Log        - raw per-run data (unchanged)
-    6. TC Generation Time    - raw per-batch data (unchanged)
-    7. Dataset Gen Time      - raw per-batch data (unchanged)
-    8. Step Failures         - raw per-step data (unchanged)
-    9. Column Descriptions   - glossary for every sheet above
+    2. Execution Mode Summary - Agent vs replay-script execution metrics
+    3. Module Summary        - per-module pass/fail/reuse/timing breakdown
+    4. Failure Analysis      - failure types ranked by frequency
+    5. Tree Evaluation Summary - Generated Tree Correct? breakdown
+    6. Evaluation Log        - raw per-run data
+    7. TC Generation Time    - raw per-batch data
+    8. Dataset Gen Time      - raw per-batch data
+    9. Step Failures         - raw per-step data
+    10. Column Descriptions  - glossary for every sheet above
 
 CSV output only ever contains the main Evaluation Log.
 """
@@ -60,8 +64,8 @@ def get_conn():
 # ── Queries ────────────────────────────────────────────────────────────────────
 # All queries are executed with a params dict (see fetch()), so every literal
 # "%" in LIKE patterns below is doubled ("%%") to survive psycopg2's %-style
-# parameter substitution. The project filter itself is always bound via
-# %(project_id)s — never interpolated into the SQL text.
+# parameter substitution. Project/base URL filters are always bound via params
+# such as %(project_id)s and %(base_url_pattern)s — never interpolated into SQL.
 
 # Sheet: Bảng đánh giá chính
 QUERY_EVAL_LOG = """
@@ -200,6 +204,7 @@ SELECT
   tr.id                                                      AS "Run ID",
   tra.trigger_type                                           AS "Run Type",
   p.name                                                     AS "Project",
+  p.base_url                                                 AS "Project URL",
   tr.started_at                                              AS "Run Date"
 
 FROM test_runs tr
@@ -256,11 +261,13 @@ SELECT
     ELSE ''
   END                                                      AS "Total Tokens",
   p.name                                                   AS "Project",
+  p.base_url                                               AS "Project URL",
   b.created_at                                             AS "Created At"
 FROM test_case_generation_batches b
 JOIN projects p ON p.id = b.project_id
 LEFT JOIN test_case_generation_candidates tgc ON tgc.batch_id = b.id AND tgc.is_selected = TRUE
 LEFT JOIN test_cases tc ON tc.id = tgc.selected_test_case_id
+WHERE TRUE
 {project_filter}
 ORDER BY b.created_at DESC
 """
@@ -269,6 +276,7 @@ ORDER BY b.created_at DESC
 QUERY_DATASET_GEN_TIME = """
 SELECT
   p.name                                                   AS "Project",
+  p.base_url                                               AS "Project URL",
   dgl.prompt                                               AS "Prompt",
   dgl.row_count                                            AS "Row Count",
   dgl.llm_provider                                        AS "LLM Provider",
@@ -292,7 +300,8 @@ SELECT
   dgl.created_at                                          AS "Created At"
 FROM dataset_generation_logs dgl
 LEFT JOIN projects p ON p.id = dgl.project_id
-{project_filter_no_alias}
+WHERE TRUE
+{project_filter}
 ORDER BY dgl.created_at DESC
 """
 
@@ -317,6 +326,8 @@ SELECT
   END                                                      AS "Failure Type",
   rsl.message                                              AS "Detail",
   rsl.current_url                                          AS "URL",
+  p.name                                                   AS "Project",
+  p.base_url                                               AS "Project URL",
   tr.started_at                                            AS "Run Date"
 FROM run_step_logs rsl
 JOIN test_runs tr  ON tr.id = rsl.test_run_id
@@ -328,6 +339,13 @@ ORDER BY tr.started_at DESC, rsl.step_no
 """
 
 QUERY_PROJECT_NAME = 'SELECT name FROM projects WHERE id = %(project_id)s'
+
+QUERY_PROJECTS_BY_BASE_URL = """
+SELECT id, name, base_url
+FROM projects
+WHERE base_url ILIKE %(base_url_pattern)s
+ORDER BY name
+"""
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -354,6 +372,21 @@ def clean_row(row):
 
 def to_records(cols, rows):
     return [dict(zip(cols, row)) for row in rows]
+
+
+def build_scope_filter(project_id=None, base_url_contains=None):
+    clauses = []
+    params = {}
+
+    if project_id is not None:
+        params["project_id"] = project_id
+        clauses.append("p.id = %(project_id)s")
+
+    if base_url_contains:
+        params["base_url_pattern"] = f"%{base_url_contains}%"
+        clauses.append("p.base_url ILIKE %(base_url_pattern)s")
+
+    return ("AND " + " AND ".join(clauses)) if clauses else "", params
 
 
 # ── Numeric parsing (Generation/Execution/Total Time are stored as "8.2s") ─────
@@ -391,6 +424,11 @@ def round_or_blank(value, ndigits=2):
     return round(value, ndigits) if value is not None else ""
 
 
+def sum_or_blank(values, ndigits=2):
+    present = [v for v in values if v is not None]
+    return round(sum(present), ndigits) if present else ""
+
+
 def safe_rate(part, whole):
     return (part / whole) if whole else 0.0
 
@@ -400,6 +438,35 @@ def normalize_tree_result(val):
     migration 020, chk_tree_correct). Normalize defensively either way."""
     text = (val or "").strip().lower()
     return text if text in ("yes", "partial", "no") else ""
+
+
+def is_replay_run(record):
+    return (record.get("Run Type") or "").strip().lower() == "manual_replay"
+
+
+def execution_mode_stats(records):
+    passed_records = [r for r in records if r["Execution Result"] == "Pass"]
+    failed_records = [r for r in records if r["Execution Result"] == "Fail"]
+
+    exec_seconds = [to_seconds(r["Execution Time"]) for r in records]
+    passed_seconds = [to_seconds(r["Execution Time"]) for r in passed_records]
+    failed_seconds = [to_seconds(r["Execution Time"]) for r in failed_records]
+
+    return {
+        "total_tasks": len({r["Task ID"] for r in records}),
+        "total_runs": len(records),
+        "passed_tasks": len({r["Task ID"] for r in passed_records}),
+        "passed_runs": len(passed_records),
+        "failed_tasks": len({r["Task ID"] for r in failed_records}),
+        "failed_runs": len(failed_records),
+        "pass_rate": Pct(safe_rate(len(passed_records), len(records))),
+        "total_time": sum_or_blank(exec_seconds),
+        "passed_time": sum_or_blank(passed_seconds),
+        "failed_time": sum_or_blank(failed_seconds),
+        "avg_time": round_or_blank(avg(exec_seconds)),
+        "avg_passed_time": round_or_blank(avg(passed_seconds)),
+        "avg_failed_time": round_or_blank(avg(failed_seconds)),
+    }
 
 
 class Pct:
@@ -511,8 +578,12 @@ def build_case_study_summary(eval_cols, eval_rows, project_label):
 
     # A "manual_replay" run reuses an already-generated action tree/script —
     # it does not generate a new tree, so it must not be counted as one.
-    replay_runs = sum(1 for r in recs if r["Run Type"] == "manual_replay")
+    replay_records = [r for r in recs if is_replay_run(r)]
+    agent_records = [r for r in recs if not is_replay_run(r)]
+    replay_runs = len(replay_records)
     generated_trees = total_runs - replay_runs
+    agent_stats = execution_mode_stats(agent_records)
+    replay_stats = execution_mode_stats(replay_records)
 
     # Generation time / tokens belong to the test case's generation batch, not
     # to each individual run — dedupe by Task ID so replays don't double-count.
@@ -533,6 +604,28 @@ def build_case_study_summary(eval_cols, eval_rows, project_label):
         ["Total Tasks / Test Cases",          total_tasks],
         ["Total Executions / Runs",           total_runs],
         ["Total Generated Trees",             generated_trees],
+        ["Agent Test Cases Run",              agent_stats["total_tasks"]],
+        ["Agent Runs",                        agent_stats["total_runs"]],
+        ["Agent Total Execution Time (s)",    agent_stats["total_time"]],
+        ["Agent Passed Test Cases",           agent_stats["passed_tasks"]],
+        ["Agent Passed Runs",                 agent_stats["passed_runs"]],
+        ["Agent Passed Execution Time (s)",   agent_stats["passed_time"]],
+        ["Agent Failed Test Cases",           agent_stats["failed_tasks"]],
+        ["Agent Failed Runs",                 agent_stats["failed_runs"]],
+        ["Agent Failed Execution Time (s)",   agent_stats["failed_time"]],
+        ["Agent Avg Passed Time (s)",         agent_stats["avg_passed_time"]],
+        ["Agent Avg Failed Time (s)",         agent_stats["avg_failed_time"]],
+        ["Replay Script Test Cases Run",      replay_stats["total_tasks"]],
+        ["Replay Script Runs",                replay_stats["total_runs"]],
+        ["Replay Script Total Execution Time (s)", replay_stats["total_time"]],
+        ["Replay Script Passed Test Cases",   replay_stats["passed_tasks"]],
+        ["Replay Script Passed Runs",         replay_stats["passed_runs"]],
+        ["Replay Script Passed Execution Time (s)", replay_stats["passed_time"]],
+        ["Replay Script Failed Test Cases",   replay_stats["failed_tasks"]],
+        ["Replay Script Failed Runs",         replay_stats["failed_runs"]],
+        ["Replay Script Failed Execution Time (s)", replay_stats["failed_time"]],
+        ["Replay Script Avg Passed Time (s)", replay_stats["avg_passed_time"]],
+        ["Replay Script Avg Failed Time (s)", replay_stats["avg_failed_time"]],
         ["Correct Trees",                     correct],
         ["Partially Correct Trees",           partial],
         ["Incorrect Trees",                   incorrect],
@@ -556,6 +649,51 @@ def build_case_study_summary(eval_cols, eval_rows, project_label):
         ["Average Agent Output Tokens",       round_or_blank(avg(agent_output_tok))],
     ]
     return ["Metric", "Value"], rows
+
+
+def build_execution_mode_summary(eval_cols, eval_rows):
+    recs = to_records(eval_cols, eval_rows)
+    groups = [
+        ("Agent", [r for r in recs if not is_replay_run(r)]),
+        ("Replay Script", [r for r in recs if is_replay_run(r)]),
+    ]
+
+    cols = [
+        "Execution Mode",
+        "Total Test Cases",
+        "Total Runs",
+        "Passed Test Cases",
+        "Passed Runs",
+        "Failed Test Cases",
+        "Failed Runs",
+        "Pass Rate",
+        "Total Execution Time (s)",
+        "Passed Execution Time (s)",
+        "Failed Execution Time (s)",
+        "Avg Execution Time (s)",
+        "Avg Passed Time (s)",
+        "Avg Failed Time (s)",
+    ]
+    rows = []
+    for mode, records in groups:
+        stats = execution_mode_stats(records)
+        rows.append([
+            mode,
+            stats["total_tasks"],
+            stats["total_runs"],
+            stats["passed_tasks"],
+            stats["passed_runs"],
+            stats["failed_tasks"],
+            stats["failed_runs"],
+            stats["pass_rate"],
+            stats["total_time"],
+            stats["passed_time"],
+            stats["failed_time"],
+            stats["avg_time"],
+            stats["avg_passed_time"],
+            stats["avg_failed_time"],
+        ])
+    return cols, rows
 
 
 def build_module_summary(eval_cols, eval_rows):
@@ -644,7 +782,16 @@ def distinct_project_names(eval_cols, eval_rows):
     return sorted({r["Project"] for r in to_records(eval_cols, eval_rows) if r.get("Project")})
 
 
-def resolve_project_label(conn, project_id, eval_cols, eval_rows):
+def resolve_project_label(conn, project_id, base_url_contains, eval_cols, eval_rows):
+    if base_url_contains:
+        names = distinct_project_names(eval_cols, eval_rows)
+        scope = "OrangeHRM" if base_url_contains.lower() == "orangehrm" else (
+            f"Projects with base_url containing '{base_url_contains}'"
+        )
+        if names:
+            return f"{scope}: {', '.join(names)}"
+        return f"{scope}: N/A"
+
     if project_id is not None:
         with conn.cursor() as cur:
             cur.execute(QUERY_PROJECT_NAME, {"project_id": project_id})
@@ -656,7 +803,13 @@ def resolve_project_label(conn, project_id, eval_cols, eval_rows):
 
 def list_projects(conn):
     with conn.cursor() as cur:
-        cur.execute("SELECT id, name FROM projects ORDER BY name")
+        cur.execute("SELECT id, name, base_url FROM projects ORDER BY name")
+        return cur.fetchall()
+
+
+def list_projects_by_base_url(conn, base_url_contains):
+    with conn.cursor() as cur:
+        cur.execute(QUERY_PROJECTS_BY_BASE_URL, {"base_url_pattern": f"%{base_url_contains}%"})
         return cur.fetchall()
 
 
@@ -664,10 +817,32 @@ def list_projects(conn):
 
 COLUMN_DESCRIPTIONS = {
     "Case Study Summary": [
-        ("Project / Case Study",       "Tên project/case study web app được đánh giá (lọc theo --project nếu có)."),
+        ("Project / Case Study",       "Tên project/case study web app được đánh giá (lọc theo --project, --orangehrm hoặc --base-url-contains nếu có)."),
         ("Total Tasks / Test Cases",   "Số lượng test case (Task ID) duy nhất xuất hiện trong dữ liệu đánh giá."),
         ("Total Executions / Runs",    "Tổng số lần thực thi (test_runs) đã hoàn tất hoặc thất bại."),
         ("Total Generated Trees",      "Tổng số cây hành động thực sự được agent sinh mới = Total Executions trừ đi các lần replay lại script có sẵn (Run Type = manual_replay), vì replay không sinh cây mới."),
+        ("Agent Test Cases Run",       "Số test case duy nhất được chạy bằng agent (Run Type khác manual_replay)."),
+        ("Agent Runs",                 "Tổng số lần chạy bằng agent."),
+        ("Agent Total Execution Time (s)", "Tổng thời gian thực thi bằng agent trên trình duyệt (giây), không gồm thời gian sinh test case."),
+        ("Agent Passed Test Cases",    "Số test case duy nhất có ít nhất một lần chạy bằng agent thành công."),
+        ("Agent Passed Runs",          "Số lần chạy bằng agent có Execution Result = Pass."),
+        ("Agent Passed Execution Time (s)", "Tổng thời gian của các lần chạy agent thành công."),
+        ("Agent Failed Test Cases",    "Số test case duy nhất có ít nhất một lần chạy bằng agent thất bại."),
+        ("Agent Failed Runs",          "Số lần chạy bằng agent có Execution Result = Fail."),
+        ("Agent Failed Execution Time (s)", "Tổng thời gian của các lần chạy agent thất bại."),
+        ("Agent Avg Passed Time (s)",  "Thời gian trung bình của các lần chạy agent thành công."),
+        ("Agent Avg Failed Time (s)",  "Thời gian trung bình của các lần chạy agent thất bại."),
+        ("Replay Script Test Cases Run", "Số test case duy nhất được chạy bằng replay script (Run Type = manual_replay)."),
+        ("Replay Script Runs",         "Tổng số lần chạy bằng replay script."),
+        ("Replay Script Total Execution Time (s)", "Tổng thời gian thực thi bằng replay script trên trình duyệt (giây)."),
+        ("Replay Script Passed Test Cases", "Số test case duy nhất có ít nhất một lần replay script thành công."),
+        ("Replay Script Passed Runs",  "Số lần replay script có Execution Result = Pass."),
+        ("Replay Script Passed Execution Time (s)", "Tổng thời gian của các lần replay script thành công."),
+        ("Replay Script Failed Test Cases", "Số test case duy nhất có ít nhất một lần replay script thất bại."),
+        ("Replay Script Failed Runs",  "Số lần replay script có Execution Result = Fail."),
+        ("Replay Script Failed Execution Time (s)", "Tổng thời gian của các lần replay script thất bại."),
+        ("Replay Script Avg Passed Time (s)", "Thời gian trung bình của các lần replay script thành công."),
+        ("Replay Script Avg Failed Time (s)", "Thời gian trung bình của các lần replay script thất bại."),
         ("Correct Trees",              "Số cây hành động được đánh giá thủ công là đúng hoàn toàn (Yes)."),
         ("Partially Correct Trees",    "Số cây hành động được đánh giá là đúng một phần (Partial)."),
         ("Incorrect Trees",            "Số cây hành động được đánh giá là sai (No)."),
@@ -689,6 +864,22 @@ COLUMN_DESCRIPTIONS = {
         ("Total Agent Output Tokens",  "Tổng token đầu ra agent khi thực thi, cộng dồn trên mọi lần chạy."),
         ("Average Agent Input Tokens", "Token đầu vào agent trung bình trên mỗi lần chạy."),
         ("Average Agent Output Tokens", "Token đầu ra agent trung bình trên mỗi lần chạy."),
+    ],
+    "Execution Mode Summary": [
+        ("Execution Mode",             "Nhóm thực thi: Agent = chạy agent sinh/điều hướng; Replay Script = chạy lại script có sẵn (Run Type = manual_replay)."),
+        ("Total Test Cases",           "Số test case duy nhất đã chạy trong nhóm này."),
+        ("Total Runs",                 "Tổng số lần chạy trong nhóm này."),
+        ("Passed Test Cases",          "Số test case duy nhất có ít nhất một lần chạy thành công trong nhóm này."),
+        ("Passed Runs",                "Số lần chạy thành công trong nhóm này."),
+        ("Failed Test Cases",          "Số test case duy nhất có ít nhất một lần chạy thất bại trong nhóm này."),
+        ("Failed Runs",                "Số lần chạy thất bại trong nhóm này."),
+        ("Pass Rate",                  "Passed Runs / Total Runs."),
+        ("Total Execution Time (s)",   "Tổng thời gian thực thi trên trình duyệt của nhóm này (giây)."),
+        ("Passed Execution Time (s)",  "Tổng thời gian của các lần chạy thành công trong nhóm này."),
+        ("Failed Execution Time (s)",  "Tổng thời gian của các lần chạy thất bại trong nhóm này."),
+        ("Avg Execution Time (s)",     "Thời gian thực thi trung bình của toàn bộ lần chạy trong nhóm này."),
+        ("Avg Passed Time (s)",        "Thời gian thực thi trung bình của các lần chạy thành công."),
+        ("Avg Failed Time (s)",        "Thời gian thực thi trung bình của các lần chạy thất bại."),
     ],
     "Module Summary": [
         ("Module",                     "Nhóm chức năng (Login, PIM, Leave, Recruitment, Time & Attendance, Admin, Other)."),
@@ -738,6 +929,7 @@ COLUMN_DESCRIPTIONS = {
         ("Run ID",                   "ID nội bộ của lần chạy (test_runs.id), dùng để tra cứu chi tiết trong DB."),
         ("Run Type",                 "Loại trigger: initial (chạy lần đầu), replay (chạy lại), scheduled, …"),
         ("Project",                  "Tên project chứa test case này."),
+        ("Project URL",              "Base URL của website test được cấu hình cho project."),
         ("Run Date",                 "Thời điểm bắt đầu thực thi test case (UTC)."),
     ],
     "TC Generation Time": [
@@ -754,10 +946,12 @@ COLUMN_DESCRIPTIONS = {
         ("Output Tokens", "Số token response LLM trả về."),
         ("Total Tokens",  "Tổng Input + Output Tokens của batch này."),
         ("Project",       "Tên project."),
+        ("Project URL",   "Base URL của website test được cấu hình cho project."),
         ("Created At",    "Thời điểm tạo batch."),
     ],
     "Dataset Gen Time": [
         ("Project",       "Tên project."),
+        ("Project URL",   "Base URL của website test được cấu hình cho project."),
         ("Prompt",        "Prompt dùng để sinh dataset."),
         ("Row Count",     "Số dòng dữ liệu được sinh ra."),
         ("LLM Provider",  "Nhà cung cấp LLM."),
@@ -781,6 +975,8 @@ COLUMN_DESCRIPTIONS = {
         ("Failure Type", "Loại lỗi: Bad locator, Timeout, App error, Prompt misunderstanding."),
         ("Detail",       "Thông báo lỗi chi tiết từ agent."),
         ("URL",          "URL trang web tại thời điểm xảy ra lỗi."),
+        ("Project",      "Tên project chứa test case bị lỗi."),
+        ("Project URL",  "Base URL của website test được cấu hình cho project."),
         ("Run Date",     "Thời điểm chạy test."),
     ],
 }
@@ -800,16 +996,34 @@ def main():
     parser = argparse.ArgumentParser(description="Export evaluation log")
     parser.add_argument("--format", choices=["excel", "csv"], default="excel")
     parser.add_argument("--project", type=int, default=None, help="Filter by project ID")
+    parser.add_argument(
+        "--base-url-contains",
+        default=None,
+        help="Filter by projects.base_url substring, e.g. orangehrm",
+    )
+    parser.add_argument(
+        "--orangehrm",
+        action="store_true",
+        help="Shortcut for --base-url-contains orangehrm",
+    )
     parser.add_argument("--output", default=None, help="Output file path")
     args = parser.parse_args()
 
-    params  = {"project_id": args.project}
-    pf      = "AND p.id = %(project_id)s" if args.project else ""
-    pf_noa  = "AND dgl.project_id = %(project_id)s" if args.project else ""
+    base_url_contains = (args.base_url_contains or "").strip() or None
+    if args.orangehrm:
+        base_url_contains = "orangehrm"
+
+    pf, params = build_scope_filter(args.project, base_url_contains)
 
     ts  = datetime.now().strftime("%Y%m%d_%H%M%S")
     ext = "xlsx" if args.format == "excel" else "csv"
-    out = args.output or f"eval_log_{ts}.{ext}"
+    if args.output:
+        out = args.output
+    elif base_url_contains:
+        slug = "".join(ch if ch.isalnum() else "_" for ch in base_url_contains.lower()).strip("_")
+        out = f"eval_log_{slug or 'base_url'}_{ts}.{ext}"
+    else:
+        out = f"eval_log_{ts}.{ext}"
 
     db_url = os.getenv("DATABASE_URL")
     if db_url:
@@ -822,6 +1036,11 @@ def main():
 
     try:
         print("Fetching data...")
+        if base_url_contains:
+            matching_projects = list_projects_by_base_url(conn, base_url_contains)
+            print(f"  Project URL filter: base_url contains '{base_url_contains}' "
+                  f"({len(matching_projects)} matching projects)")
+
         eval_cols, eval_rows = fetch(conn, QUERY_EVAL_LOG.format(project_filter=pf), params)
 
         if args.format == "csv":
@@ -830,18 +1049,20 @@ def main():
             print(f"\n✓ Exported → {out}")
             return
 
-        if args.project is None:
+        if args.project is None and not base_url_contains:
             projects_in_data = distinct_project_names(eval_cols, eval_rows)
             if len(projects_in_data) > 1:
                 print(f"\n✗ The evaluation data spans {len(projects_in_data)} projects: "
                       f"{', '.join(projects_in_data)}")
                 print("  A thesis case study should evaluate exactly one app. Re-run with --project <id>:\n")
-                for pid, pname in list_projects(conn):
-                    print(f"    --project {pid}   {pname}")
+                for pid, pname, base_url in list_projects(conn):
+                    print(f"    --project {pid}   {pname} ({base_url})")
+                print("\n  To aggregate one app across multiple projects, use "
+                      "--base-url-contains <text> (for example: --orangehrm).")
                 sys.exit(1)
 
         gen_cols,  gen_rows  = fetch(conn, QUERY_GENERATION_TIME.format(project_filter=pf), params)
-        dgl_cols,  dgl_rows  = fetch(conn, QUERY_DATASET_GEN_TIME.format(project_filter_no_alias=pf_noa), params)
+        dgl_cols,  dgl_rows  = fetch(conn, QUERY_DATASET_GEN_TIME.format(project_filter=pf), params)
         fail_cols, fail_rows = fetch(conn, QUERY_STEP_FAILURES.format(project_filter=pf), params)
 
         print(f"  Evaluation log:     {len(eval_rows)} runs")
@@ -849,8 +1070,9 @@ def main():
         print(f"  Dataset generation: {len(dgl_rows)} logs")
         print(f"  Step failures:      {len(fail_rows)} failed steps")
 
-        project_label = resolve_project_label(conn, args.project, eval_cols, eval_rows)
+        project_label = resolve_project_label(conn, args.project, base_url_contains, eval_cols, eval_rows)
         case_study_cols, case_study_rows = build_case_study_summary(eval_cols, eval_rows, project_label)
+        mode_cols,       mode_rows       = build_execution_mode_summary(eval_cols, eval_rows)
         module_cols,     module_rows     = build_module_summary(eval_cols, eval_rows)
         failure_cols,    failure_rows    = build_failure_analysis(eval_cols, eval_rows)
         tree_cols,       tree_rows       = build_tree_evaluation_summary(eval_cols, eval_rows)
@@ -858,6 +1080,7 @@ def main():
 
         export_excel({
             "Case Study Summary":     (case_study_cols, case_study_rows),
+            "Execution Mode Summary": (mode_cols,       mode_rows),
             "Module Summary":         (module_cols,     module_rows),
             "Failure Analysis":       (failure_cols,    failure_rows),
             "Tree Evaluation Summary": (tree_cols,       tree_rows),
